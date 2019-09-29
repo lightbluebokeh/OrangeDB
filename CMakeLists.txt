@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(DBProject-backend)
+project(dbms)
 
 set(CXX_STANDARD 17)
 
