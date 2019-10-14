@@ -1,11 +1,12 @@
 #ifndef BUF_PAGE_MANAGER
 #define BUF_PAGE_MANAGER
-#include "../utils/MyHashMap.h"
-#include "../utils/MyBitMap.h"
+#include <stddef.h>
+#include "fs/utils/MyHashMap.h"
+#include "fs/utils/MyBitMap.h"
 #include "FindReplace.h"
-#include "../utils/pagedef.h"
-#include "../fileio/FileManager.h"
-#include "../utils/MyLinkList.h"
+#include "fs/utils/pagedef.h"
+#include "fs/fileio/FileManager.h"
+#include "fs/utils/MyLinkList.h"
 /*
  * BufPageManager
  * 实现了一个缓存的管理器
@@ -29,7 +30,7 @@ public:
 		BufType b;
 		index = replace->find();
 		b = addr[index];
-		if (b == NULL) {
+		if (b == nullptr) {
 			b = allocMem();
 			addr[index] = b;
 		} else {
@@ -169,7 +170,7 @@ public:
 	    replace = new FindReplace(c);
 		for (int i = 0; i < CAP; ++ i) {
 			dirty[i] = false;
-			addr[i] = NULL;
+			addr[i] = nullptr;
 		}
 	}
 };

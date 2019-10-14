@@ -6,22 +6,21 @@
 #include <vector>
 #include <set>
 #include <fstream>
-using namespace std;
 class FileTable {
 private:
-	multiset<string> isExist;
-	multiset<string> isOpen;
-	vector<string> fname;
-	vector<string> format;
-	map<string, int> nameToID;
-	string* idToName;
+	std::multiset<std::string> isExist;
+	std::multiset<std::string> isOpen;
+	std::vector<std::string> fname;
+	std::vector<std::string> format;
+	std::map<std::string, int> nameToID;
+	std::string* idToName;
 	MyBitMap* ft, *ff;
 	int n;
 	void load() {
-		ifstream fin("filenames");
+		std::ifstream fin("filenames");
 		fin >> n;
 		for (int i = 0; i < n; ++ i) {
-			string s, a;
+			std::string s, a;
 			fin >> s;
 			isExist.insert(s);
 			fname.push_back(s);
@@ -31,11 +30,11 @@ private:
 		fin.close();
 	}
 	void save() {
-		ofstream fout("filenames");
-		fout << fname.size() << endl;
+		std::ofstream fout("filenames");
+		fout << fname.size() << std::endl;
 		for (uint i = 0; i < fname.size(); ++ i) {
-			fout << fname[i] << endl;
-			fout << format[i] << endl;
+			fout << fname[i] << std::endl;
+			fout << format[i] << std::endl;
 		}
 		fout.close();
 	}
@@ -45,7 +44,7 @@ public:
 		ft->setBit(k, 0);
 		return k;
 	}
-	int newFileID(const string& name) {
+	int newFileID(const std::string& name) {
 		int k = ff->findLeftOne();
 		ff->setBit(k, 0);
 		nameToID[name] = k;
@@ -53,15 +52,15 @@ public:
 		idToName[k] = name;
 		return k;
 	}
-	bool ifexist(const string& name) {
+	bool ifexist(const std::string& name) {
 		return (isExist.find(name) != isExist.end());
 	}
-	void addFile(const string& name, const string& fm) {
+	void addFile(const std::string& name, const std::string& fm) {
 		isExist.insert(name);
 		fname.push_back(name);
 		format.push_back(fm);
 	}
-	int getFileID(const string& name) {
+	int getFileID(const std::string& name) {
 		if (isOpen.find(name) == isOpen.end()) {
 			return -1;
 		}
@@ -72,10 +71,10 @@ public:
 	}
 	void freeFileID(int fileID) {
 		ff->setBit(fileID, 1);
-		string name = idToName[fileID];
+		std::string name = idToName[fileID];
 		isOpen.erase(name);
 	}
-	string getFormat(string name) {
+	std::string getFormat(std::string name) {
 		for (uint i = 0; i < fname.size(); ++ i) {
 			if (name == fname[i]) {
 				return format[i];
@@ -87,7 +86,7 @@ public:
 		load();
 		ft = new MyBitMap(tn, 1);
 		ff = new MyBitMap(fn, 1);
-		idToName = new string[fn];
+		idToName = new std::string[fn];
 		isOpen.clear();
 	}
 	~FileTable() {

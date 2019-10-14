@@ -8,10 +8,8 @@
 #ifndef PARSER_H_
 #define PARSER_H_
 
-#include "../bplustree/BPlusTree.h"
 #include "pagedef.h"
 #include <cstring>
-using namespace std;
 #define LL_TYPE 0
 #define DB_TYPE 1
 #define ST_TYPE 2

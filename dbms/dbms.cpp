@@ -6,5 +6,9 @@
 #endif
 
 
-#include <rapidjson.h>
+// #include <rapidjson.h>
+
+#include "rapidjson/rapidjson.h"
+#include "fs/fileio/FileManager.h"
+#include "fs/fileio/FileTable.h"
 

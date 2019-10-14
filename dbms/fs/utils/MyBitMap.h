@@ -8,7 +8,6 @@ typedef unsigned int uint;
 #define MOD 61
 #define BIAS 5*/
 #include <iostream>
-using namespace std;
 
 #define LEAF_BIT 32
 #define MAX_LEVEL 5

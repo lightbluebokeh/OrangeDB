@@ -7,8 +7,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
-//#include "../MyLinkList.h"
-using namespace std;
+
+#include "fs/utils/MyBitMap.h"
+#include "fs/utils/pagedef.h"
+
 class FileManager {
 private:
 	//FileTable* ftable;
@@ -17,8 +19,8 @@ private:
 	MyBitMap* tm;
 	int _createFile(const char* name) {
 		FILE* f = fopen(name, "a+");
-		if (f == NULL) {
-			cout << "fail" << endl;
+		if (f == nullptr) {
+			std::cout << "fail" << std::endl;
 			return -1;
 		}
 		fclose(f);
