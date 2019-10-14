@@ -6,6 +6,7 @@
 #include <vector>
 #include <set>
 #include <fstream>
+#include "fs/utils/pagedef.h"
 class FileTable {
 private:
     std::multiset<std::string> isExist;
@@ -13,8 +14,8 @@ private:
     std::vector<std::string> fname;
     std::vector<std::string> format;
     std::map<std::string, int> nameToID;
-    std::string* idToName;
-    MyBitMap* ft, *ff;
+    std::string idToName[MAX_FILE_NUM];
+    MyBitMap *ft, *ff;
     int n;
     void load() {
         std::ifstream fin("filenames");
@@ -52,8 +53,13 @@ public:
         idToName[k] = name;
         return k;
     }
-    bool ifexist(const std::string& name) {
+    // bool ifexist(const std::string& name) {
+    bool file_exists(const std::string& name) {
         return (isExist.find(name) != isExist.end());
+    }
+
+    bool file_opened(const std::string& name) {
+        return isOpen.count(name);
     }
     void addFile(const std::string& name, const std::string& fm) {
         isExist.insert(name);
@@ -82,11 +88,12 @@ public:
         }
         return "-";
     }
-    FileTable(int fn, int tn) {
+    FileTable() {
         load();
-        ft = new MyBitMap(tn, 1);
-        ff = new MyBitMap(fn, 1);
-        idToName = new std::string[fn];
+        ft = new MyBitMap(MAX_FILE_NUM, 1);
+        // ff = new MyBitMap(fn, 1);
+        ff = new MyBitMap(MAX_TYPE_NUM, 1);
+        // idToName = new std::string[MAX_FILE_NUM];
         isOpen.clear();
     }
     ~FileTable() {

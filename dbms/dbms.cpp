@@ -4,5 +4,6 @@
 #define API extern "C"
 #endif
 
+#include "record/File.h"
 
 API void f() {}

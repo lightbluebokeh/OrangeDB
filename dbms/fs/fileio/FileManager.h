@@ -10,43 +10,15 @@
 
 #include "fs/utils/MyBitMap.h"
 #include "fs/utils/pagedef.h"
+#include "fs/fileio/FileTable.h"
+#include <mutex>
 
 class FileManager {
 private:
-    //FileTable* ftable;
+    FileTable* ftable;
     int fd[MAX_FILE_NUM];
-    MyBitMap* fm;
-    MyBitMap* tm;
-    int _createFile(const char* name) {
-        FILE* f = fopen(name, "a+");
-        if (f == nullptr) {
-            std::cout << "fail" << std::endl;
-            return -1;
-        }
-        fclose(f);
-        return 0;
-    }
-    int _openFile(const char* name, int fileID) {
-        int f = open(name, O_RDWR);
-        if (f == -1) {
-            return -1;
-        }
-        fd[fileID] = f;
-        return 0;
-    }
-
-    void shutdown() {
-        delete tm;
-        delete fm;
-    }
+    static FileManager *instance;
 public:
-    /*
-     * FilManager构造函数
-     */
-    FileManager() {
-        fm = new MyBitMap(MAX_FILE_NUM, 1);
-        tm = new MyBitMap(MAX_TYPE_NUM, 1);
-    }
     /*
      * @函数名writePage
      * @参数fileID:文件id，用于区别已经打开的文件
@@ -94,48 +66,86 @@ public:
      * @函数名closeFile
      * @参数fileID:用于区别已经打开的文件
      * 功能:关闭文件
-     * 返回:操作成功，返回0
+     * 返回: 返回 close 返回值
      */
-    int closeFile(int fileID) {
-        fm->setBit(fileID, 1);
+    int close_file(int fileID) {
+        // fm->setBit(fileID, 1);
+        ftable->freeFileID(fileID);
         int f = fd[fileID];
-        close(f);
-        return 0;
+        return close(f);
     }
     /*
      * @函数名createFile
      * @参数name:文件名
      * 功能:新建name指定的文件名
-     * 返回:操作成功，返回true
+     * 返回:操作成功，返回 0，失败 -1
      */
-    bool createFile(const char* name) {
-        _createFile(name);
-        return true;
+    int create_file(const char* name) {
+        // return _createFile(name);
+        if (ftable->file_exists(name)) return 1;
+        FILE* f = fopen(name, "a+");
+        if (f == nullptr) {
+            std::cout << "fail" << std::endl;
+            return -1;
+        }
+        fclose(f);
+        return 0;
     }
     /*
      * @函数名openFile
      * @参数name:文件名
      * @参数fileID:函数返回时，如果成功打开文件，那么为该文件分配一个id，记录在fileID中
-     * 功能:打开文件
+     * 功能:打开文件，不存在就创建
      * 返回:如果成功打开，在fileID中存储为该文件分配的id，返回true，否则返回false
      */
-    bool openFile(const char* name, int& fileID) {
-        fileID = fm->findLeftOne();
-        fm->setBit(fileID, 0);
-        _openFile(name, fileID);
-        return true;
-    }
-    int newType() {
-        int t = tm->findLeftOne();
-        tm->setBit(t, 0);
-        return t;
-    }
-    void closeType(int typeID) {
-        tm->setBit(typeID, 1);
+    int open_file(const char* name, int& fileID) {
+        // fileID = fm->findLeftOne();
+        // fm->setBit(fileID, 0);
+        if (!ftable->file_exists(name)) return -1;
+        if (ftable->file_opened(name)) {
+            fileID = ftable->getFileID(name);
+            return 0;
+        }
+        int f = open(name, O_RDWR);
+        if (f == -1) return -1;
+        fileID = ftable->newFileID(name);
+        fd[fileID] = f;
+        return 0;
     }
 
-    ~FileManager() {
-        this->shutdown();
+    int remove_file(const std::string& name) {
+        if (!file_exists(name)) return 0;
+        if (file_opened(name)) {
+            return -1;
+        }
+        return remove(name.c_str());
     }
+
+    int newType() {
+        // int t = tm->findLeftOne();
+        // tm->setBit(t, 0);
+        // return t;
+        return ftable->newTypeID();
+    }
+    void closeType(int typeID) {
+        // tm->setBit(typeID, 1);
+        ftable->freeTypeID(typeID);
+    }
+
+    bool file_opened(const std::string& name) { return ftable->file_exists(name); }
+    bool file_exists(const std::string& name) { return ftable->file_opened(name); }
+
+    static FileManager* get_instance() {
+        static std::mutex mutex;
+        if (instance == nullptr) {
+            mutex.lock();
+            if (instance == nullptr)
+                instance = new FileManager;
+            mutex.unlock();
+        }
+        return instance;
+    }
+
+
 };
 #endif
