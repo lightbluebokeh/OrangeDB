@@ -1,19 +1,19 @@
-#ifndef FILE_MANAGER
-#define FILE_MANAGER
-#include <string>
-#include <stdio.h>
-#include <iostream>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#pragma once
+
 #include <fcntl.h>
+#include <iostream>
+#include <stdio.h>
+#include <string>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "fs/utils/MyBitMap.h"
 #include "fs/utils/pagedef.h"
 
 class FileManager {
 private:
-    //FileTable* ftable;
+    // FileTable* ftable;
     int fd[MAX_FILE_NUM];
     MyBitMap* fm;
     MyBitMap* tm;
@@ -35,10 +35,6 @@ private:
         return 0;
     }
 
-    void shutdown() {
-        delete tm;
-        delete fm;
-    }
 public:
     /*
      * FilManager构造函数
@@ -65,7 +61,7 @@ public:
             return -1;
         }
         BufType b = buf + off;
-        error = write(f, (void*) b, PAGE_SIZE);
+        error = write(f, (void*)b, PAGE_SIZE);
         return 0;
     }
     /*
@@ -78,7 +74,7 @@ public:
      * 返回:成功操作返回0
      */
     int readPage(int fileID, int pageID, BufType buf, int off) {
-        //int f = fd[fID[type]];
+        // int f = fd[fID[type]];
         int f = fd[fileID];
         off_t offset = pageID;
         offset = (offset << PAGE_SIZE_IDX);
@@ -87,7 +83,7 @@ public:
             return -1;
         }
         BufType b = buf + off;
-        error = read(f, (void*) b, PAGE_SIZE);
+        error = read(f, (void*)b, PAGE_SIZE);
         return 0;
     }
     /*
@@ -130,12 +126,10 @@ public:
         tm->setBit(t, 0);
         return t;
     }
-    void closeType(int typeID) {
-        tm->setBit(typeID, 1);
-    }
+    void closeType(int typeID) { tm->setBit(typeID, 1); }
 
     ~FileManager() {
-        this->shutdown();
+        delete tm;
+        delete fm;
     }
 };
-#endif

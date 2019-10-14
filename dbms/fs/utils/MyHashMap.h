@@ -1,5 +1,5 @@
-#ifndef MY_HASH_MAP
-#define MY_HASH_MAP
+#pragma once
+
 #include "pagedef.h"
 #include <unordered_map>
 
@@ -97,4 +97,3 @@ public:
         }
     }
 };
-#endif

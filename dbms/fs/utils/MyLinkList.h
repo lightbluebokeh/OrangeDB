@@ -1,5 +1,4 @@
-#ifndef MY_LINK_LIST
-#define MY_LINK_LIST
+#pragma once
 // template <int LIST_NUM, int cap>
 class MyLinkList {
 private:
@@ -40,14 +39,7 @@ public:
     }
     int getFirst(int listID) { return a[listID + cap].next; }
     int next(int index) { return a[index].next; }
-    bool isHead(int index) {
-        if (index < cap) {
-            return false;
-        }
-        else {
-            return true;
-        }
-    }
+    bool isHead(int index) { return index >= cap; }
     bool isAlone(int index) { return (a[index].next == index); }
     MyLinkList(int c, int n) {
         cap = c;
@@ -59,4 +51,3 @@ public:
         }
     }
 };
-#endif

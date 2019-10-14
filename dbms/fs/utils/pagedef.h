@@ -10,11 +10,7 @@
  * 一个页面中的字节数
  */
 constexpr int PAGE_SIZE = 8192;
-/*
- * 一个页面中的整数个数
- */
-constexpr int PAGE_INT_NUM = 2048;
-// static_assert((PAGE_INT_NUM & -PAGE_INT_NUM) == PAGE_INT_NUM);
+
 /*
  * 页面字节数以2为底的指数
  */
@@ -46,7 +42,7 @@ constexpr int MAX_COL_NUM = 31;
 constexpr int MAX_TB_NUM = 31;
 constexpr int RELEASE = 1;
 
-using BufType = unsigned int*;
+using BufType = unsigned char*;
 using uint = unsigned int;
 using ushort = unsigned short;
 using uchar = unsigned char;
