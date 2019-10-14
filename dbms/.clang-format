@@ -1,0 +1,22 @@
+BasedOnStyle: LLVM
+AccessModifierOffset: -4
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+AlwaysBreakTemplateDeclarations: true
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: AfterColon
+ColumnLimit: 100
+IndentWidth: 4
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 3
+PointerAlignment: Left
+BreakBeforeBraces: Custom
+BraceWrapping:
+    BeforeCatch: true
+    BeforeElse: true
+SpacesBeforeTrailingComments: 2
+Standard: Cpp11
+UseTab: Never
