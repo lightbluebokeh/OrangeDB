@@ -4,3 +4,7 @@
 #else
 #define API extern "C"
 #endif
+
+
+#include <rapidjson.h>
+

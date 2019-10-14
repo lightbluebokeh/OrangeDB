@@ -3,7 +3,11 @@ project(dbms)
 
 set(CXX_STANDARD 17)
 
-find_package(RapidJSON CONFIG REQUIRED)
+# find_package(RapidJSON CONFIG REQUIRED)
+
+include_directories(
+    "rapidjson/",
+)
 
 add_library(dbms SHARED src/dbms.cpp)
 target_include_directories(dbms PRIVATE ${RAPIDJSON_INCLUDE_DIRS})
