@@ -11,8 +11,7 @@
  * BufPageManager
  * 实现了一个缓存的管理器
  */
-struct BufPageManager {
-public:
+class BufPageManager {
     int last;
     FileManager* fileManager;
     MyHashMap* hash;
@@ -23,7 +22,7 @@ public:
      * 缓存页面数组
      */
     BufType* addr;
-    BufType allocMem() { return new unsigned int[(PAGE_SIZE >> 2)]; }
+    BufType allocMem() { return new unsigned char[PAGE_SIZE]; }
     BufType fetchPage(int typeID, int pageID, int& index) {
         BufType b;
         index = replace->find();
@@ -164,7 +163,7 @@ public:
         dirty = new bool[CAP];
         addr = new BufType[CAP];
         hash = new MyHashMap();
-        replace = new FindReplace();
+        replace = new FindReplace(CAP);
         for (int i = 0; i < CAP; ++i) {
             dirty[i] = false;
             addr[i] = nullptr;

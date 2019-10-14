@@ -5,5 +5,6 @@
 #endif
 
 #include "record/File.h"
+#include "defs.h"
 
 API void f() {}
