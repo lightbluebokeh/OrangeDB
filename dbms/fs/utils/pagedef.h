@@ -14,10 +14,12 @@
  * 一个页面中的整数个数
  */
 #define PAGE_INT_NUM 2048
+// static_assert((PAGE_INT_NUM & -PAGE_INT_NUM) == PAGE_INT_NUM);
 /*
  * 页面字节数以2为底的指数
  */
 #define PAGE_SIZE_IDX 13
+static_assert((1 << PAGE_SIZE_IDX) == PAGE_SIZE);
 #define MAX_FMT_INT_NUM 128
 //#define BUF_PAGE_NUM 65536
 #define MAX_FILE_NUM 128
@@ -26,10 +28,10 @@
  * 缓存中页面个数上限
  */
 #define CAP 60000
-/*
- * hash算法的模
- */
-#define MOD 60000
+// /*
+//  * hash算法的模
+//  */
+// #define MOD 60000
 #define IN_DEBUG 0
 #define DEBUG_DELETE 0
 #define DEBUG_ERASE 1

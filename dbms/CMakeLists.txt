@@ -12,4 +12,4 @@ if (UNIX)
 endif()
 
 add_library(dbms SHARED dbms.cpp)
-target_include_directories(dbms PRIVATE ${RAPIDJSON_INCLUDE_DIRS})
+target_include_directories(dbms PRIVATE)

@@ -1,6 +1,7 @@
 #ifndef BUF_PAGE_MANAGER
 #define BUF_PAGE_MANAGER
 #include <stddef.h>
+#include <unordered_map>
 #include "fs/utils/MyHashMap.h"
 #include "fs/utils/MyBitMap.h"
 #include "FindReplace.h"
@@ -160,13 +161,12 @@ public:
 	 */
 	BufPageManager(FileManager* fm) {
 		int c = CAP;
-		int m = MOD;
 		last = -1;
 		fileManager = fm;
 		//bpl = new MyLinkList(CAP, MAX_FILE_NUM);
 		dirty = new bool[CAP];
 		addr = new BufType[CAP];
-		hash = new MyHashMap(c, m);
+		hash = new MyHashMap(c);
 	    replace = new FindReplace(c);
 		for (int i = 0; i < CAP; ++ i) {
 			dirty[i] = false;

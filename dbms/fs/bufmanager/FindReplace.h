@@ -1,8 +1,8 @@
 #ifndef BUF_SEARCH
 #define BUF_SEARCH
-#include "../utils/MyLinkList.h"
-#include "../utils/MyHashMap.h"
-#include "../utils/pagedef.h"
+#include "fs/utils/MyLinkList.h"
+#include "fs/utils/MyHashMap.h"
+#include "fs/utils/pagedef.h"
 //template <int CAP_>
 /*
  * FindReplace

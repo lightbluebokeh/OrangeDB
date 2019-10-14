@@ -34,6 +34,11 @@ private:
 		fd[fileID] = f;
 		return 0;
 	}
+
+    void shutdown() {
+		delete tm;
+		delete fm;
+	}
 public:
 	/*
 	 * FilManager构造函数
@@ -128,10 +133,7 @@ public:
 	void closeType(int typeID) {
 		tm->setBit(typeID, 1);
 	}
-	void shutdown() {
-		delete tm;
-		delete fm;
-	}
+
 	~FileManager() {
 		this->shutdown();
 	}
