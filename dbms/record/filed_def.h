@@ -1,6 +1,7 @@
 #pragma once
 
 #include <defs.h>
+#include <record/bytes.h>
 
 class FieldDef {
 public:

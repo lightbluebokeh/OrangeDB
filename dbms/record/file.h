@@ -2,62 +2,51 @@
 
 #include <string>
 #include <vector>
+#include <cstring>
 #include <cassert>
+#include <defs.h>
 #include "fs/fileio/FileManager.h"
 #include "fs/utils/pagedef.h"
-#include "defs.h"
+#include <record/filed_def.h>
+#include <fs/bufmanager/BufPageManager.h>
 
 class File {
-public:
-    // using DomainDef = std::pair<String, String>;
-    struct FieldDef {
-        enum TypeKind {
-            INT, 
-            VARCHAR, 
-            FLOAT, 
-            DATE
-        };
-
-        struct Type {
-            TypeKind kind;
-            int size;
-
-            static Type parse(String x) {
-                Type type;
-                if (sscanf(x.c_str(), "VARCHAR(%d)", &type.size) == 1) {
-                    type.kind = VARCHAR;
-                } else if (sscanf(x.c_str(), "INT(%d)", &type.size) == 1) {
-                    type.kind = INT;
-                    type.size = 4;
-                } else if (x == "FLOAT") {
-                    type.kind = FLOAT;
-                    type.size = 4;
-                } else if (x == "DATE") {
-                    type.kind = DATE;
-                    type.size = 4;  // YYYY-MM-DD，压位存放
-                } else {
-                    throw "fail to parse type: " + x;
-                }
-                return type;
-            }
-        };
-        String name;
-        Type type;
-
-        FieldDef(const String& name, String type_raw) : name(name), type(Type::parse(type_raw)) {}
-    };
 private:
     int id;
-    String name;
+    std::string name;
+    // name and type
 
     int record_size, record_count;
     std::vector<FieldDef> fields;
-    int offset[1024];
-public:
-    void save_metadata(const std::vector<std::pair<String, String>>& name_type_list) {
+
+    void init_metadata(const std::vector<std::pair<String, String>>& name_type_list) {
+        assert(name_type_list.size() <= MAX_COL_NUM);
+        fields.clear();
+        int page_id;
+        auto buf = BufPageManager::get_instance()->getPage(id, 0, page_id);
+        memset(buf, name_type_list.size(), 1);
+        buf++;
         for (auto &name_type: name_type_list) {
-            
+            auto field = FieldDef::parse(name_type);
+            auto bytes = field.to_bytes();
+            memcpy(buf, bytes.data(), bytes.length());
+            memcpy(buf, bytes.data() + bytes.length(), COL_SIZE - bytes.length());
+            fields.push_back(std::move(field));
+            buf += COL_SIZE;
         }
+        assert(fields.size() <= MAX_COL_NUM);
+        buf++;
+
+        // for (int i = 0; i < MAX_COL_NUM; i++, buf += COL_SIZE) {
+        //     if (i < fields.size()) {
+        //         auto &field = fields[i];
+        //         auto bytes = field.to_bytes();
+        //         memcpy(buf, bytes.data(), bytes.length());
+        //         memcpy(buf, bytes.data() + bytes.length(), COL_SIZE - bytes.length());
+        //     } else {
+        //         memset(buf, 0, COL_SIZE);
+        //     }
+        // }
     }
 
     void load_metadata() {
@@ -72,7 +61,7 @@ public:
         int id;
         FileManager::get_instance()->open_file(name.c_str(), id);
         // file[id].init_metadata(record_size, domains);
-        file[id].save_metadata(name_type_list);
+        file[id].init_metadata(name_type_list);
         assert(code == 0);
         FileManager::get_instance()->close_file(id);
         return 1;
@@ -94,7 +83,7 @@ public:
         return 1;
     }
 
-    static bool remove(const String& name) {
+    static bool remove(const std::string& name) {
         int code = FileManager::get_instance()->remove_file(name);
         assert(code == 0);
         return 1;
