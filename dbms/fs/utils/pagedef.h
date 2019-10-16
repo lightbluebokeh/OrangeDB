@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <defs.h>
 /*
  * 一个页面中的字节数
  */
@@ -35,16 +36,16 @@ constexpr int DEBUG_NEXT = 1;
 /*
  * 一个表中列的上限
  */
-constexpr int MAX_COL_NUM = 31;
+constexpr int MAX_COL_NUM = 32;
+constexpr int COL_SIZE = 128;
 /*
  * 数据库中表的个数上限
  */
-constexpr int MAX_TB_NUM = 31;
+constexpr int MAX_TB_NUM = 32;
 constexpr int RELEASE = 1;
 
-using BufType = unsigned char*;
 using uint = unsigned int;
 using ushort = unsigned short;
 using uchar = unsigned char;
 using int64 = long long;
-using uing64 = unsigned long long;
+using uint64 = unsigned long long;

@@ -8,11 +8,11 @@
 
 class RawRecord {
     rid_t id;
-    BufType data;
+    buf_t data;
     int* offset;
 
 public:
-    RawRecord(rid_t id, BufType data, int* offset) : id(id), data(data), offset(offset) {}
+    RawRecord(rid_t id, buf_t data, int* offset) : id(id), data(data), offset(offset) {}
 
     rid_t getid() const { return id; }
 

@@ -14,7 +14,7 @@
  * 将(fileID,pageID)映射为一个整数，但由于我设计的hash函数过于简单，就是fileID和
  * pageID的和，所以不同文件的页很有可能映射为同一个数，增加了hash的碰撞率，影响效率
  * 
- * 还有非常重要的一点，BufType b = bpm->allocPage(...)
+ * 还有非常重要的一点，buf_t b = bpm->allocPage(...)
  * 在利用上述allocPage函数或者getPage函数获得指向申请缓存的指针后，
  * 不要自行进行类似的delete[] b操作，内存的申请和释放都在BufPageManager中做好
  * 如果自行进行类似free(b)或者delete[] b的操作，可能会导致严重错误
@@ -30,15 +30,15 @@ int main() {
     MyBitMap::initConst();   //新加的初始化
     FileManager* fm = new FileManager();
     BufPageManager* bpm = new BufPageManager(fm);
-    fm->createFile("testfile.txt"); //新建文件
-    fm->createFile("testfile2.txt");
+    fm->create_file("testfile.txt"); //新建文件
+    fm->create_file("testfile2.txt");
     int fileID, f2;
-    fm->openFile("testfile.txt", fileID); //打开文件，fileID是返回的文件id
-        fm->openFile("testfile2.txt", f2);
+    fm->open_file("testfile.txt", fileID); //打开文件，fileID是返回的文件id
+        fm->open_file("testfile2.txt", f2);
     for (int pageID = 0; pageID < 1000; ++ pageID) {
         int index;
         //为pageID获取一个缓存页
-        BufType b = bpm->allocPage(fileID, pageID, index, false);
+        buf_t b = bpm->allocPage(fileID, pageID, index, false);
         //注意，在allocPage或者getPage后，千万不要进行delete[] b这样的操作
         //内存的分配和管理都在BufPageManager中做好，不需要关心，如果自行释放会导致问题
         b[0] = pageID; //对缓存页进行写操作
@@ -54,7 +54,7 @@ int main() {
     for (int pageID = 0; pageID < 1000; ++ pageID) {
         int index;
         //为pageID获取一个缓存页
-        BufType b = bpm->getPage(fileID, pageID, index);
+        buf_t b = bpm->getPage(fileID, pageID, index);
         //注意，在allocPage或者getPage后，千万不要进行delete[] b这样的操作
         //内存的分配和管理都在BufPageManager中做好，不需要关心，如果自行释放会导致问题
         cout << b[0] << ":" << b[1] << endl;         //读取缓存页中第一个整数

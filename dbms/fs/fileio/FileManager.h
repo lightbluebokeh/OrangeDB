@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <defs.h>
 
 #include "fs/utils/MyBitMap.h"
 #include "fs/utils/pagedef.h"
@@ -15,7 +16,7 @@
 
 class FileManager {
 private:
-    FileTable* ftable;
+    FileTable ftable;
     int fd[MAX_FILE_NUM];
     static FileManager *instance;
 public:
@@ -28,7 +29,7 @@ public:
      * 功能:将buf+off开始的2048个四字节整数(8kb信息)写入fileID和pageID指定的文件页中
      * 返回:成功操作返回0
      */
-    int writePage(int fileID, int pageID, BufType buf, int off) {
+    int writePage(int fileID, int pageID, buf_t buf, int off) {
         int f = fd[fileID];
         off_t offset = pageID;
         offset = (offset << PAGE_SIZE_IDX);
@@ -36,7 +37,7 @@ public:
         if (error != offset) {
             return -1;
         }
-        BufType b = buf + off;
+        buf_t b = buf + off;
         error = write(f, (void*)b, PAGE_SIZE);
         return 0;
     }
@@ -49,7 +50,7 @@ public:
      * 功能:将fileID和pageID指定的文件页中2048个四字节整数(8kb)读入到buf+off开始的内存中
      * 返回:成功操作返回0
      */
-    int readPage(int fileID, int pageID, BufType buf, int off) {
+    int readPage(int fileID, int pageID, buf_t buf, int off) {
         // int f = fd[fID[type]];
         int f = fd[fileID];
         off_t offset = pageID;
@@ -58,7 +59,7 @@ public:
         if (error != offset) {
             return -1;
         }
-        BufType b = buf + off;
+        buf_t b = buf + off;
         error = read(f, (void*)b, PAGE_SIZE);
         return 0;
     }
@@ -70,7 +71,7 @@ public:
      */
     int close_file(int fileID) {
         // fm->setBit(fileID, 1);
-        ftable->freeFileID(fileID);
+        ftable.freeFileID(fileID);
         int f = fd[fileID];
         return close(f);
     }
@@ -82,7 +83,7 @@ public:
      */
     int create_file(const char* name) {
         // return _createFile(name);
-        if (ftable->file_exists(name)) return 1;
+        if (ftable.file_exists(name)) return 1;
         FILE* f = fopen(name, "a+");
         if (f == nullptr) {
             std::cout << "fail" << std::endl;
@@ -101,14 +102,14 @@ public:
     int open_file(const char* name, int& fileID) {
         // fileID = fm->findLeftOne();
         // fm->setBit(fileID, 0);
-        if (!ftable->file_exists(name)) return -1;
-        if (ftable->file_opened(name)) {
-            fileID = ftable->getFileID(name);
+        if (!ftable.file_exists(name)) return -1;
+        if (ftable.file_opened(name)) {
+            fileID = ftable.getFileID(name);
             return 0;
         }
         int f = open(name, O_RDWR);
         if (f == -1) return -1;
-        fileID = ftable->newFileID(name);
+        fileID = ftable.newFileID(name);
         fd[fileID] = f;
         return 0;
     }
@@ -125,15 +126,15 @@ public:
         // int t = tm->findLeftOne();
         // tm->setBit(t, 0);
         // return t;
-        return ftable->newTypeID();
+        return ftable.newTypeID();
     }
     void closeType(int typeID) {
         // tm->setBit(typeID, 1);
-        ftable->freeTypeID(typeID);
+        ftable.freeTypeID(typeID);
     }
 
-    bool file_opened(const std::string& name) { return ftable->file_exists(name); }
-    bool file_exists(const std::string& name) { return ftable->file_opened(name); }
+    bool file_opened(const std::string& name) { return ftable.file_exists(name); }
+    bool file_exists(const std::string& name) { return ftable.file_opened(name); }
 
     static FileManager* get_instance() {
         static std::mutex mutex;

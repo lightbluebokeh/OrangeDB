@@ -6,6 +6,7 @@
 #include "fs/utils/MyHashMap.h"
 #include "fs/utils/pagedef.h"
 #include <stddef.h>
+#include <mutex>
 #include <unordered_map>
 /*
  * BufPageManager
@@ -21,10 +22,11 @@ class BufPageManager {
     /*
      * 缓存页面数组
      */
-    BufType* addr;
-    BufType allocMem() { return new unsigned char[PAGE_SIZE]; }
-    BufType fetchPage(int typeID, int pageID, int& index) {
-        BufType b;
+
+    buf_t* addr;
+    buf_t allocMem() { return new byte_t[PAGE_SIZE]; }
+    buf_t fetchPage(int typeID, int pageID, int& index) {
+        buf_t b;
         index = replace->find();
         b = addr[index];
         if (b == nullptr) {
@@ -43,6 +45,8 @@ class BufPageManager {
         return b;
     }
 
+    static BufPageManager *instance;
+
 public:
     /*
      * @函数名allocPage
@@ -57,8 +61,8 @@ public:
      * 注意:在调用函数allocPage之前，调用者必须确信(fileID,pageID)指定的文件页面不存在缓存中
      *           如果确信指定的文件页面不在缓存中，那么就不用在hash表中进行查找，直接调用替换算法，节省时间
      */
-    BufType allocPage(int fileID, int pageID, int& index, bool ifRead = false) {
-        BufType b = fetchPage(fileID, pageID, index);
+    buf_t allocPage(int fileID, int pageID, int& index, bool ifRead = false) {
+        buf_t b = fetchPage(fileID, pageID, index);
         if (ifRead) {
             fileManager->readPage(fileID, pageID, b, 0);
         }
@@ -77,14 +81,14 @@ public:
      *           如果能找到，那么表示文件页面在缓存中
      *           如果没有找到，那么就利用替换算法获取一个页面
      */
-    BufType getPage(int fileID, int pageID, int& index) {
+    buf_t getPage(int fileID, int pageID, int& index) {
         index = hash->findIndex(fileID, pageID);
         if (index != -1) {
             access(index);
             return addr[index];
         }
         else {
-            BufType b = fetchPage(fileID, pageID, index);
+            buf_t b = fetchPage(fileID, pageID, index);
             fileManager->readPage(fileID, pageID, b, 0);
             return b;
         }
@@ -114,7 +118,7 @@ public:
     /*
      * @函数名release
      * @参数index:缓存页面数组中的下标，用来表示一个缓存页面
-     * 功能:将index代表的缓存页面归还给缓存管理器，在归还前，缓存页面中的数据不标记写回
+     * 功能:将index代表的缓存页面归还给缓存管理器，在归还前，缓存页面中的数据不标记写回，discard changes
      */
     void release(int index) {
         dirty[index] = false;
@@ -161,12 +165,24 @@ public:
         fileManager = fm;
         // bpl = new MyLinkList(CAP, MAX_FILE_NUM);
         dirty = new bool[CAP];
-        addr = new BufType[CAP];
+        addr = new buf_t[CAP];
         hash = new MyHashMap();
         replace = new FindReplace(CAP);
         for (int i = 0; i < CAP; ++i) {
             dirty[i] = false;
             addr[i] = nullptr;
         }
+    }
+
+    static BufPageManager* get_instance() {
+        static std::mutex mtx;
+        if (instance == nullptr) {
+            mtx.lock();
+            if (instance == nullptr) {
+                instance = new BufPageManager(FileManager::get_instance());
+            }
+            mtx.unlock();
+        }
+        return instance;
     }
 };
