@@ -47,7 +47,7 @@ public:
      * @参数pageID:文件页号
      * @参数buf:存储信息的缓存(4字节无符号整数数组)
      * @参数off:偏移量
-     * 功能:将fileID和pageID指定的文件页中2048个四字节整数(8kb)读入到buf+off开始的内存中
+     * 功能:将fileID和pageID指定的文件页中 8192 字节(8kb)读入到buf+off开始的内存中
      * 返回:成功操作返回0
      */
     int readPage(int fileID, int pageID, buf_t buf, int off) {
@@ -114,7 +114,7 @@ public:
         return 0;
     }
 
-    int remove_file(const std::string& name) {
+    int remove_file(const String& name) {
         if (!file_exists(name)) return 0;
         if (file_opened(name)) {
             return -1;
@@ -133,8 +133,8 @@ public:
         ftable.freeTypeID(typeID);
     }
 
-    bool file_opened(const std::string& name) { return ftable.file_exists(name); }
-    bool file_exists(const std::string& name) { return ftable.file_opened(name); }
+    bool file_opened(const String& name) { return ftable.file_exists(name); }
+    bool file_exists(const String& name) { return ftable.file_opened(name); }
 
     static FileManager* get_instance() {
         static std::mutex mutex;
