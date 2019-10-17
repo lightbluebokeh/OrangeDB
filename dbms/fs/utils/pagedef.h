@@ -24,11 +24,7 @@ constexpr int MAX_TYPE_NUM = 256;
 /*
  * 缓存中页面个数上限
  */
-constexpr int CAP = 60000;
-// /*
-//  * hash算法的模
-//  */
-// constexpr int MOD = 60000;
+constexpr int BUF_CAP = 60000;
 constexpr int IN_DEBUG = 0;
 constexpr int DEBUG_DELETE = 0;
 constexpr int DEBUG_ERASE = 1;

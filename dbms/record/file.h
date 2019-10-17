@@ -9,38 +9,36 @@
 #include "fs/utils/pagedef.h"
 #include <record/filed_def.h>
 #include <fs/bufmanager/BufPageManager.h>
-#include <record/bytes.h>
+#include <record/bytes_io.h>
+#include <fs/bufmanager/buf_page.h>
 
 class File {
 private:
     int id;
-    std::string name;
+    String name;
 
-    int record_size, record_count;
+    int record_size, record_cnt;
     std::vector<FieldDef> fields;
 
-    // name and type
     void init_metadata(const std::vector<std::pair<String, String>>& name_type_list) {
         assert(name_type_list.size() <= MAX_COL_NUM);
         fields.clear();
-        int page_id;
-        auto buf = BufPageManager::get_instance()->getPage(id, 0, page_id);
-        // memset(buf, name_type_list.size(), 1);
-        buf++;
+        BufPage buf_page = {id, 0};
+
+        record_size = record_cnt = 0;
+        size_t offset = 0;
+        offset += buf_page.write_obj<byte_t>(name_type_list.size(), offset);
         for (auto &name_type: name_type_list) {
             auto field = FieldDef::parse(name_type);
-            // write_buf<Bytes>(buf, field.to_bytes(), COL_SIZE);
-            // write_buf()
-            // write_buf(buf, )==
-            // auto bytes = field.to_bytes();
-            // memcpy(buf, bytes.data(), bytes.length());
-            // memcpy(buf, bytes.data() + bytes.length(), COL_SIZE - bytes.length());
+            offset += buf_page.write_bytes(field.to_bytes(), offset, COL_SIZE);
+            record_size += field.get_size();
             fields.push_back(std::move(field));
-            buf += COL_SIZE;
         }
-        memset(buf, 0, COL_SIZE * (MAX_COL_NUM - fields.size()));
-        buf += COL_SIZE * (MAX_COL_NUM - fields.size());
-        
+        offset += buf_page.memset(0, offset, PAGE_SIZE * (MAX_COL_NUM - fields.size()));
+        offset += buf_page.write_obj<uint16_t>(record_size, offset);
+        offset += buf_page.write_obj(record_cnt, offset);
+        offset += buf_page.memset(0, offset, PAGE_SIZE - offset);
+        assert(offset == PAGE_SIZE);
     }
 
     void load_metadata() {
@@ -54,7 +52,6 @@ public:
         assert(code == 0);
         int id;
         FileManager::get_instance()->open_file(name.c_str(), id);
-        // file[id].init_metadata(record_size, domains);
         file[id].init_metadata(name_type_list);
         assert(code == 0);
         FileManager::get_instance()->close_file(id);

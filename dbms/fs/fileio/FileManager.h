@@ -18,7 +18,9 @@ class FileManager {
 private:
     FileTable ftable;
     int fd[MAX_FILE_NUM];
-    static FileManager *instance;
+
+    FileManager() {}
+    FileManager(const FileManager&) = delete;
 public:
     /*
      * @函数名writePage
@@ -26,19 +28,19 @@ public:
      * @参数pageID:文件的页号
      * @参数buf:存储信息的缓存(4字节无符号整数数组)
      * @参数off:偏移量
-     * 功能:将buf+off开始的2048个四字节整数(8kb信息)写入fileID和pageID指定的文件页中
+     * 功能:将buf+off开始的8kb字节写入fileID和pageID指定的文件页中
      * 返回:成功操作返回0
      */
-    int writePage(int fileID, int pageID, buf_t buf, int off) {
-        int f = fd[fileID];
-        off_t offset = pageID;
+    int write_page(page_t page, bytes_t buf, int off = 0) {
+        int f = fd[page.file_id];
+        off_t offset = page.page_id;
         offset = (offset << PAGE_SIZE_IDX);
         off_t error = lseek(f, offset, SEEK_SET);
         if (error != offset) {
             return -1;
         }
-        buf_t b = buf + off;
-        error = write(f, (void*)b, PAGE_SIZE);
+        bytes_t b = buf + off;
+        error = write(f, b, PAGE_SIZE);
         return 0;
     }
     /*
@@ -50,16 +52,16 @@ public:
      * 功能:将fileID和pageID指定的文件页中 8192 字节(8kb)读入到buf+off开始的内存中
      * 返回:成功操作返回0
      */
-    int readPage(int fileID, int pageID, buf_t buf, int off) {
+    int read_page(page_t page, bytes_t buf, int off) {
         // int f = fd[fID[type]];
-        int f = fd[fileID];
-        off_t offset = pageID;
+        int f = fd[page.file_id];
+        off_t offset = page.page_id;
         offset = (offset << PAGE_SIZE_IDX);
         off_t error = lseek(f, offset, SEEK_SET);
         if (error != offset) {
             return -1;
         }
-        buf_t b = buf + off;
+        bytes_t b = buf + off;
         error = read(f, (void*)b, PAGE_SIZE);
         return 0;
     }
@@ -138,6 +140,7 @@ public:
 
     static FileManager* get_instance() {
         static std::mutex mutex;
+        static FileManager* instance = nullptr;
         if (instance == nullptr) {
             mutex.lock();
             if (instance == nullptr)

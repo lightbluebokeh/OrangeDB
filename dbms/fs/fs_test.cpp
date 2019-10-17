@@ -14,7 +14,7 @@
  * 将(fileID,pageID)映射为一个整数，但由于我设计的hash函数过于简单，就是fileID和
  * pageID的和，所以不同文件的页很有可能映射为同一个数，增加了hash的碰撞率，影响效率
  * 
- * 还有非常重要的一点，buf_t b = bpm->allocPage(...)
+ * 还有非常重要的一点，bytes_t b = bpm->allocPage(...)
  * 在利用上述allocPage函数或者getPage函数获得指向申请缓存的指针后，
  * 不要自行进行类似的delete[] b操作，内存的申请和释放都在BufPageManager中做好
  * 如果自行进行类似free(b)或者delete[] b的操作，可能会导致严重错误
@@ -23,47 +23,45 @@
 #include "fileio/FileManager.h"
 #include "utils/pagedef.h"
 #include <iostream>
+#include <fs/bufmanager/buf_page.h>
 
 using namespace std;
 
 int main() {
     MyBitMap::initConst();   //新加的初始化
-    FileManager* fm = new FileManager();
-    BufPageManager* bpm = new BufPageManager(fm);
+    FileManager* fm = FileManager::get_instance();
+    BufPageManager* bpm = BufPageManager::get_instance();
     fm->create_file("testfile.txt"); //新建文件
     fm->create_file("testfile2.txt");
     int fileID, f2;
     fm->open_file("testfile.txt", fileID); //打开文件，fileID是返回的文件id
         fm->open_file("testfile2.txt", f2);
     for (int pageID = 0; pageID < 1000; ++ pageID) {
-        int index;
-        //为pageID获取一个缓存页
-        buf_t b = bpm->allocPage(fileID, pageID, index, false);
-        //注意，在allocPage或者getPage后，千万不要进行delete[] b这样的操作
-        //内存的分配和管理都在BufPageManager中做好，不需要关心，如果自行释放会导致问题
-        b[0] = pageID; //对缓存页进行写操作
-        b[1] = fileID;
-        bpm->markDirty(index); //标记脏页
+        // bytes_t b = bpm->allocPage(fileID, pageID, index, false);
+        BufPage buf_page = {fileID, pageID};
+
+        // b[0] = pageID; //对缓存页进行写操作
+        // b[1] = fileID;
+        // bpm->markDirty(index); //标记脏页
+        buf_page.write_obj(pageID);
+        buf_page.write_obj(fileID, sizeof(int));
+
         //在重新调用allocPage获取另一个页的数据时并没有将原先b指向的内存释放掉
         //因为内存管理都在BufPageManager中做好了
-        b = bpm->allocPage(f2, pageID, index, false);
-        b[0] = pageID;
-        b[1] = f2;
-        bpm->markDirty(index);
+        // b = bpm->allocPage(f2, pageID, index, false);
+        // b[0] = pageID;
+        // b[1] = f2;
+        // bpm->markDirty(index);
+        buf_page = {f2, pageID};
+        buf_page.write_obj(pageID, sizeof(int));
+
     }
     for (int pageID = 0; pageID < 1000; ++ pageID) {
-        int index;
-        //为pageID获取一个缓存页
-        buf_t b = bpm->getPage(fileID, pageID, index);
-        //注意，在allocPage或者getPage后，千万不要进行delete[] b这样的操作
-        //内存的分配和管理都在BufPageManager中做好，不需要关心，如果自行释放会导致问题
-        cout << b[0] << ":" << b[1] << endl;         //读取缓存页中第一个整数
-        bpm->access(index); //标记访问
-        b = bpm->getPage(f2, pageID, index);
+        int* b = (int*)BufPage{fileID, pageID}.get_bytes();
         cout << b[0] << ":" << b[1] << endl;
-        bpm->access(index);
+        b = (int*)BufPage{f2, pageID}.get_bytes();
+        cout << b[0] << ":" << b[1] << endl;
     }
-    //程序结束前可以调用BufPageManager的某个函数将缓存中的内容写回
-    //具体的函数大家可以看看ppt或者程序的注释
+    bpm->close();
     return 0;
 }

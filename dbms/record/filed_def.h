@@ -1,7 +1,6 @@
 #pragma once
 
 #include <defs.h>
-#include <record/bytes.h>
 
 class FieldDef {
 public:
@@ -18,22 +17,22 @@ public:
 
         static Type parse(String x);
 
-        Bytes to_bytes() {
+        ByteArr to_bytes() {
             switch (kind) {
                 case TypeKind::INT:
-                    return (buf_t)("INT(" + std::to_string(size) + ")").c_str();
+                    return (bytes_t)("INT(" + std::to_string(size) + ")").c_str();
                 break;
 
                 case TypeKind::VARCHAR:
-                    return (buf_t)("VARCHAR(" + std::to_string(size) + ")").c_str();
+                    return (bytes_t)("VARCHAR(" + std::to_string(size) + ")").c_str();
                 break;
 
                 case TypeKind::FLOAT:
-                    return (buf_t)"FLOAT";
+                    return (bytes_t)"FLOAT";
                 break;
             
                 case TypeKind::DATE:
-                    return (buf_t)"DATE";
+                    return (bytes_t)"DATE";
                 break;
             }
         }
@@ -50,8 +49,8 @@ public:
         return {name_type.first, Type::parse(name_type.second)};
     }
 
-    Bytes to_bytes() {
-        Bytes ret;
+    ByteArr to_bytes() {
+        ByteArr ret;
         ret.clear();
         for (byte_t c: name) {
             ret.push_back(c);
