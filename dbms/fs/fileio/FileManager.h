@@ -10,7 +10,6 @@
 #include <defs.h>
 
 #include "fs/utils/pagedef.h"
-#include "fs/fileio/FileTable.h"
 #include <mutex>
 #include <cassert>
 #include <unordered_set>

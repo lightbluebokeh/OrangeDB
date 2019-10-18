@@ -1,11 +1,10 @@
 // warning: 这个测试会产生两个总大小约 1G 的文件 /cy
 
-#include "bufmanager/BufPageManager.h"
-#include "fileio/FileManager.h"
-#include "utils/pagedef.h"
-#include <iostream>
-#include <record/file.h>
+#include <defs.h>
+#include <fs/utils/pagedef.h>
+#include <fs/fileio/FileManager.h>
 #include <fs/bufmanager/buf_page.h>
+#include <fs/bufmanager/BufPageManager.h>
 
 using namespace std;
 
