@@ -107,32 +107,6 @@ class BufPageManager {
         access(buf_id);
     }
 
-    // /*
-    //  * @函数名allocPage
-    //  * @参数fileID:文件id，数据库程序在运行时，用文件id来区分正在打开的不同的文件
-    //  * @参数pageID:文件页号，表示在fileID指定的文件中，第几个文件页
-    //  * @参数index:函数返回时，用来记录缓存页面数组中的下标
-    //  * @参数ifRead:是否要将文件页中的内容读到缓存中
-    //  * 返回:缓存页面的首地址
-    //  * 功能:为文件中的某一个页面获取一个缓存中的页面
-    //  *           缓存中的页面在缓存页面数组中的下标记录在index中
-    //  *           并根据ifRead是否为true决定是否将文件中的内容写到获取的缓存页面中
-    //  * 注意:在调用函数allocPage之前，调用者必须确信(fileID,pageID)指定的文件页面不存在缓存中
-    //  *           如果确信指定的文件页面不在缓存中，那么就不用在hash表中进行查找，直接调用替换算法，节省时间
-    //  */
-    // bytes_t allocPage(int fileID, int pageID, int& buf_id, bool ifRead = false) {
-    //     bytes_t b = fetch_page(fileID, pageID, buf_id);
-    //     if (ifRead) {
-    //         fileManager->readPage(fileID, pageID, b, 0);
-    //     }
-    //     return b;
-    // }
-
-    /*
-     * @函数名access
-     * @参数index:缓存页面数组中的下标，用来表示一个缓存页面
-     * 功能:标记index代表的缓存页面被访问过，为替换算法提供信息
-     */
     void access(int buf_id) {
         if (buf_id == last) {
             return;

@@ -85,8 +85,9 @@ public:
      */
     int create_file(const char* name) {
         // return _createFile(name);
-        if (ftable.file_exists(name)) return 1;
+        if (ftable.file_exists(name)) return 0;
         FILE* f = fopen(name, "a+");
+        
         if (f == nullptr) {
             std::cout << "fail" << std::endl;
             return -1;
@@ -98,7 +99,7 @@ public:
      * @函数名openFile
      * @参数name:文件名
      * @参数fileID:函数返回时，如果成功打开文件，那么为该文件分配一个id，记录在fileID中
-     * 功能:打开文件，不存在就创建
+     * 功能:打开文件，不存在返回错误
      * 返回:如果成功打开，在fileID中存储为该文件分配的id，返回true，否则返回false
      */
     int open_file(const char* name, int& fileID) {
@@ -135,8 +136,8 @@ public:
         ftable.freeTypeID(typeID);
     }
 
-    bool file_opened(const String& name) { return ftable.file_exists(name); }
-    bool file_exists(const String& name) { return ftable.file_opened(name); }
+    bool file_opened(const String& name) { return ftable.file_opened(name); }
+    bool file_exists(const String& name) { return ftable.file_exists(name); }
 
     static FileManager* get_instance() {
         static std::mutex mutex;
