@@ -3,7 +3,6 @@
 #include <defs.h>
 #include <fs/bufmanager/BufPageManager.h>
 
-
 class File;
 class BufPage {
 private:

@@ -1,14 +1,12 @@
 #pragma once
 
-#include "FindReplace.h"
-#include "fs/fileio/FileManager.h"
-#include "fs/utils/pagedef.h"
-#include <mutex>
 #include <cassert>
-#include <stddef.h>
-#include <unordered_map>
+
 #include <record/bytes_io.h>
+#include <fs/bufmanager/FindReplace.h>
 #include <fs/bufmanager/buf_page_map.h>
+
+#include <mutex>
 
 class BufPage;
 
