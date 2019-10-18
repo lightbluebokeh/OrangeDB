@@ -49,3 +49,15 @@ typedef struct {
 } buf_t;
 
 constexpr int MAX_FILE_NUM = 128;
+
+#include <iostream>
+
+#define RESET "\033[0m"
+#define RED "\033[31m" /* Red */
+#define GREEN "\033[32m" /* Green */
+
+#define ensure(expr, msg) \
+if ((expr) == 0) {        \
+    std::cerr << RED << "failed: " << RESET << msg << std::endl;   \
+    exit(1);              \
+}

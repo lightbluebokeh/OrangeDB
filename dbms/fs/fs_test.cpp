@@ -1,3 +1,5 @@
+// warning: 这个测试会产生两个总大小约 1G 的文件 /cy
+
 #include "bufmanager/BufPageManager.h"
 #include "fileio/FileManager.h"
 #include "utils/pagedef.h"
@@ -35,26 +37,33 @@ int main() {
     cerr << "checking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
         auto page = BufPage{f1, page_id};
-        assert(page.get<int>() == page_id);
-        assert(page.get<int>(sizeof(int)) == f1);
+        ensure(page.get<int>() == page_id, "unexpected result");
+        ensure(page.get<int>(sizeof(int)) == f1, "unexpected result");
 
         page = BufPage{f2, page_id};
-        assert(page.get<int>() == page_id);
-        assert(page.get<int>(sizeof(int)) == f2);
+        ensure(page.get<int>() == page_id, "unexpected result");
+        ensure(page.get<int>(sizeof(int)) == f2, "unexpected result");
     }
-    cerr << "success" << endl;
+    cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
     bpm->close();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
         auto page = BufPage{f1, page_id};
-        assert(page.get<int>() == page_id);
-        assert(page.get<int>(sizeof(int)) == f1);
+        ensure(page.get<int>() == page_id, "unexpected result");
+        ensure(page.get<int>(sizeof(int)) == f1, "unexpected result");
 
         page = BufPage{f2, page_id};
-        assert(page.get<int>() == page_id);
-        assert(page.get<int>(sizeof(int)) == f2);
+        ensure(page.get<int>() == page_id, "unexpected result");
+        ensure(page.get<int>(sizeof(int)) == f2, "unexpected result");
     }
-    cerr << "success" << endl;
+    cerr << GREEN << "success" << RESET << endl;
+
+    ensure(fm->close_file(f1) == 0, "close failed");
+    ensure(fm->remove_file("testfile.txt") == 0, "remove failed");
+    ensure(fm->close_file(f2) == 0, "close failed");
+    ensure(fm->remove_file("testfile2.txt") == 0, "remove failed");
+
+    cerr << "save your disk!" << endl;
 
     return 0;
 }
