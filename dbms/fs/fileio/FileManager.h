@@ -9,19 +9,29 @@
 #include <unistd.h>
 #include <defs.h>
 
-#include "fs/utils/MyBitMap.h"
 #include "fs/utils/pagedef.h"
 #include "fs/fileio/FileTable.h"
 #include <mutex>
+#include <cassert>
+#include <unordered_set>
+#include <unordered_map>
+#include <fs/fileio/IdPool.h>
 
+class BufPageManager;
+class File;
 class FileManager {
 private:
-    FileTable ftable;
+    // FileTable ftable;
     int fd[MAX_FILE_NUM];
+    IdPool pool;
+
+    std::unordered_set<String> files;
+    // std::unordered_set<String> opened_files;
+    // map name to file_id
+    std::unordered_map<String, int> opened_files;
 
     FileManager() {}
     FileManager(const FileManager&) = delete;
-public:
     /*
      * @函数名writePage
      * @参数fileID:文件id，用于区别已经打开的文件
@@ -73,7 +83,8 @@ public:
      */
     int close_file(int fileID) {
         // fm->setBit(fileID, 1);
-        ftable.freeFileID(fileID);
+        // ftable.freeFileID(fileID);
+        pool.add(fileID);
         int f = fd[fileID];
         return close(f);
     }
@@ -83,15 +94,17 @@ public:
      * 功能:新建name指定的文件名
      * 返回:操作成功，返回 0，失败 -1
      */
-    int create_file(const char* name) {
+    int create_file(const String& name) {
         // return _createFile(name);
-        if (ftable.file_exists(name)) return 0;
-        FILE* f = fopen(name, "a+");
-        
+        // if (ftable.file_exists(name)) return 0;
+        if (file_exists(name)) return 0;
+        FILE* f = fopen(name.c_str(), "a+");
         if (f == nullptr) {
             std::cout << "fail" << std::endl;
             return -1;
         }
+        // ftable.addFile(name, )
+        files.insert(name);
         fclose(f);
         return 0;
     }
@@ -102,18 +115,23 @@ public:
      * 功能:打开文件，不存在返回错误
      * 返回:如果成功打开，在fileID中存储为该文件分配的id，返回true，否则返回false
      */
-    int open_file(const char* name, int& fileID) {
+    int open_file(const String& name, int& fileID) {
         // fileID = fm->findLeftOne();
         // fm->setBit(fileID, 0);
-        if (!ftable.file_exists(name)) return -1;
-        if (ftable.file_opened(name)) {
-            fileID = ftable.getFileID(name);
+        // if (!ftable.file_exists(name)) return -1;
+        if (!file_exists(name)) return -1;
+        // if (ftable.file_opened(name)) {
+        if (file_opened(name)) {
+            // fileID = ftable.getFileID(name);
+            fileID = opened_files[name];
             return 0;
         }
-        int f = open(name, O_RDWR);
+        int f = open(name.c_str(), O_RDWR);
         if (f == -1) return -1;
-        fileID = ftable.newFileID(name);
+        // fileID = ftable.newFileID(name);
+        fileID = pool.get();
         fd[fileID] = f;
+        opened_files[name] = fileID;
         return 0;
     }
 
@@ -122,26 +140,34 @@ public:
         if (file_opened(name)) {
             return -1;
         }
+        files.erase(name);
         return remove(name.c_str());
     }
+public:
 
-    int newType() {
-        // int t = tm->findLeftOne();
-        // tm->setBit(t, 0);
-        // return t;
-        return ftable.newTypeID();
-    }
-    void closeType(int typeID) {
-        // tm->setBit(typeID, 1);
-        ftable.freeTypeID(typeID);
-    }
+    // int newType() {
+    //     // int t = tm->findLeftOne();
+    //     // tm->setBit(t, 0);
+    //     // return t;
+    //     return ftable.newTypeID();
+    // }
+    // void closeType(int typeID) {
+    //     // tm->setBit(typeID, 1);
+    //     ftable.freeTypeID(typeID);
+    // }
 
-    bool file_opened(const String& name) { return ftable.file_opened(name); }
-    bool file_exists(const String& name) { return ftable.file_exists(name); }
+    bool file_opened(const String& name) { 
+        // return ftable.file_opened(name); 
+        return opened_files.count(name);
+    }
+    bool file_exists(const String& name) { 
+        // return ftable.file_exists(name); 
+        return files.count(name);
+    }
 
     static FileManager* get_instance() {
         static std::mutex mutex;
-        static FileManager* instance = nullptr;
+        static FileManager *instance = nullptr;
         if (instance == nullptr) {
             mutex.lock();
             if (instance == nullptr)
@@ -150,4 +176,8 @@ public:
         }
         return instance;
     }
+
+    friend class BufPageManager;
+    friend class File;
+    friend int main();  // for test
 };

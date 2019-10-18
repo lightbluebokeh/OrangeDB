@@ -19,7 +19,7 @@ constexpr int PAGE_SIZE_IDX = 13;
 static_assert((1 << PAGE_SIZE_IDX) == PAGE_SIZE);
 constexpr int MAX_FMT_INT_NUM = 128;
 // constexpr int BUF_PAGE_NUM = 65536;
-constexpr int MAX_FILE_NUM = 128;
+// constexpr int MAX_FILE_NUM = 128;
 constexpr int MAX_TYPE_NUM = 256;
 /*
  * 缓存中页面个数上限

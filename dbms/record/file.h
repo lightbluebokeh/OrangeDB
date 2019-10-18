@@ -42,6 +42,7 @@ private:
         offset += buf_page.write_obj<uint16_t>(record_size, offset);
         offset += buf_page.write_obj(record_cnt, offset);
         offset += buf_page.memset(0, offset, PAGE_SIZE - offset);
+        
         assert(offset == PAGE_SIZE);
     }
 
@@ -98,4 +99,8 @@ public:
     }
 
     String get_name() { return this->name; }
+
+    BufPage get_page(int page_id) {
+        return BufPage(id, page_id);
+    }
 };

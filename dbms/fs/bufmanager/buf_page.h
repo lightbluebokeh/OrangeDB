@@ -3,6 +3,8 @@
 #include <defs.h>
 #include <fs/bufmanager/BufPageManager.h>
 
+
+class File;
 class BufPage {
 private:
     page_t page;
@@ -10,16 +12,22 @@ private:
 
     // 读写操作前调用
     void ensure_buf() {
+        // assert(FileManager::get_instance()->)
         auto bfm = BufPageManager::get_instance();
-        if (std::not_equal_to<page_t>()(page, bfm->get_page(buf.buf_id))) {
+        if (buf.bytes == nullptr || std::not_equal_to<page_t>()(page, bfm->get_page(buf.buf_id))) {
             buf = bfm->get_page_buf(page);
         }
     }
-public:
     BufPage(page_t page) : page(page) {}
     BufPage(int file_id, int page_id) : BufPage(page_t{file_id, page_id}) {}
-
-    const bytes_t get_bytes() { return buf.bytes; }
+    BufPage(const BufPage&) = delete;
+public:
+    // const bytes_t get_bytes() { return buf.bytes; }
+    template<typename T>
+    const T& get(size_t offset = 0) {
+        ensure_buf();
+        return *(T*)(buf.bytes + offset);
+    }
 
     // 默认为 n = vec.size();
     template<typename T>
@@ -53,7 +61,12 @@ public:
 
     size_t memset(byte_t c, size_t offset = 0, size_t n = PAGE_SIZE) {
         assert(offset + n <= PAGE_SIZE);
+        ensure_buf();
         ::memset(buf.bytes + offset, c, n);
+        BufPageManager::get_instance()->mark_dirty(buf.buf_id);
         return n;
     }
+
+    friend class File;
+    friend int main();  //  for test
 };

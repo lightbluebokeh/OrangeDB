@@ -7,35 +7,23 @@
 
 class BufPageMap {
 private:
-    // std::unordered_map<key_t, value_t> map;
     std::unordered_map<int, int> map[MAX_FILE_NUM];
     page_t map_inv[BUF_CAP];
-    // std::unordered_set<int> pages[MAX_FILE_NUM];
 public:
+    // 找 page 的 buf id，找不到就返回 -1
     int get_buf_id(page_t page) {
-        // auto it = map.find(page);
         auto it = map[page.file_id].find(page.page_id);
         if (it == map[page.file_id].end()) return -1;
         return it->second;
     }
 
-    page_t get_page(int buf_id) {
-        return map_inv[buf_id];
-    }
+    page_t get_page(int buf_id) { return map_inv[buf_id]; }
 
-    void replace(int buf_id, page_t page) {
+    void set_map(page_t page, int buf_id) {
+        auto pre = map_inv[buf_id];
+        if (pre != page_t{-1, -1}) map[pre.file_id].erase(pre.page_id);
         map[page.file_id][page.page_id] = buf_id;
         map_inv[buf_id] = page;
-        // map[page] = buf_id;
-        // map_inv[buf_id] = page;
-    }
-
-    void remove_buf(int buf_id) {
-        // map.erase(map_inv[buf_id]);
-        // map[map_inv[buf_id].file_id].erase()
-        auto page = map_inv[buf_id];
-        map[page.file_id].erase(page.page_id);
-        map_inv[buf_id] = {-1, -1};
     }
 
     BufPageMap() {

@@ -44,6 +44,8 @@ namespace std {
 
 
 typedef struct {
-    bytes_t bytes;
+    bytes_t bytes = nullptr;
     int buf_id;
 } buf_t;
+
+constexpr int MAX_FILE_NUM = 128;
