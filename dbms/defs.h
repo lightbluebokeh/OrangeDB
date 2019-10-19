@@ -8,7 +8,7 @@ using String = std::string;
 template<typename T>
 constexpr bool is_byte_v = (sizeof(T) == 1);
 
-using byte_t = unsigned char;
+using byte_t = uint8_t;
 static_assert(is_byte_v<byte_t>);
 using bytes_t = byte_t*;
 

@@ -11,6 +11,7 @@
 #include <fs/bufmanager/BufPageManager.h>
 #include <record/bytes_io.h>
 #include <fs/bufmanager/buf_page.h>
+#include <fs/bufmanager/buf_page_stream.h>
 
 // 打开的文件
 class File {
@@ -18,6 +19,7 @@ private:
     int id;
     String name;
 
+    // file's metadata
     int record_size, record_cnt;
     std::vector<FieldDef> fields;
 
@@ -27,28 +29,29 @@ private:
     void init_metadata(const std::vector<std::pair<String, String>>& name_type_list) {
         assert(name_type_list.size() <= MAX_COL_NUM);
         fields.clear();
-        BufPage buf_page = {id, 0};
+        BufPageStream os(get_buf_page(0));
 
-        record_size = record_cnt = 0;
-        size_t offset = 0;
-        offset += buf_page.write_obj<byte_t>(name_type_list.size(), offset);
+        record_size = 0;
+        os.write_obj<byte_t>(name_type_list.size());
         for (auto &name_type: name_type_list) {
             auto field = FieldDef::parse(name_type);
-            offset += buf_page.write_bytes(field.to_bytes(), offset, COL_SIZE);
+            os.write_bytes(field.to_bytes(), COL_SIZE);
             record_size += field.get_size();
             fields.push_back(std::move(field));
         }
-        offset += buf_page.memset(0, offset, PAGE_SIZE * (MAX_COL_NUM - fields.size()));
-        offset += buf_page.write_obj<uint16_t>(record_size, offset);
-        offset += buf_page.write_obj(record_cnt, offset);
-        offset += buf_page.memset(0, offset, PAGE_SIZE - offset);
-        
-        assert(offset == PAGE_SIZE);
+        os.memset(0, COL_SIZE * (MAX_COL_NUM - fields.size()))
+            .write_obj<uint16_t>(record_size)
+            .write_obj(record_cnt = 0)
+            .memset();
     }
 
     void load_metadata() {
-        // TODO
+        fields.clear();
+        BufPageStream os(get_buf_page(0));
+                
     }
+
+    BufPage get_buf_page(int page_id) { return BufPage(id, page_id); }
 
     static File *file[MAX_FILE_NUM];
 public:
@@ -99,8 +102,4 @@ public:
     }
 
     String get_name() { return this->name; }
-
-    BufPage get_page(int page_id) {
-        return BufPage(id, page_id);
-    }
 };

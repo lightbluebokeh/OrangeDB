@@ -36,6 +36,10 @@ public:
                 break;
             }
         }
+
+        Type parse_bytes(const bytes_t bytes) {
+
+        }
     };
 private:
     String name;
@@ -49,12 +53,16 @@ public:
         return {name_type.first, Type::parse(name_type.second)};
     }
 
+    static FieldDef parse_bytes(const ByteArr& arr) {
+        ensure(arr.size() == COL_SIZE, "parse field failed, go fix your bug");
+        int pos = arr.find(' ');
+    }
+
+    // 用空格作分隔符了，名字里请不要带空格 /cy
     ByteArr to_bytes() {
-        ByteArr ret;
-        ret.clear();
-        for (byte_t c: name) {
-            ret.push_back(c);
-        }
-        return ret + type.to_bytes();
+        auto ret = ByteArr((bytes_t)name.c_str()) + (bytes_t)" " + type.to_bytes();
+        // 还得留一个存 0
+        ensure(ret.size() < MAX_COL_NUM, "field def too long");
+        ret += ByteArr(MAX_COL_NUM - ret.size(), 0);
     }
 };
