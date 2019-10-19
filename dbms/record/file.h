@@ -9,7 +9,6 @@
 #include "fs/utils/pagedef.h"
 #include <record/filed_def.h>
 #include <fs/bufmanager/BufPageManager.h>
-#include <record/bytes_io.h>
 #include <fs/bufmanager/buf_page.h>
 #include <fs/bufmanager/buf_page_stream.h>
 
@@ -53,9 +52,9 @@ private:
         for (int i = 0; i < fields.capacity(); i++) {
             ByteArr tmp;
             os.get_bytes(tmp, COL_SIZE);
-            fields.push_back(FieldDef::parse_bytes(tmp));
+            fields.push_back(FieldDef::parse_bytes((bytes_t)tmp.c_str()));
         }
-        os.inc(COL_SIZE * (MAX_COL_NUM - fields.size()))
+        os.seekoff(COL_SIZE * (MAX_COL_NUM - fields.size()))
             .get_obj<uint16_t>(record_size)
             .get_obj<uint16_t>(record_cnt);
     }
@@ -67,14 +66,14 @@ public:
     static bool create(const std::string& name, int record_size, const std::vector<std::pair<String, String>>& name_type_list) {
         auto fm = FileManager::get_instance();
         int code = fm->create_file(name.c_str());
-        assert(code == 0);
+        ensure(code == 0, "file create fail");
         int id;
         code = fm->open_file(name.c_str(), id);
-        assert(code == 0);
+        ensure(code == 0, "file open failed");
         file[id] = new File(id, name);
         file[id]->init_metadata(name_type_list);
         code = fm->close_file(id);
-        assert(code == 0);
+        ensure(code == 0, "file close failed");
         delete file[id];
         return 1;
     }
@@ -84,7 +83,7 @@ public:
         auto fm = FileManager::get_instance();
         int id;
         int code = fm->open_file(name.c_str(), id);
-        assert(code == 0);
+        ensure(code == 0, "file open failed");
         if (file[id] == nullptr) {
             file[id] = new File(id, name);
             file[id]->load_metadata();
@@ -96,8 +95,8 @@ public:
     static bool close(File *f) {
         auto fm = FileManager::get_instance();
         int code = fm->close_file(f->id);
-        assert(code == 0);
-        assert(file[f->id] == f);
+        ensure(code == 0, "file close failed");
+        ensure(file[f->id] == f, "this is magic");
         file[f->id] = nullptr;
         delete f;
         return 1;
@@ -106,7 +105,7 @@ public:
     static bool remove(const String& name) {
         auto fm = FileManager::get_instance();
         int code = fm->remove_file(name);
-        assert(code == 0);
+        ensure(code == 0, "remove file failed");
         return 1;
     }
 

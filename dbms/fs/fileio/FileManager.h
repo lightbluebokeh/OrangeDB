@@ -25,7 +25,7 @@ private:
     FileManager() { for (int i = 0; i < MAX_FILE_NUM; i++) id_pool.push(i); }
     FileManager(const FileManager&) = delete;
 
-    int write_page(page_t page, bytes_t buf, int off = 0) {
+    int write_page(page_t page, bytes_t bytes, int off = 0) {
         int f = fd[page.file_id];
         off_t offset = page.page_id;
         offset = (offset << PAGE_SIZE_IDX);
@@ -33,12 +33,12 @@ private:
         if (error != offset) {
             return -1;
         }
-        bytes_t b = buf + off;
+        bytes_t b = bytes + off;
         error = write(f, b, PAGE_SIZE);
         return 0;
     }
 
-    int read_page(page_t page, bytes_t buf, int off) {
+    int read_page(page_t page, bytes_t bytes, int off) {
         int f = fd[page.file_id];
         off_t offset = page.page_id;
         offset = (offset << PAGE_SIZE_IDX);
@@ -46,7 +46,7 @@ private:
         if (error != offset) {
             return -1;
         }
-        bytes_t b = buf + off;
+        bytes_t b = bytes + off;
         error = read(f, (void*)b, PAGE_SIZE);
         return 0;
     }

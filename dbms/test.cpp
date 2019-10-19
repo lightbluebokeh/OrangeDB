@@ -5,6 +5,7 @@
 #include <fs/fileio/FileManager.h>
 #include <fs/bufmanager/buf_page.h>
 #include <fs/bufmanager/BufPageManager.h>
+#include <fs/bufmanager/buf_page_stream.h>
 
 using namespace std;
 
@@ -24,36 +25,42 @@ int main() {
 
     cerr << "writing..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
-        BufPage buf_page = {f1, page_id};
-        buf_page.write_obj(page_id);
-        buf_page.write_obj(f1, sizeof(int));
+        BufPage page = {f1, page_id};
+        BufPageStream bps(page);
+        bps.write_obj(page_id)
+            .write_obj(f1);
 
-        buf_page = {f2, page_id};
-        buf_page.write_obj(page_id);
-        buf_page.write_obj(f2, sizeof(int));
+        page = {f2, page_id};
+        bps = BufPageStream(page);
+        bps.write_obj(page_id)
+            .write_obj(f2);
     }
 
     cerr << "checking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
-        auto page = BufPage{f1, page_id};
-        ensure(page.get<int>() == page_id, "unexpected result");
-        ensure(page.get<int>(sizeof(int)) == f1, "unexpected result");
+        BufPage page = {f1, page_id};
+        BufPageStream bps(page);
+        ensure(bps.get<int>() == page_id, "unexpected result");
+        ensure(bps.get<int>() == f1, "unexpected result");
 
         page = BufPage{f2, page_id};
-        ensure(page.get<int>() == page_id, "unexpected result");
-        ensure(page.get<int>(sizeof(int)) == f2, "unexpected result");
+        bps = BufPageStream(page);
+        ensure(bps.get<int>() == page_id, "unexpected result");
+        ensure(bps.get<int>() == f2, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
     bpm->close();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
-        auto page = BufPage{f1, page_id};
-        ensure(page.get<int>() == page_id, "unexpected result");
-        ensure(page.get<int>(sizeof(int)) == f1, "unexpected result");
+        BufPage page = {f1, page_id};
+        BufPageStream bps(page);
+        ensure(bps.get<int>() == page_id, "unexpected result");
+        ensure(bps.get<int>() == f1, "unexpected result");
 
         page = BufPage{f2, page_id};
-        ensure(page.get<int>() == page_id, "unexpected result");
-        ensure(page.get<int>(sizeof(int)) == f2, "unexpected result");
+        bps = BufPageStream(page);
+        ensure(bps.get<int>() == page_id, "unexpected result");
+        ensure(bps.get<int>() == f2, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
 

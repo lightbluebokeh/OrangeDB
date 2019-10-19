@@ -63,10 +63,12 @@ public:
         return {name_type.first, Type::parse_bytes((bytes_t)name_type.second.c_str())};
     }
 
-    static FieldDef parse_bytes(const ByteArr& arr) {
-        ensure(arr.size() == COL_SIZE, "parse field failed, go fix your bug");
-        int pos = arr.find(' ');
-        return {String((char*)arr.data(), pos), Type::parse_bytes((bytes_t)arr.c_str() + pos)};
+    // 以 0 结尾就可以
+    static FieldDef parse_bytes(bytes_t bytes) {
+        ensure(strlen((char*)bytes) == COL_SIZE, "parse field failed, go fix your bug");
+        int pos = 0;
+        while (*(bytes + pos) != ' ') pos++;
+        return {String((char*)bytes, pos), Type::parse_bytes(bytes + pos)};
     }
 
     // 用空格作分隔符了，名字里请不要带空格 /cy

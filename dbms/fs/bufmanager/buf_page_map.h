@@ -10,6 +10,8 @@ private:
     std::unordered_map<int, int> map[MAX_FILE_NUM];
     page_t map_inv[BUF_CAP];
 public:
+    bool contains(page_t page) { return map[page.file_id].count(page.page_id); }
+
     // 找 page 的 buf id，找不到就返回 -1
     int get_buf_id(page_t page) {
         auto it = map[page.file_id].find(page.page_id);

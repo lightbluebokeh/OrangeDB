@@ -2,13 +2,14 @@
 
 #include <cassert>
 
-#include <record/bytes_io.h>
+#include <bytes/bytes_io.h>
 #include <fs/bufmanager/FindReplace.h>
 #include <fs/bufmanager/buf_page_map.h>
 
 #include <mutex>
 
 class BufPage;
+class BufPageStream;
 
 class BufPageManager {
     FileManager* fileManager;
@@ -19,7 +20,7 @@ class BufPageManager {
 
     bytes_t alloc_page() { return new byte_t[PAGE_SIZE]; }
     
-    // 大概是缓存页面的函数
+    // 为 page 分配新的缓存编号
     buf_t fetch_page(page_t page) {
         bytes_t b;
         int buf_id = replace.find();
@@ -44,13 +45,13 @@ class BufPageManager {
 
     buf_t get_page_buf(page_t page) {
         int buf_id = buf_page_map.get_buf_id(page);
-        if (buf_id != -1) {
-            access(buf_id);
-            return {addr[buf_id], buf_id};
-        } else {
+        if (buf_id == -1) {
             auto buf = fetch_page(page);
             fileManager->read_page(page, buf.bytes, 0);
             return buf;
+        } else {
+            access(buf_id);
+            return {addr[buf_id], buf_id};
         }
     }
 
@@ -80,6 +81,8 @@ public:
     // 要确保 buf_id 被使用过
     page_t get_page(int buf_id) { return buf_page_map.get_page(buf_id);  }
 
+    bool tracking(page_t page) { return buf_page_map.contains(page); }
+
     static BufPageManager* get_instance() {
         static std::mutex mtx;
         static BufPageManager *instance = nullptr;
@@ -94,4 +97,5 @@ public:
     }
 
     friend class BufPage;
+    friend class BufPageStream;
 };
