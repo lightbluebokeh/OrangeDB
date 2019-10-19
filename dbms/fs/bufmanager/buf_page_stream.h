@@ -40,8 +40,16 @@ public:
     }
 
     template<typename T>
-    BufPageStream& get_obj(T& t) {
-        offset += page.get_obj(t, offset);
+    const T& get() {
+        const T& ret = page.get<T>(offset);
+        offset += sizeof(T);
+        return ret;
+    }
+
+    // 读取 sizeof(T) 个字节传给 U
+    template<typename T, typename U = T>
+    BufPageStream& get_obj(U& u) {
+        offset += page.get_obj<T, U>(u, offset);
         return *this;
     }
 
@@ -54,6 +62,11 @@ public:
     template<typename T>
     BufPageStream& get_bytes(std::basic_string<T>& str, size_t n) {
         offset += page.get_bytes(str, n, offset);
+        return *this;
+    }
+
+    BufPageStream& inc(size_t n) {
+        offset += n;
         return *this;
     }
 };

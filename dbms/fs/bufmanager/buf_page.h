@@ -5,6 +5,7 @@
 
 class File;
 class BufPageOstream;
+
 class BufPage {
 private:
     page_t page;
@@ -24,17 +25,17 @@ private:
     }
 public:
     template<typename T>
-    T get(int offset = 0) {
+    const T& get(int offset = 0) {
         check_overflow(offset, sizeof(T));
         ensure_buf();
         return *(T*)buf.bytes;
     }
 
-    template<typename T>
-    size_t get_obj(T& t, size_t offset = 0) {
+    template<typename T, typename U = T>
+    size_t get_obj(U& u, size_t offset = 0) {
         check_overflow(offset, sizeof(T));
         ensure_buf();
-        t = *(T*)(buf.bytes + offset);
+        u = *(T*)(buf.bytes + offset);
         return sizeof(T);
     }
 
@@ -50,7 +51,7 @@ public:
     std::enable_if_t<is_byte_v<T>, size_t> get_bytes(std::basic_string<T>& str, size_t n, size_t offset = 0) {
         check_overflow(offset, n);
         ensure_buf();
-        str = std::basic_string<T>(buf.bytes + offset, buf.bytes + offset + n);
+        str = std::basic_string<T>(buf.bytes + offset, n);
         return n;
     }
 
@@ -60,7 +61,7 @@ public:
         return write_bytes(vec, offset, vec.size());
     }
 
-        template<typename T>
+    template<typename T>
     std::enable_if_t<is_byte_v<T>, size_t> write_bytes(const std::vector<T>& vec, size_t offset, size_t n) {
         check_overflow(offset, n);
         ensure_buf();

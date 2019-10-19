@@ -48,7 +48,16 @@ private:
     void load_metadata() {
         fields.clear();
         BufPageStream os(get_buf_page(0));
-                
+
+        fields.reserve(os.get<int>());
+        for (int i = 0; i < fields.capacity(); i++) {
+            ByteArr tmp;
+            os.get_bytes(tmp, COL_SIZE);
+            fields.push_back(FieldDef::parse_bytes(tmp));
+        }
+        os.inc(COL_SIZE * (MAX_COL_NUM - fields.size()))
+            .get_obj<uint16_t>(record_size)
+            .get_obj<uint16_t>(record_cnt);
     }
 
     BufPage get_buf_page(int page_id) { return BufPage(id, page_id); }
