@@ -25,6 +25,6 @@ public:
     explicit BufPageStream(const BufPage& page) : page(page), BytesStream(this->page.buf.bytes, PAGE_SIZE) {}
     BufPageStream& operator = (BufPageStream&& bps) {
         page = bps.page;
-        return *this;
+        return (BufPageStream&)BytesStream::operator=(std::move(bps));
     }
 };

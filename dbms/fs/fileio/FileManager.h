@@ -38,7 +38,7 @@ private:
         return 0;
     }
 
-    int read_page(page_t page, bytes_t bytes, int off) {
+    int read_page(page_t page, bytes_t bytes, int off = 0) {
         int f = fd[page.file_id];
         off_t offset = page.page_id;
         offset = (offset << PAGE_SIZE_IDX);

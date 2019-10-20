@@ -27,26 +27,26 @@ int main() {
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
         BufPage page = {f1, page_id};
         BufPageStream bps(page);
-        bps.write_obj(page_id)
-            .write_obj(f1);
+        bps.write(page_id)
+            .write(f1);
 
         page = {f2, page_id};
         bps = BufPageStream(page);
-        bps.write_obj(page_id)
-            .write_obj(f2);
+        bps.write(page_id)
+            .write(f2);
     }
 
     cerr << "checking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
         BufPage page = {f1, page_id};
         BufPageStream bps(page);
-        ensure(bps.get<int>() == page_id, "unexpected result");
-        ensure(bps.get<int>() == f1, "unexpected result");
+        ensure(bps.read<int>() == page_id, "unexpected result");
+        ensure(bps.read<int>() == f1, "unexpected result");
 
         page = BufPage{f2, page_id};
         bps = BufPageStream(page);
-        ensure(bps.get<int>() == page_id, "unexpected result");
-        ensure(bps.get<int>() == f2, "unexpected result");
+        ensure(bps.read<int>() == page_id, "unexpected result");
+        ensure(bps.read<int>() == f2, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
@@ -54,13 +54,13 @@ int main() {
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
         BufPage page = {f1, page_id};
         BufPageStream bps(page);
-        ensure(bps.get<int>() == page_id, "unexpected result");
-        ensure(bps.get<int>() == f1, "unexpected result");
+        ensure(bps.read<int>() == page_id, "unexpected result");
+        ensure(bps.read<int>() == f1, "unexpected result");
 
         page = BufPage{f2, page_id};
         bps = BufPageStream(page);
-        ensure(bps.get<int>() == page_id, "unexpected result");
-        ensure(bps.get<int>() == f2, "unexpected result");
+        ensure(bps.read<int>() == page_id, "unexpected result");
+        ensure(bps.read<int>() == f2, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
 

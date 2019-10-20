@@ -11,6 +11,7 @@ private:
     size_t offset, lim;
     
     BytesStream(const BytesStream&) = delete;
+    BytesStream& operator = (const BytesStream& bs) = delete;
 
     void check_overflow(size_t n) { ensure(n + offset <= lim, "seems bytes overflow re"); }
 protected:
@@ -18,7 +19,13 @@ protected:
     virtual void after_O() {}
 public:
     BytesStream(bytes_t &bytes, size_t lim) : bytes(bytes), lim(lim), offset(0) {}
-    BytesStream(BytesStream&& bs) : BytesStream(bs.bytes, bs.lim) {}
+    BytesStream(BytesStream&& bs) : bytes(bs.bytes), lim(bs.lim), offset(bs.offset) {}
+    BytesStream& operator = (BytesStream&& bs) {
+        bytes = bs.bytes;
+        lim = bs.lim;
+        offset = bs.offset;
+        return *this;
+    }
     virtual ~BytesStream() {}
 
     template<typename T>
@@ -47,9 +54,9 @@ public:
     }
 
     template<typename T>
-    BytesStream& write_obj(const T& t, size_t n = sizeof(T)) {
+    BytesStream& write(const T& t, size_t n = sizeof(T)) {
         before_IO(n);
-        offset += BytesIO::write_obj(bytes + offset, t, n);
+        offset += BytesIO::write(bytes + offset, t, n);
         after_O();
         return *this;
     }
@@ -65,33 +72,33 @@ public:
         return *this;
     }
 
-    template<typename T, typename U = T>
-    U get() {
+    template<typename T>
+    T read() {
         before_IO(sizeof(T));
-        U ret = BytesIO::get<T, U>(bytes + offset);
+        T ret = BytesIO::read<T>(bytes + offset);
         offset += sizeof(T);
         return ret;
     }
 
     // 读取 sizeof(T) 个字节传给 U
     template<typename T, typename U = T>
-    BytesStream& get_obj(U& u) {
+    BytesStream& read(U& u) {
         before_IO(sizeof(T));
-        offset += BytesIO::get_obj<T, U>(bytes + offset, u);
+        offset += BytesIO::read<T, U>(bytes + offset, u);
         return *this;
     }
 
     template<typename T>
-    BytesStream& get_bytes(std::vector<T>& vec, size_t n) {
+    BytesStream& read_bytes(std::vector<T>& vec, size_t n) {
         before_IO(n);
-        offset += BytesIO::get_bytes(bytes + offset, vec, n);
+        offset += BytesIO::read_bytes(bytes + offset, vec, n);
         return *this;
     }
 
     template<typename T>
-    BytesStream& get_bytes(std::basic_string<T>& str, size_t n) {
+    BytesStream& read_bytes(std::basic_string<T>& str, size_t n) {
         before_IO(n);
-        offset += BytesIO::get_bytes(bytes + offset, str, n);
+        offset += BytesIO::read_bytes(bytes + offset, str, n);
         return *this;
     }
 

@@ -2,6 +2,14 @@
 
 #include <defs.h>
 
+constexpr int MAX_FIELD_LENGTH = 32;
+
+// raw type
+typedef struct {
+    String name;
+    String raw_type;
+} raw_field_t;
+
 class FieldDef {
 public:
     enum class TypeKind {
@@ -16,66 +24,36 @@ public:
         int size;
 
         // 保证以 0 结尾 233
-        static Type parse_bytes(bytes_t bytes) {
+        static Type parse(const String& raw_type) {
             int size;
-            if (sscanf((char*)bytes, "INT(%d)", &size) == 1) {
+            if (sscanf(raw_type.data(), "INT(%d)", &size) == 1) {
                 return {TypeKind::INT, size};
-            } else if (sscanf((char*)bytes, "VARCHAR(%d)", &size) == 1) {
+            } else if (sscanf(raw_type.data(), "VARCHAR(%d)", &size) == 1) {
                 return {TypeKind::VARCHAR, size};
-            } else if (strcmp((char*)bytes, "FLOAT") == 0) {
+            } else if (strcmp(raw_type.data(), "FLOAT") == 0) {
                 return {TypeKind::FLOAT, 4};
-            } else if (strcmp((char*)bytes, "DATE") == 0) {
+            } else if (strcmp(raw_type.data(), "DATE") == 0) {
                 return {TypeKind::DATE, size};
             } else {
-                throw "type parse error";
-            }
-        }
-
-        ByteArr to_bytes() {
-            switch (kind) {
-                case TypeKind::INT:
-                    return (bytes_t)("INT(" + std::to_string(size) + ")").c_str();
-                break;
-
-                case TypeKind::VARCHAR:
-                    return (bytes_t)("VARCHAR(" + std::to_string(size) + ")").c_str();
-                break;
-
-                case TypeKind::FLOAT:
-                    return (bytes_t)"FLOAT";
-                break;
-            
-                case TypeKind::DATE:
-                    return (bytes_t)"DATE";
-                break;
+                throw "fail to parse type: " + raw_type;
             }
         }
     };
 private:
-    String name;
+    char name[MAX_FIELD_LENGTH + 1];
     Type type;
 
-    FieldDef(const String& name, const Type& type) : name(name), type(type) {}
+    // static constexpr int a = sizeof(Type)
+
+    FieldDef(const String& name, const Type& type) : type(type) {
+        ensure(name.length() <= MAX_FIELD_LENGTH, "field name to long: " + name);
+
+        memcpy(this->name, name.data(), name.length() + 1);
+    }
 public:
     int get_size() { return type.size; }
 
-    static FieldDef parse(const std::pair<String, String>& name_type) {
-        return {name_type.first, Type::parse_bytes((bytes_t)name_type.second.c_str())};
-    }
-
-    // 以 0 结尾就可以
-    static FieldDef parse_bytes(bytes_t bytes) {
-        ensure(strlen((char*)bytes) == COL_SIZE, "parse field failed, go fix your bug");
-        int pos = 0;
-        while (*(bytes + pos) != ' ') pos++;
-        return {String((char*)bytes, pos), Type::parse_bytes(bytes + pos)};
-    }
-
-    // 用空格作分隔符了，名字里请不要带空格 /cy
-    ByteArr to_bytes() {
-        auto ret = ByteArr((bytes_t)name.c_str()) + (bytes_t)" " + type.to_bytes();
-        // 至少还得留一个存 0
-        ensure(ret.size() <= MAX_COL_NUM, "field def too long");
-        return ret + ByteArr(MAX_COL_NUM - ret.size(), 0);
+    static FieldDef parse(raw_field_t raw_field) {
+        return {raw_field.name, Type::parse(raw_field.raw_type) };
     }
 };

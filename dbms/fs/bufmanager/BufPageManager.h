@@ -47,7 +47,7 @@ class BufPageManager {
         int buf_id = buf_page_map.get_buf_id(page);
         if (buf_id == -1) {
             auto buf = fetch_page(page);
-            fileManager->read_page(page, buf.bytes, 0);
+            fileManager->read_page(page, buf.bytes);
             return buf;
         } else {
             access(buf_id);
