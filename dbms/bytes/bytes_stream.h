@@ -8,7 +8,7 @@
 class BytesStream {
 private:
     bytes_t& bytes;
-    size_t offset, lim;
+    size_t lim, offset;
 
     BytesStream(const BytesStream&) = delete;
     BytesStream& operator=(const BytesStream& bs) = delete;
@@ -109,7 +109,7 @@ public:
     }
 
     BytesStream& seekoff(int off) {
-        ensure(off >= 0 && off <= lim - offset || off < 0 && -off <= offset, "seek overflow re");
+        ensure((off >= 0 && size_t(off) <= lim - offset) || (off < 0 && size_t(-off) <= offset), "seek overflow re");
         offset += off;
         return *this;
     }
