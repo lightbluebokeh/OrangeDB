@@ -13,60 +13,37 @@ using namespace std;
 constexpr int TEST_PAGE_NUM = BUF_CAP;
 
 int main() {
-    FileManager* fm = FileManager::get_instance();
-    BufpageManager* bpm = BufpageManager::get_instance();
+    String name1 = "testfile1.txt", name2 = "testfile2.txt";
+    File::create(name1);
+    File::create(name2);
 
-    fm->create_file("testfile.txt");  //新建文件
-    fm->create_file("testfile2.txt");
-
-    int f1, f2;
-    fm->open_file("testfile.txt", f1);  //打开文件，fileID是返回的文件id
-    fm->open_file("testfile2.txt", f2);
+    auto f1 = File::open(name1), f2 = File::open(name2);
     cerr << "file opened" << endl;
 
     cerr << "writing..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        Bufpage page = {f1, page_id};
-        BufpageStream bps(page);
-        bps.write(page_id).write(f1);
-
-        page = {f2, page_id};
-        bps = BufpageStream(page);
-        bps.write(page_id).write(f2);
+        f1->write<0>(page_id << PAGE_SIZE_IDX, page_id);
+        f2->write<1>(page_id << PAGE_SIZE_IDX, page_id);
     }
 
     cerr << "checking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        Bufpage page = {f1, page_id};
-        BufpageStream bps(page);
-        ensure(bps.read<int>() == page_id, "unexpected result");
-        ensure(bps.read<int>() == f1, "unexpected result");
-
-        page = Bufpage{f2, page_id};
-        bps = BufpageStream(page);
-        ensure(bps.read<int>() == page_id, "unexpected result");
-        ensure(bps.read<int>() == f2, "unexpected result");
+        ensure(f1->read<0, int>(page_id << PAGE_SIZE_IDX) == page_id, "unexpected result");
+        ensure(f2->read<1, int>(page_id << PAGE_SIZE_IDX) == page_id, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
-    bpm->close();
+    // bpm->close();
+    BufpageManager::get_instance()->write_back();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        Bufpage page = {f1, page_id};
-        BufpageStream bps(page);
-        ensure(bps.read<int>() == page_id, "unexpected result");
-        ensure(bps.read<int>() == f1, "unexpected result");
-
-        page = Bufpage{f2, page_id};
-        bps = BufpageStream(page);
-        ensure(bps.read<int>() == page_id, "unexpected result");
-        ensure(bps.read<int>() == f2, "unexpected result");
+        ensure(f2->read<0, int>(page_id << PAGE_SIZE_IDX) == page_id, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
 
-    ensure(fm->close_file(f1) == 0, "close failed");
-    ensure(fm->remove_file("testfile.txt") == 0, "remove failed");
-    ensure(fm->close_file(f2) == 0, "close failed");
-    ensure(fm->remove_file("testfile2.txt") == 0, "remove failed");
+    ensure(File::close(f1), "close failed");
+    ensure(File::remove(name1), "remove failed");
+    ensure(File::close(f2), "close failed");
+    ensure(File::remove(name2), "remove failed");
 
     cerr << "save your disk!" << endl;
 

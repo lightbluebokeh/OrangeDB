@@ -1,7 +1,6 @@
 #pragma once
 
 #include <iostream>
-#include <bytes/bytes_io.h>
 
 // 偷懒 IO 共用一个 offset，请不要同时输入输出 /cy
 class BytesStream {
@@ -29,27 +28,10 @@ public:
     }
     virtual ~BytesStream() {}
 
-    template <typename T>
-    BytesStream& write_bytes(const std::vector<T>& vec) {
-        return write_bytes(vec, vec.size());
-    }
-    template <typename T>
-    BytesStream& write_bytes(const std::vector<T>& vec, size_t n) {
+    BytesStream& write_bytes(const std::remove_pointer_t<bytes_t>* bytes, size_t n) {
         before_IO(n);
-        offset += BytesIO::write_bytes(bytes + offset, vec, n);
-        after_O();
-        return *this;
-    }
-
-    template <typename T>
-    BytesStream& write_bytes(const std::basic_string<T>& str) {
-        return write_bytes(str, str.size());
-    }
-
-    template <typename T>
-    BytesStream& write_bytes(const std::basic_string<T>& str, size_t n) {
-        before_IO(n);
-        offset += BytesIO::write_bytes(bytes + offset, str, n);
+        memcpy(this->bytes + offset, bytes, n);
+        offset += n;
         after_O();
         return *this;
     }
@@ -57,7 +39,8 @@ public:
     template <typename T>
     BytesStream& write(const T& t, size_t n = sizeof(T)) {
         before_IO(n);
-        offset += BytesIO::write(bytes + offset, t, n);
+        memcpy(bytes + offset, &t, n);
+        offset += n;
         after_O();
         return *this;
     }
@@ -66,7 +49,8 @@ public:
 
     BytesStream& memset(byte_t c, size_t n) {
         before_IO(n);
-        offset += BytesIO::memset(bytes + offset, c, n);
+        ::memset(bytes + offset, c, n);
+        offset += n;
         after_O();
         return *this;
     }
@@ -74,7 +58,7 @@ public:
     template <typename T>
     T read() {
         before_IO(sizeof(T));
-        T ret = BytesIO::read<T>(bytes + offset);
+        T ret = *(T*)(bytes + offset);
         offset += sizeof(T);
         return ret;
     }
@@ -83,21 +67,16 @@ public:
     template <typename T, typename U = T>
     BytesStream& read(U& u) {
         before_IO(sizeof(T));
-        offset += BytesIO::read<T, U>(bytes + offset, u);
+        // offset += BytesIO::read<T, U>(bytes + offset, u);
+        u = *(T*)(bytes + offset);
+        offset += sizeof(T);
         return *this;
     }
 
-    template <typename T>
-    BytesStream& read_bytes(std::vector<T>& vec, size_t n) {
+    BytesStream& read_bytes(bytes_t bytes, size_t n) {
         before_IO(n);
-        offset += BytesIO::read_bytes(bytes + offset, vec, n);
-        return *this;
-    }
-
-    template <typename T>
-    BytesStream& read_bytes(std::basic_string<T>& str, size_t n) {
-        before_IO(n);
-        offset += BytesIO::read_bytes(bytes + offset, str, n);
+        memcpy(bytes, this->bytes + offset, n);
+        offset += n;
         return *this;
     }
 
@@ -113,5 +92,5 @@ public:
         return *this;
     }
 
-    size_t rest() const { return lim - offset; }
+    inline size_t rest() const { return lim - offset; }
 };

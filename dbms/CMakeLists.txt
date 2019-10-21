@@ -30,5 +30,5 @@ elseif(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
     
-add_library(dbms SHARED src/dbms.cpp)
-add_executable(test1 test/test1.cpp)
+add_library(dbms SHARED src/dbms.cpp src/defs.cpp)
+add_executable(test1 test/test1.cpp src/defs.cpp)

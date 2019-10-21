@@ -1,11 +1,9 @@
 #pragma once
 
 #include <fcntl.h>
-
 #include <stack>
 #include <unordered_map>
 #include <unordered_set>
-
 #include <mutex>
 
 #include <defs.h>
@@ -23,7 +21,9 @@ private:
     String opened_filenames[MAX_FILE_NUM];
 
     FileManager() {
-        for (int i = 0; i < MAX_FILE_NUM; i++) id_pool.push(i);
+        for (int i = 0; i < MAX_FILE_NUM; i++) {
+            id_pool.push(i);
+        }
     }
     FileManager(const FileManager&) = delete;
 
@@ -53,10 +53,10 @@ private:
         return 0;
     }
 
-    int close_file(int fileID) {
-        id_pool.push(fileID);
-        int f = fd[fileID];
-        opened_files.erase(opened_filenames[fileID]);
+    int close_file(int file_id) {
+        id_pool.push(file_id);
+        int f = fd[file_id];
+        opened_files.erase(opened_filenames[file_id]);
         return close(f);
     }
 
@@ -72,23 +72,24 @@ private:
         return 0;
     }
 
-    int open_file(const String& name, int& fileID) {
+    // return fd if success
+    int open_file(const String& name, int& file_id, int& fd) {
         if (!file_exists(name)) return -1;
         if (file_opened(name)) {
-            fileID = opened_files[name];
+            file_id = opened_files[name];
             return 0;
         }
 #if __unix__
-        int f = open(name.c_str(), O_RDWR);
+        fd = open(name.c_str(), O_RDWR);
 #else
-        int f = open(name.c_str(), O_RDWR | O_BINARY);
+        fd = open(name.c_str(), O_RDWR | O_BINARY);
 #endif
-        if (f == -1) return -1;
-        fileID = id_pool.top();
+        if (fd == -1) return -1;
+        file_id = id_pool.top();
         id_pool.pop();
-        fd[fileID] = f;
-        opened_files[name] = fileID;
-        opened_filenames[fileID] = name;
+        this->fd[file_id] = fd;
+        opened_files[name] = file_id;
+        opened_filenames[file_id] = name;
         return 0;
     }
 

@@ -16,7 +16,8 @@ public:
 
     void ensure_buf() {
         auto bfm = BufpageManager::get_instance();
-        if (buf.bytes == nullptr || std::not_equal_to<page_t>()(page, bfm->get_page(buf.buf_id))) {
+        static_assert(sizeof(page_t) == sizeof(int64));
+        if (buf.bytes == nullptr || *(int64*)&page == *(int64*)&(const page_t&)bfm->get_page(buf.buf_id)) {
             buf = bfm->get_page_buf(page);
         }
     }

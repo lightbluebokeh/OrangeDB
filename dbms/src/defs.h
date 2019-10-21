@@ -16,8 +16,7 @@ using ByteArr = std::basic_string<byte_t>;
 static_assert(std::is_same_v<ByteArr::value_type, byte_t>);
 
 typedef struct { int file_id, page_id; } page_t;
-bool operator==(page_t a, page_t b) { return a.file_id == b.file_id && a.page_id == b.page_id; }
-bool operator!=(page_t a, page_t b) { return a.file_id != b.file_id || a.page_id != b.page_id; }
+
 
 typedef struct { bytes_t bytes = nullptr; int buf_id; } buf_t;
 
@@ -31,12 +30,7 @@ constexpr int MAX_FILE_NUM = MAX_TB_NUM * (1 + 1 + 1 + MAX_COL_NUM); //  对于�
 #define RED "\033[31m"   /* Red */
 #define GREEN "\033[32m" /* Green */
 
-void ensure(bool cond, const String& msg) {
-    if (cond == 0) {
-        std::cerr << RED << "failed: " << RESET << msg << std::endl;
-        throw msg;                            
-    }
-}
+void ensure(bool cond, const String& msg);
 
 #ifdef __linux__
 #include <unistd.h>

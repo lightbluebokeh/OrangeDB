@@ -76,7 +76,7 @@ class BufpageManager {
     }
 
 public:
-    void close() {
+    void write_back() {
         for (int i = 0; i < BUF_CAP; ++i) {
             write_back(i);
         }

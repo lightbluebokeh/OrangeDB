@@ -14,10 +14,10 @@
 // 打开的文件
 class File {
 private:
-    int id;
+    int id, fd;
     String name;
 
-    File(int id, const String& name) : id(id), name(name) {}
+    File(int id, int fd, const String& name) : id(id), fd(fd), name(name) {}
     File(const File&) = delete;
 
     ~File() {}
@@ -61,30 +61,19 @@ private:
         delete file[id];
         file[id] = nullptr;
     }
-
-    int get_pos(size_t &offset) {
-        int ret = offset >> PAGE_SIZE_IDX;
-        offset &= PAGE_SIZE - 1;
-        return ret;
-    }
 public:
     static bool create(const std::string& name) {
         auto fm = FileManager::get_instance();
         ensure(fm->create_file(name.c_str()) == 0, "file create fail");
-        int id;
-        ensure(fm->open_file(name.c_str(), id) == 0, "file open failed");
-        file[id] = new File(id, name);
-        ensure(fm->close_file(id) == 0, "file close failed");
-        close_internal(id);
         return 1;
     }
 
     // 不存在就错误了
     static File* open(const String& name) {
         auto fm = FileManager::get_instance();
-        int id;
-        ensure(fm->open_file(name.c_str(), id) == 0, "file open failed");
-        if (file[id] == nullptr) file[id] = new File(id, name);
+        int id, fd;
+        ensure(fm->open_file(name.c_str(), id, fd) == 0, "file open failed");
+        if (file[id] == nullptr) file[id] = new File(id, fd, name);
         return file[id];
     }
 
@@ -101,5 +90,84 @@ public:
         auto fm = FileManager::get_instance();
         ensure(fm->remove_file(name) == 0, "remove file failed");
         return 1;
+    }
+
+    template<bool use_buf>
+    size_t write_bytes(size_t offset, const std::remove_pointer_t<bytes_t>* bytes, size_t n) {
+        if constexpr (use_buf == 0) {
+            lseek(fd, offset, SEEK_SET);
+            ::write(fd, bytes, n);
+        } else {
+            int page_id = offset >> PAGE_SIZE_IDX;
+            offset &= PAGE_SIZE - 1;
+            BufpageStream bps(Bufpage(id, page_id));
+            bps.seekpos(offset);
+            auto rest = bps.rest();
+            if (rest >= n) {
+                bps.write_bytes(bytes, n);
+            } else {
+                bps.write_bytes(bytes, bps.rest());
+                n -= rest;
+                page_id++;
+                while (n >= PAGE_SIZE) {
+                    bps = BufpageStream(Bufpage(id, page_id));
+                    bps.write_bytes(bytes, PAGE_SIZE);
+                    n -= PAGE_SIZE;
+                    page_id++;
+                }
+                if (n) {
+                    bps = BufpageStream(Bufpage(id, page_id));
+                    bps.write_bytes(bytes, n);
+                }
+            }
+        }
+        return n;
+    }
+
+    template<bool use_buf, typename T>
+    size_t write(size_t offset, const T& t, size_t n = sizeof(T)) {
+        return write_bytes<use_buf>(offset, (bytes_t)&t, n);
+    }
+
+    template<bool use_buf>
+    size_t read_bytes(size_t offset, bytes_t bytes, size_t n) {
+        if constexpr (use_buf == 0) {
+            lseek(fd, offset, SEEK_SET);
+            ::read(fd, bytes, n);
+        } else {
+            int page_id = offset >> PAGE_SIZE_IDX;
+            offset &= PAGE_SIZE - 1;
+            BufpageStream bps(Bufpage(id, page_id));
+            bps.seekpos(offset);
+            auto rest = bps.rest();
+            if (rest >= n) {
+                bps.read_bytes(bytes, n);
+            } else {
+                bps.read_bytes(bytes, bps.rest());
+                n -= rest;
+                page_id++;
+                while (n >= PAGE_SIZE) {
+                    bps = BufpageStream(Bufpage(id, page_id));
+                    bps.read_bytes(bytes, PAGE_SIZE);
+                    n -= PAGE_SIZE;
+                    page_id++;
+                }
+                if (n) {
+                    bps = BufpageStream(Bufpage(id, page_id));
+                    bps.read_bytes(bytes, n);
+                }
+            }
+        }
+        return n;
+    }
+
+    template< bool use_buf, typename T, typename U = T>
+    void read(size_t offset, U& u) { read_bytes<use_buf>(offset, &u, sizeof(T)); }
+
+    template< bool use_buf, typename T>
+    T read(size_t offset) {
+        static byte_t bytes[sizeof(T)];
+        read_bytes<use_buf>(offset, bytes, sizeof(T));
+        return *(T*)bytes;
     }
 };

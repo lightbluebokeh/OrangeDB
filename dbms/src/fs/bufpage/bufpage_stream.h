@@ -1,6 +1,6 @@
 #pragma once
 
-#include <bytes/bytes_stream.h>
+#include <utils/bytes_stream.h>
 #include <fs/bufpage/bufpage.h>
 #include <fs/bufpage/bufpage_manager.h>
 

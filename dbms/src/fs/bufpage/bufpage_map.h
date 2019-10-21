@@ -23,7 +23,7 @@ public:
 
     void set_map(page_t page, int buf_id) {
         auto pre = map_inv[buf_id];
-        if (pre != page_t{-1, -1}) map[pre.file_id].erase(pre.page_id);
+        if (pre.page_id != -1) map[pre.file_id].erase(pre.page_id);
         map[page.file_id][page.page_id] = buf_id;
         map_inv[buf_id] = page;
     }
