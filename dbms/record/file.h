@@ -1,16 +1,16 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <cstring>
-#include <cassert>
-#include <defs.h>
 #include "fs/fileio/FileManager.h"
 #include "fs/utils/pagedef.h"
-#include <record/filed_def.h>
+#include <cassert>
+#include <cstring>
+#include <defs.h>
 #include <fs/bufmanager/BufPageManager.h>
 #include <fs/bufmanager/buf_page.h>
 #include <fs/bufmanager/buf_page_stream.h>
+#include <record/filed_def.h>
+#include <string>
+#include <vector>
 
 // 打开的文件
 class File {
@@ -25,6 +25,8 @@ private:
     File(int id, const String& name) : id(id), name(name) {}
     File(const File&) = delete;
 
+    ~File() {}
+
     void init_metadata(const std::vector<raw_field_t>& raw_fields) {
         ensure(raw_fields.size() <= MAX_COL_NUM, "to much fields");
         fields.clear();
@@ -32,7 +34,7 @@ private:
 
         record_size = 0;
         bps.write<byte_t>(raw_fields.size());
-        for (auto raw_field: raw_fields) {
+        for (auto raw_field : raw_fields) {
             auto field = FieldDef::parse(raw_field);
             bps.write(field);
             record_size += field.get_size();
@@ -49,7 +51,7 @@ private:
         BufPageStream bps(get_buf_page(0));
 
         fields.reserve(bps.read<int>());
-        for (int i = 0; i < fields.capacity(); i++) {
+        for (size_t i = 0; i < fields.capacity(); i++) {
             fields.push_back(bps.read<FieldDef>());
         }
         bps.seekoff(sizeof(FieldDef) * (MAX_COL_NUM - fields.size()))
@@ -59,13 +61,14 @@ private:
 
     BufPage get_buf_page(int page_id) { return BufPage(id, page_id); }
 
-    static File *file[MAX_FILE_NUM];
+    static File* file[MAX_FILE_NUM];
     static void close_internal(int id) {
         delete file[id];
         file[id] = nullptr;
     }
+
 public:
-    static bool create(const std::string& name, int record_size, const std::vector<raw_field_t>& raw_fields) {
+    static bool create(const std::string& name, const std::vector<raw_field_t>& raw_fields) {
         auto fm = FileManager::get_instance();
         int code = fm->create_file(name.c_str());
         ensure(code == 0, "file create fail");
@@ -94,7 +97,7 @@ public:
     }
 
     // 调用后 f 变成野指针
-    static bool close(File *f) {
+    static bool close(File* f) {
         auto fm = FileManager::get_instance();
         int code = fm->close_file(f->id);
         ensure(code == 0, "file close failed");

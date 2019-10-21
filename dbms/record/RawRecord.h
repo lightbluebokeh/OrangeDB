@@ -14,7 +14,7 @@ class RawRecord {
 public:
     RawRecord(rid_t id, bytes_t data, int* offset) : id(id), data(data), offset(offset) {}
 
-    rid_t getid() const { return id; }
+    rid_t get_id() const { return id; }
 
     template <class T>
     T& get(int n) {

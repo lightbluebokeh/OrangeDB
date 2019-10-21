@@ -13,6 +13,7 @@
 
 class BufPageManager;
 class File;
+
 class FileManager {
 private:
     int fd[MAX_FILE_NUM];
@@ -78,11 +79,11 @@ private:
             fileID = opened_files[name];
             return 0;
         }
-        int f = open(name.c_str(), O_RDWR 
-#ifdef _WIN32
-        | O_BINARY
+#if __unix__
+        int f = open(name.c_str(), O_RDWR);
+#else
+        int f = open(name.c_str(), O_RDWR | O_BINARY);
 #endif
-        );
         if (f == -1) return -1;
         fileID = id_pool.top();
         id_pool.pop();
