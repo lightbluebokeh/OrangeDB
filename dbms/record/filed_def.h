@@ -28,17 +28,22 @@ public:
             int size;
             if (sscanf(raw_type.data(), "INT(%d)", &size) == 1) {
                 return {TypeKind::INT, size};
-            } else if (sscanf(raw_type.data(), "VARCHAR(%d)", &size) == 1) {
+            }
+            else if (sscanf(raw_type.data(), "VARCHAR(%d)", &size) == 1) {
                 return {TypeKind::VARCHAR, size};
-            } else if (strcmp(raw_type.data(), "FLOAT") == 0) {
+            }
+            else if (strcmp(raw_type.data(), "FLOAT") == 0) {
                 return {TypeKind::FLOAT, 4};
-            } else if (strcmp(raw_type.data(), "DATE") == 0) {
+            }
+            else if (strcmp(raw_type.data(), "DATE") == 0) {
                 return {TypeKind::DATE, size};
-            } else {
+            }
+            else {
                 throw "fail to parse type: " + raw_type;
             }
         }
     };
+
 private:
     char name[MAX_FIELD_LENGTH + 1];
     Type type;
@@ -50,10 +55,11 @@ private:
 
         memcpy(this->name, name.data(), name.length() + 1);
     }
+
 public:
     int get_size() { return type.size; }
 
     static FieldDef parse(raw_field_t raw_field) {
-        return {raw_field.name, Type::parse(raw_field.raw_type) };
+        return {raw_field.name, Type::parse(raw_field.raw_type)};
     }
 };

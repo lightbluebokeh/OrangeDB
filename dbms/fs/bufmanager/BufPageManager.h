@@ -5,6 +5,7 @@
 #include <bytes/bytes_io.h>
 #include <fs/bufmanager/FindReplace.h>
 #include <fs/bufmanager/buf_page_map.h>
+#include <fs/fileio/FileManager.h>
 
 #include <mutex>
 
@@ -19,7 +20,7 @@ class BufPageManager {
     bytes_t addr[BUF_CAP];
 
     bytes_t alloc_page() { return new byte_t[PAGE_SIZE]; }
-    
+
     // 为 page 分配新的缓存编号
     buf_t fetch_page(page_t page) {
         bytes_t b;
@@ -28,7 +29,8 @@ class BufPageManager {
         if (b == nullptr) {
             b = alloc_page();
             addr[buf_id] = b;
-        } else {
+        }
+        else {
             write_back(buf_id);
         }
 
@@ -49,7 +51,8 @@ class BufPageManager {
             auto buf = fetch_page(page);
             fileManager->read_page(page, buf.bytes);
             return buf;
-        } else {
+        }
+        else {
             access(buf_id);
             return {addr[buf_id], buf_id};
         }
@@ -71,6 +74,7 @@ class BufPageManager {
             dirty[buf_id] = false;
         }
     }
+
 public:
     void close() {
         for (int i = 0; i < BUF_CAP; ++i) {
@@ -79,13 +83,13 @@ public:
     }
 
     // 要确保 buf_id 被使用过
-    page_t get_page(int buf_id) { return buf_page_map.get_page(buf_id);  }
+    page_t get_page(int buf_id) { return buf_page_map.get_page(buf_id); }
 
     bool tracking(page_t page) { return buf_page_map.contains(page); }
 
     static BufPageManager* get_instance() {
         static std::mutex mtx;
-        static BufPageManager *instance = nullptr;
+        static BufPageManager* instance = nullptr;
         if (instance == nullptr) {
             mtx.lock();
             if (instance == nullptr) {

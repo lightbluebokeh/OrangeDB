@@ -8,8 +8,6 @@ class BufPageStream : public BytesStream {
 private:
     BufPage page;
 
-    BufPageStream(const BufPageStream&) = delete;
-    BufPageStream& operator = (const BufPageStream&) = delete;
 protected:
     void before_IO(size_t n) override {
         BytesStream::before_IO(n);
@@ -20,10 +18,15 @@ protected:
         auto bfm = BufPageManager::get_instance();
         bfm->mark_dirty(page.buf.buf_id);
     }
+
 public:
     BufPageStream(BufPageStream&& bps) : BufPageStream(bps.page) {}
-    explicit BufPageStream(const BufPage& page) : page(page), BytesStream(this->page.buf.bytes, PAGE_SIZE) {}
-    BufPageStream& operator = (BufPageStream&& bps) {
+    BufPageStream(const BufPageStream&) = delete;
+    explicit BufPageStream(const BufPage& page) :
+        BytesStream(this->page.buf.bytes, PAGE_SIZE), page(page) {}
+
+    BufPageStream& operator=(const BufPageStream&) = delete;
+    BufPageStream& operator=(BufPageStream&& bps) {
         page = bps.page;
         return (BufPageStream&)BytesStream::operator=(std::move(bps));
     }

@@ -1,11 +1,11 @@
 // warning: 这个测试会产生两个总大小约 1G 的文件 /cy
 
 #include <defs.h>
-#include <fs/utils/pagedef.h>
-#include <fs/fileio/FileManager.h>
-#include <fs/bufmanager/buf_page.h>
 #include <fs/bufmanager/BufPageManager.h>
+#include <fs/bufmanager/buf_page.h>
 #include <fs/bufmanager/buf_page_stream.h>
+#include <fs/fileio/FileManager.h>
+#include <fs/utils/pagedef.h>
 
 using namespace std;
 
@@ -15,29 +15,27 @@ int main() {
     FileManager* fm = FileManager::get_instance();
     BufPageManager* bpm = BufPageManager::get_instance();
 
-    fm->create_file("testfile.txt"); //新建文件
+    fm->create_file("testfile.txt");  //新建文件
     fm->create_file("testfile2.txt");
-    
+
     int f1, f2;
-    fm->open_file("testfile.txt", f1); //打开文件，fileID是返回的文件id
+    fm->open_file("testfile.txt", f1);  //打开文件，fileID是返回的文件id
     fm->open_file("testfile2.txt", f2);
     cerr << "file opened" << endl;
 
     cerr << "writing..." << endl;
-    for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
+    for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         BufPage page = {f1, page_id};
         BufPageStream bps(page);
-        bps.write(page_id)
-            .write(f1);
+        bps.write(page_id).write(f1);
 
         page = {f2, page_id};
         bps = BufPageStream(page);
-        bps.write(page_id)
-            .write(f2);
+        bps.write(page_id).write(f2);
     }
 
     cerr << "checking buf..." << endl;
-    for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
+    for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         BufPage page = {f1, page_id};
         BufPageStream bps(page);
         ensure(bps.read<int>() == page_id, "unexpected result");
@@ -51,7 +49,7 @@ int main() {
     cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
     bpm->close();
-    for (int page_id = 0; page_id < TEST_PAGE_NUM; ++ page_id) {
+    for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         BufPage page = {f1, page_id};
         BufPageStream bps(page);
         ensure(bps.read<int>() == page_id, "unexpected result");

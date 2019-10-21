@@ -1,11 +1,17 @@
 #pragma once
 
+#include <cerrno>
+#include <cstdio>
 #include <dirent.h>
-#include <errno.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#ifdef __linux__
 #include <unistd.h>
+#elif _WIN32
+#include <io.h>
+#endif
+
 #include <defs.h>
 /*
  * 一个页面中的字节数

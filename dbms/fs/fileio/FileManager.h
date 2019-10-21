@@ -3,8 +3,8 @@
 #include <fcntl.h>
 
 #include <stack>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <mutex>
 
@@ -17,12 +17,14 @@ class FileManager {
 private:
     int fd[MAX_FILE_NUM];
     std::stack<int> id_pool;
-    
+
     std::unordered_set<String> files;
     std::unordered_map<String, int> opened_files;
     String opened_filenames[MAX_FILE_NUM];
 
-    FileManager() { for (int i = 0; i < MAX_FILE_NUM; i++) id_pool.push(i); }
+    FileManager() {
+        for (int i = 0; i < MAX_FILE_NUM; i++) id_pool.push(i);
+    }
     FileManager(const FileManager&) = delete;
 
     int write_page(page_t page, bytes_t bytes, int off = 0) {
@@ -60,7 +62,7 @@ private:
 
     int create_file(const String& name) {
         if (file_exists(name)) return 0;
-        FILE* f = fopen(name.c_str(), "a+");
+        FILE* f = fopen(name.c_str(), "ab+");
         if (f == nullptr) {
             std::cout << "fail" << std::endl;
             return -1;
@@ -76,9 +78,10 @@ private:
             fileID = opened_files[name];
             return 0;
         }
-        int f = open(name.c_str(), O_RDWR);
+        int f = open(name.c_str(), O_RDWR | O_BINARY);
         if (f == -1) return -1;
-        fileID = id_pool.top(); id_pool.pop();
+        fileID = id_pool.top();
+        id_pool.pop();
         fd[fileID] = f;
         opened_files[name] = fileID;
         opened_filenames[fileID] = name;
@@ -94,17 +97,17 @@ private:
         int ret = remove(name.c_str());
         return ret;
     }
+
 public:
     bool file_opened(const String& name) { return opened_files.count(name); }
     bool file_exists(const String& name) { return files.count(name); }
 
     static FileManager* get_instance() {
         static std::mutex mutex;
-        static FileManager *instance = nullptr;
+        static FileManager* instance = nullptr;
         if (instance == nullptr) {
             mutex.lock();
-            if (instance == nullptr)
-                instance = new FileManager;
+            if (instance == nullptr) instance = new FileManager;
             mutex.unlock();
         }
         return instance;

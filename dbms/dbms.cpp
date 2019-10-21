@@ -4,7 +4,6 @@
 #define API extern "C"
 #endif
 
-#include "defs.h"
 #include <record/file.h>
 
 API void f() {}

@@ -1,14 +1,15 @@
 #pragma once
 
 #include <defs.h>
-#include <unordered_set>
-#include <unordered_map>
 #include <fs/utils/pagedef.h>
+#include <unordered_map>
+#include <unordered_set>
 
 class BufPageMap {
 private:
     std::unordered_map<int, int> map[MAX_FILE_NUM];
     page_t map_inv[BUF_CAP];
+
 public:
     bool contains(page_t page) { return map[page.file_id].count(page.page_id); }
 
@@ -34,4 +35,3 @@ public:
         }
     }
 };
-
