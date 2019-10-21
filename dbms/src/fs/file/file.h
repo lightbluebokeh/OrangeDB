@@ -129,6 +129,7 @@ public:
         return write_bytes<use_buf>(offset, (bytes_t)&t, n);
     }
 
+    // warning: 没有将缓存写回，仅供测试
     template<bool use_buf>
     size_t read_bytes(size_t offset, bytes_t bytes, size_t n) {
         if constexpr (use_buf == 0) {

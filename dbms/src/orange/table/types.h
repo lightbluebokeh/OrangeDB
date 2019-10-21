@@ -1,6 +1,7 @@
 #pragma once
 
 #include <defs.h>
+#include <cstring>
 
 struct Type {
     enum Kind {

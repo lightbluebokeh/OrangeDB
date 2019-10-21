@@ -12,7 +12,5 @@ class Table {
     int record_size, record_cnt;
     std::vector<FieldDef> fields;
 
-    void init_metadata() {
-        
-    }
+    
 };

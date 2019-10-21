@@ -33,7 +33,6 @@ int main() {
     }
     cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
-    // bpm->close();
     BufpageManager::get_instance()->write_back();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         ensure(f2->read<0, int>(page_id << PAGE_SIZE_IDX) == page_id, "unexpected result");
