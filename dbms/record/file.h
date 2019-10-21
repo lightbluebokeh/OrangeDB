@@ -8,6 +8,7 @@
 #include <fs/bufmanager/BufPageManager.h>
 #include <fs/bufmanager/buf_page.h>
 #include <fs/bufmanager/buf_page_stream.h>
+#include <record/RawRecord.h>
 #include <record/filed_def.h>
 #include <string>
 #include <vector>
@@ -114,4 +115,6 @@ public:
     }
 
     String get_name() { return this->name; }
+
+    void insert(RawRecord&& raw_record) {}
 };

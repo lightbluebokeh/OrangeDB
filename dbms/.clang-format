@@ -11,6 +11,7 @@ BreakConstructorInitializers: AfterColon
 ColumnLimit: 100
 IndentWidth: 4
 KeepEmptyLinesAtTheStartOfBlocks: false
+NamespaceIndentation: All
 MaxEmptyLinesToKeep: 3
 PointerAlignment: Left
 BreakBeforeBraces: Custom
