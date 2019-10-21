@@ -49,7 +49,7 @@ private:
         BufPageStream bps(get_buf_page(0));
 
         fields.reserve(bps.read<int>());
-        for (int i = 0; i < fields.capacity(); i++) {
+        for (size_t i = 0; i < fields.capacity(); i++) {
             fields.push_back(bps.read<FieldDef>());
         }
         bps.seekoff(sizeof(FieldDef) * (MAX_COL_NUM - fields.size()))

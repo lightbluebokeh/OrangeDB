@@ -14,8 +14,8 @@ class BufPageStream;
 
 class BufPageManager {
     FileManager* fileManager;
-    BufPageMap buf_page_map;
     FindReplace replace;
+    BufPageMap buf_page_map;
     bool dirty[BUF_CAP];
     bytes_t addr[BUF_CAP];
 
@@ -38,7 +38,7 @@ class BufPageManager {
         return {b, buf_id};
     }
 
-    BufPageManager(FileManager* fm) : replace(BUF_CAP), fileManager(fm) {
+    BufPageManager(FileManager* fm) : fileManager(fm), replace(BUF_CAP) {
         memset(dirty, 0, sizeof(dirty));
         memset(addr, 0, sizeof(addr));
     }
