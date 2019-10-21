@@ -29,8 +29,7 @@ class BufPageManager {
         if (b == nullptr) {
             b = alloc_page();
             addr[buf_id] = b;
-        }
-        else {
+        } else {
             write_back(buf_id);
         }
 
@@ -51,8 +50,7 @@ class BufPageManager {
             auto buf = fetch_page(page);
             fileManager->read_page(page, buf.bytes);
             return buf;
-        }
-        else {
+        } else {
             access(buf_id);
             return {addr[buf_id], buf_id};
         }

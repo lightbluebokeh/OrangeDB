@@ -1,5 +1,7 @@
 #pragma once
 
+#include <defs.h>
+
 struct Type {
     enum Kind {
         INT,
@@ -10,7 +12,7 @@ struct Type {
     };
     Kind kind;
     int size;
-    int p = 18, s = 0;   // kind == NUMERIC 才有效
+    int p = 18, s = 0;  // kind == NUMERIC 才有效
 
     // 保证以 0 结尾 233
     static Type parse(const String& raw_type) {
@@ -33,5 +35,4 @@ struct Type {
             throw "ni zhe shi shen me dong xi";
         }
     }
-
 };

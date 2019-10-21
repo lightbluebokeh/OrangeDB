@@ -17,7 +17,7 @@ PointerAlignment: Left
 BreakBeforeBraces: Custom
 BraceWrapping:
     BeforeCatch: true
-    BeforeElse: true
+    BeforeElse: false
 SpacesBeforeTrailingComments: 2
 Standard: Cpp11
 UseTab: Never
