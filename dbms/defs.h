@@ -41,6 +41,5 @@ constexpr int MAX_FILE_NUM = 128;
 #define ensure(expr, msg)                                                                          \
     if ((expr) == 0) {                                                                             \
         std::cerr << RED << "failed: " << RESET << (msg) << std::endl;                             \
-        throw 1;                                                                                   \
-        exit(1);                                                                                   \
+        throw msg;                                                                                 \
     }
