@@ -35,5 +35,4 @@
 build/
 lib/
 bin/
-testfile.txt
-testfile2.txt
+testfile*.txt
