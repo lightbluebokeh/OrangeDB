@@ -1,21 +1,23 @@
 #pragma once
 
+#include <mutex>
+#include <string>
 #include <cassert>
 
-#include <bytes/bytes_io.h>
-#include <fs/bufmanager/FindReplace.h>
-#include <fs/bufmanager/buf_page_map.h>
-#include <fs/fileio/FileManager.h>
+#include <fs/file/file_manager.h>
+#include <fs/bufpage/bufpage_manager.h>
+#include <utils/YourLinkList.h>
+#include <utils/find_replace.h>
+#include <fs/bufpage/bufpage_map.h>
 
-#include <mutex>
 
-class BufPage;
-class BufPageStream;
+class Bufpage;
+class BufpageStream;
 
-class BufPageManager {
+class BufpageManager {
     FileManager* fileManager;
     FindReplace replace;
-    BufPageMap buf_page_map;
+    BufpageMap buf_page_map;
     bool dirty[BUF_CAP];
     bytes_t addr[BUF_CAP];
 
@@ -37,12 +39,12 @@ class BufPageManager {
         return {b, buf_id};
     }
 
-    BufPageManager(FileManager* fm) : fileManager(fm), replace(BUF_CAP) {
+    BufpageManager(FileManager* fm) : fileManager(fm), replace() {
         memset(dirty, 0, sizeof(dirty));
         memset(addr, 0, sizeof(addr));
     }
 
-    BufPageManager(const BufPageManager&) = delete;
+    BufpageManager(const BufpageManager&) = delete;
 
     buf_t get_page_buf(page_t page) {
         int buf_id = buf_page_map.get_buf_id(page);
@@ -85,19 +87,19 @@ public:
 
     bool tracking(page_t page) { return buf_page_map.contains(page); }
 
-    static BufPageManager* get_instance() {
+    static BufpageManager* get_instance() {
         static std::mutex mtx;
-        static BufPageManager* instance = nullptr;
+        static BufpageManager* instance = nullptr;
         if (instance == nullptr) {
             mtx.lock();
             if (instance == nullptr) {
-                instance = new BufPageManager(FileManager::get_instance());
+                instance = new BufpageManager(FileManager::get_instance());
             }
             mtx.unlock();
         }
         return instance;
     }
 
-    friend class BufPage;
-    friend class BufPageStream;
+    friend class Bufpage;
+    friend class BufpageStream;
 };

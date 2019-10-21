@@ -1,7 +1,8 @@
 #pragma once
 
-#include "fs/utils/MyLinkList.h"
-#include "fs/utils/pagedef.h"
+#include <defs.h>
+#include <utils/YourLinkList.h>
+
 // template <int CAP_>
 /*
  * FindReplace
@@ -9,8 +10,8 @@
  */
 class FindReplace {
 private:
-    MyLinkList* list;
-    int CAP_;
+    YourLinkList* list;
+    // int CAP_;
 
 public:
     /*
@@ -40,10 +41,10 @@ public:
      * 构造函数
      * @参数c:表示缓存页面的容量上限
      */
-    FindReplace(int c) {
-        CAP_ = c;
-        list = new MyLinkList(c, 1);
-        for (int i = 0; i < CAP_; ++i) {
+    FindReplace() {
+        // CAP_ = c;
+        list = new YourLinkList(BUF_CAP, 1);
+        for (int i = 0; i < BUF_CAP; ++i) {
             list->insert(0, i);
         }
     }

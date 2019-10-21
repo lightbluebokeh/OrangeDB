@@ -1,11 +1,12 @@
 // warning: 这个测试会产生两个总大小约 1G 的文件 /cy
 
 #include <defs.h>
-#include <fs/bufmanager/BufPageManager.h>
-#include <fs/bufmanager/buf_page.h>
-#include <fs/bufmanager/buf_page_stream.h>
-#include <fs/fileio/FileManager.h>
-#include <fs/utils/pagedef.h>
+
+#include <fs/file/file.h>
+#include <fs/file/file_manager.h>
+#include <fs/bufpage/bufpage.h>
+#include <fs/bufpage/bufpage_stream.h>
+#include <utils/pagedef.h>
 
 using namespace std;
 
@@ -13,7 +14,7 @@ constexpr int TEST_PAGE_NUM = BUF_CAP;
 
 int main() {
     FileManager* fm = FileManager::get_instance();
-    BufPageManager* bpm = BufPageManager::get_instance();
+    BufpageManager* bpm = BufpageManager::get_instance();
 
     fm->create_file("testfile.txt");  //新建文件
     fm->create_file("testfile2.txt");
@@ -25,24 +26,24 @@ int main() {
 
     cerr << "writing..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        BufPage page = {f1, page_id};
-        BufPageStream bps(page);
+        Bufpage page = {f1, page_id};
+        BufpageStream bps(page);
         bps.write(page_id).write(f1);
 
         page = {f2, page_id};
-        bps = BufPageStream(page);
+        bps = BufpageStream(page);
         bps.write(page_id).write(f2);
     }
 
     cerr << "checking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        BufPage page = {f1, page_id};
-        BufPageStream bps(page);
+        Bufpage page = {f1, page_id};
+        BufpageStream bps(page);
         ensure(bps.read<int>() == page_id, "unexpected result");
         ensure(bps.read<int>() == f1, "unexpected result");
 
-        page = BufPage{f2, page_id};
-        bps = BufPageStream(page);
+        page = Bufpage{f2, page_id};
+        bps = BufpageStream(page);
         ensure(bps.read<int>() == page_id, "unexpected result");
         ensure(bps.read<int>() == f2, "unexpected result");
     }
@@ -50,13 +51,13 @@ int main() {
     cerr << "checking write back..." << endl;
     bpm->close();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        BufPage page = {f1, page_id};
-        BufPageStream bps(page);
+        Bufpage page = {f1, page_id};
+        BufpageStream bps(page);
         ensure(bps.read<int>() == page_id, "unexpected result");
         ensure(bps.read<int>() == f1, "unexpected result");
 
-        page = BufPage{f2, page_id};
-        bps = BufPageStream(page);
+        page = Bufpage{f2, page_id};
+        bps = BufpageStream(page);
         ensure(bps.read<int>() == page_id, "unexpected result");
         ensure(bps.read<int>() == f2, "unexpected result");
     }

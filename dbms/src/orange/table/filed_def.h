@@ -2,9 +2,9 @@
 
 #include <defs.h>
 #include <cstring>
-#include <record/types.h>
+#include <orange/table/types.h>
 
-constexpr int MAX_FIELD_LENGTH = 32;
+constexpr int FIELD_NAME_LIM = 32;
 
 // raw type
 typedef struct {
@@ -14,7 +14,7 @@ typedef struct {
 
 class FieldDef {
 private:
-    char name[MAX_FIELD_LENGTH + 1];
+    char name[FIELD_NAME_LIM + 1];
     Type type;
 
     FieldDef(const String& name, const String& raw_type) : type(Type::parse(raw_type)) {

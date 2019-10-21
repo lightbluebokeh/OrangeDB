@@ -1,11 +1,10 @@
 #pragma once
 
 #include <defs.h>
-#include <fs/utils/pagedef.h>
 #include <unordered_map>
 #include <unordered_set>
 
-class BufPageMap {
+class BufpageMap {
 private:
     std::unordered_map<int, int> map[MAX_FILE_NUM];
     page_t map_inv[BUF_CAP];
@@ -29,7 +28,7 @@ public:
         map_inv[buf_id] = page;
     }
 
-    BufPageMap() {
+    BufpageMap() {
         for (int i = 0; i < BUF_CAP; ++i) {
             map_inv[i] = {-1, -1};
         }

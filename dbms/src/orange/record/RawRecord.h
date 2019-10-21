@@ -4,7 +4,6 @@
 #include <unordered_map>
 
 #include <defs.h>
-#include <fs/utils/pagedef.h>
 
 class RawRecord {
     rid_t id;

@@ -9,9 +9,8 @@
 #include <mutex>
 
 #include <defs.h>
-#include <fs/utils/pagedef.h>
 
-class BufPageManager;
+class BufpageManager;
 class File;
 
 class FileManager {
@@ -118,7 +117,7 @@ public:
         return instance;
     }
 
-    friend class BufPageManager;
+    friend class BufpageManager;
     friend class File;
     friend int main();  // for test
 };

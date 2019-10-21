@@ -1,8 +1,7 @@
 #pragma once
 
-#include <bytes/bytes_io.h>
 #include <iostream>
-#include <numeric>
+#include <bytes/bytes_io.h>
 
 // 偷懒 IO 共用一个 offset，请不要同时输入输出 /cy
 class BytesStream {
@@ -113,4 +112,6 @@ public:
         offset += off;
         return *this;
     }
+
+    size_t rest() const { return lim - offset; }
 };

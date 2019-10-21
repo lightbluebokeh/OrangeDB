@@ -18,19 +18,19 @@ struct Type {
     static Type parse(const String& raw_type) {
         int size, p, s;
         if (sscanf(raw_type.data(), "INT(%d)", &size) == 1) {
-            return Type{INT, 4};
+            return {INT, 4};
         } else if (sscanf(raw_type.data(), "VARCHAR(%d)", &size) == 1) {
-            return Type{VARCHAR, size};
+            return {VARCHAR, size};
         } else if (sscanf(raw_type.data(), "CHAR(%d)", &size) == 0) {
-            return Type{CHAR, size};
+            return {CHAR, size};
         } else if (strcmp(raw_type.data(), "DATE") == 0) {
-            return Type{DATE, 2};
+            return {DATE, 2};
         } else if (strcmp(raw_type.data(), "NUMERIC") == 0) {
-            return Type{NUMERIC, 8};
+            return {NUMERIC, 8};
         } else if (sscanf(raw_type.data(), "NUMERIC(%d)", &p) == 1) {
-            return Type{NUMERIC, 8, p};
+            return {NUMERIC, 8, p};
         } else if (sscanf(raw_type.data(), "NUMERIC(%d,%d)", &p, &s) == 2) {
-            return Type{NUMERIC, 8, p, s};
+            return {NUMERIC, 8, p, s};
         } else {
             throw "ni zhe shi shen me dong xi";
         }
