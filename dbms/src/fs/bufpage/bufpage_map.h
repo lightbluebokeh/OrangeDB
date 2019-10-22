@@ -33,4 +33,13 @@ public:
             map_inv[i] = {-1, -1};
         }
     }
+
+    // 返回 file_id 对应文件所有的缓存页编号
+    std::vector<int> get_all(int file_id) {
+        std::vector<int> ret = {};
+        for (auto x: map[file_id]) {
+            ret.push_back(x.second);
+        }
+        return ret;
+    }
 };

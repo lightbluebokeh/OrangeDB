@@ -30,18 +30,22 @@ int main() {
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         f1->seek_pos(page_id << PAGE_SIZE_IDX);
         f1->write<int, 0>(page_id);
+        f2->seek_pos(page_id << PAGE_SIZE_IDX);
         f2->write<int, 1>(page_id);
     }
 
     cerr << "checking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        ensure(f1->read<int, 0>(), "unexpected result");
-        ensure(f2->read<int, 1>(), "unexpected result");
+        f1->seek_pos(page_id << PAGE_SIZE_IDX);
+        ensure(f1->read<int, 0>() == page_id, "unexpected result");
+        f2->seek_pos(page_id << PAGE_SIZE_IDX);
+        ensure(f2->read<int, 1>() == page_id, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
     BufpageManager::get_instance()->write_back();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
+        f2->seek_pos(page_id << PAGE_SIZE_IDX);
         ensure(f2->read<int, 0>() == page_id, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;

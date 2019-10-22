@@ -17,7 +17,7 @@ class BufpageStream;
 class BufpageManager {
     FileManager* fileManager;
     FindReplace replace;
-    BufpageMap buf_page_map;
+    BufpageMap bufpage_map;
     bool dirty[BUF_CAP];
     bytes_t addr[BUF_CAP];
 
@@ -35,7 +35,7 @@ class BufpageManager {
             write_back(buf_id);
         }
 
-        buf_page_map.set_map(page, buf_id);
+        bufpage_map.set_map(page, buf_id);
         return {b, buf_id};
     }
 
@@ -47,7 +47,7 @@ class BufpageManager {
     BufpageManager(const BufpageManager&) = delete;
 
     buf_t get_page_buf(page_t page) {
-        int buf_id = buf_page_map.get_buf_id(page);
+        int buf_id = bufpage_map.get_buf_id(page);
         if (buf_id == -1) {
             auto buf = fetch_page(page);
             fileManager->read_page(page, buf.bytes);
@@ -69,9 +69,10 @@ class BufpageManager {
 
     void write_back(int buf_id) {
         if (dirty[buf_id]) {
-            auto page = buf_page_map.get_page(buf_id);
+            auto page = bufpage_map.get_page(buf_id);
             fileManager->write_page(page, addr[buf_id]);
             dirty[buf_id] = false;
+            access(buf_id);
         }
     }
 
@@ -83,9 +84,9 @@ public:
     }
 
     // 要确保 buf_id 被使用过
-    page_t get_page(int buf_id) { return buf_page_map.get_page(buf_id); }
+    page_t get_page(int buf_id) { return bufpage_map.get_page(buf_id); }
 
-    bool tracking(page_t page) { return buf_page_map.contains(page); }
+    bool tracking(page_t page) { return bufpage_map.contains(page); }
 
     static BufpageManager* get_instance() {
         static std::mutex mtx;
@@ -98,6 +99,12 @@ public:
             mtx.unlock();
         }
         return instance;
+    }
+
+    void wirte_back_file(int file_id) {
+        for (int buf_id: bufpage_map.get_all(file_id)) {
+            write_back(buf_id);
+        }
     }
 
     friend class Bufpage;
