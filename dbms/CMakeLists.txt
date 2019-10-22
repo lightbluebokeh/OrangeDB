@@ -10,6 +10,11 @@ include_directories(
     "thirdparty"
 )
 
+set(SRCS 
+    "src/defs.cpp"
+    "src/orange/orange.cpp"
+)
+
 # 设置编译方式
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "No build type selected, set CMAKE_BUILD_TYPE to Release")
@@ -21,7 +26,7 @@ endif()
 if(UNIX)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
     set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
-
+    link_libraries(-lstdc++fs)
     add_compile_options("-Wall")
     add_compile_options("-Wextra")
 elseif(MSVC)
@@ -30,5 +35,5 @@ elseif(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
     
-add_library(dbms SHARED src/dbms.cpp src/defs.cpp)
-add_executable(test1 test/test1.cpp src/defs.cpp)
+add_library(dbms SHARED src/dbms.cpp ${SRCS})
+add_executable(test1 test/test1.cpp ${SRCS})

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <string>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 using rid_t = uint64_t;
 using String = std::string;
@@ -17,12 +20,12 @@ static_assert(std::is_same_v<ByteArr::value_type, byte_t>);
 
 typedef struct { int file_id, page_id; } page_t;
 
-
 typedef struct { bytes_t bytes = nullptr; int buf_id; } buf_t;
 
 constexpr int MAX_COL_NUM = 20;
-constexpr int MAX_TB_NUM = 16;
-constexpr int MAX_FILE_NUM = MAX_TB_NUM * (1 + 1 + 1 + MAX_COL_NUM); //  对于每张表：元数据+数据+编号+每个属性索引
+constexpr int MAX_TBL_NUM = 16;
+constexpr int MAX_DB_NUM = 5;
+constexpr int MAX_FILE_NUM = MAX_DB_NUM * MAX_TBL_NUM * (1 + 1 + 1 + 1 + MAX_COL_NUM);
 
 #include <iostream>
 
@@ -55,3 +58,24 @@ using ushort = unsigned short;
 using uchar = unsigned char;
 using int64 = long long;
 using uint64 = unsigned long long;
+using uint8 = uint8_t;
+
+// 没法重载赋值 /cy
+constexpr int F_KEY_NAME_LIM = 32;
+struct f_key_name_t { char data[F_KEY_NAME_LIM + 1]; };
+constexpr int COL_NAME_LIM = 32;
+struct col_name_t { char data[COL_NAME_LIM + 1]; };
+constexpr int TBL_NAME_LIM = 32;
+struct tbl_name_t { char data[TBL_NAME_LIM + 1]; };
+constexpr int COL_NAME_LIST_LIM = 5;
+struct col_name_list_t {
+    col_name_t data[COL_NAME_LIST_LIM]; 
+    int size = 0;
+
+    void add(col_name_t name) {
+        if (size == COL_NAME_LIST_LIM) {
+            throw "increase your constant";
+        }
+        data[size++] = name;
+    }
+};

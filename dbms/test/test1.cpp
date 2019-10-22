@@ -13,6 +13,12 @@ using namespace std;
 constexpr int TEST_PAGE_NUM = BUF_CAP;
 
 int main() {
+    fs::create_directory("test_dir");
+    fs::current_path("test_dir");
+    cout << fs::current_path() << endl;
+    fs::current_path("..");
+    cout << fs::current_path() << endl;
+
     String name1 = "testfile1.txt", name2 = "testfile2.txt";
     File::create(name1);
     File::create(name2);
@@ -22,26 +28,27 @@ int main() {
 
     cerr << "writing..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        f1->write<0>(page_id << PAGE_SIZE_IDX, page_id);
-        f2->write<1>(page_id << PAGE_SIZE_IDX, page_id);
+        f1->seek_pos(page_id << PAGE_SIZE_IDX);
+        f1->write<int, 0>(page_id);
+        f2->write<int, 1>(page_id);
     }
 
     cerr << "checking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        ensure(f1->read<0, int>(page_id << PAGE_SIZE_IDX) == page_id, "unexpected result");
-        ensure(f2->read<1, int>(page_id << PAGE_SIZE_IDX) == page_id, "unexpected result");
+        ensure(f1->read<int, 0>(), "unexpected result");
+        ensure(f2->read<int, 1>(), "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
     BufpageManager::get_instance()->write_back();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        ensure(f2->read<0, int>(page_id << PAGE_SIZE_IDX) == page_id, "unexpected result");
+        ensure(f2->read<int, 0>() == page_id, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
 
-    ensure(File::close(f1), "close failed");
+    ensure(f1->close(), "close failed");
     ensure(File::remove(name1), "remove failed");
-    ensure(File::close(f2), "close failed");
+    ensure(f2->close(), "close failed");
     ensure(File::remove(name2), "remove failed");
 
     cerr << "save your disk!" << endl;
