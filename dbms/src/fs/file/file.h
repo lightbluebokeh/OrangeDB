@@ -43,12 +43,12 @@ public:
     bool close() {
         ensure(FileManage::close_file(id) == 0, "close file fail");
         ensure(this == files[id], "this is magic");
+        files[id] = nullptr;
         delete this;
         return 1;
     }
 
     static bool remove(const String& name) {
-        
         // 偷懒.jpg
         if (FileManage::file_opened(name)) open(name)->close();
         ensure(FileManage::remove_file(name) == 0, "remove file failed");

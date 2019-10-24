@@ -6,7 +6,6 @@
 #include <fs/file/file_manage.h>
 #include <fs/bufpage/bufpage.h>
 #include <fs/bufpage/bufpage_stream.h>
-#include <utils/pagedef.h>
 
 using namespace std;
 

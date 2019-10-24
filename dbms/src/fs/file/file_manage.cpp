@@ -16,7 +16,9 @@ static String filenames[MAX_FILE_NUM];
 
 namespace FileManage {
     void init() {
-        for (int i = 0; i < MAX_FILE_NUM; i++) id_pool.push(i);
+        for (int i = 0; i < MAX_FILE_NUM; i++) {
+            id_pool.push(i);
+        }
     }
 
     int write_page(page_t page, bytes_t bytes, int off) {
@@ -74,6 +76,7 @@ namespace FileManage {
         fd = open(name.c_str(), O_RDWR | O_BINARY);
 #endif
         if (fd == -1) return -1;
+        if (id_pool.empty()) return -1;
         file_id = id_pool.top();
         id_pool.pop();
         ::fd[file_id] = fd;

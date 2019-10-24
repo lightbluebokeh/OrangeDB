@@ -1,12 +1,21 @@
 #pragma once
 
-#include <defs.h>
-#include <orange/orange.h>
 #include <filesystem>
-#include <fs/file/file.h>
-#include <orange/table/column.h>
-#include <orange/table/key.h>
+#include <algorithm>
 
+#include <defs.h>
+#include <fs/file/file.h>
+#include <orange/orange.h>
+#include <orange/table/key.h>
+#include <orange/table/column.h>
+
+// 大概是运算的结果的表？
+struct table_t {
+    std::vector<col_t> cols;
+    std::vector<rec_t> recs;
+};
+
+// 数据库中的表
 class Table {
     int id;
     tbl_name_t name;
@@ -17,8 +26,9 @@ class Table {
     ~Table() {}
 
     // metadata
-    int record_size, record_cnt;
+    int rec_cnt;
     std::vector<col_t> cols;
+    size_t col_offset[MAX_COL_NUM];
     p_key_t p_key;
     std::vector<f_key_t> f_keys;
 
@@ -35,16 +45,13 @@ class Table {
         for (auto col: cols) {
             file->write(col);
         }
-        record_size = 0;
-        for (auto col: cols) record_size += col.get_size();
-        file->write(record_size)
-            ->write(record_cnt)
+        file->write(rec_cnt)
             ->write(p_key)
             ->write(f_keys.size(), 4);
         for (auto f_key: f_keys) {
             file->write(f_key);
         }
-
+        file->close();
     }
 
     void read_metadata() {
@@ -55,8 +62,7 @@ class Table {
         for (int i = 0; i < (int)cols.size(); i++) {
             cols.push_back(file->read<col_t>());
         }
-        file->read(record_size)
-            ->read(record_cnt)
+        file->read(rec_cnt)
             ->read(p_key);
 
         f_keys.clear();
@@ -64,6 +70,7 @@ class Table {
         for (int i = 0; i < (int)f_keys.capacity(); i++) {
             f_keys.push_back(file->read<f_key_t>());
         }
+        file->close();
     }
 
     static Table *tables[MAX_TBL_NUM];
@@ -83,16 +90,17 @@ class Table {
     static void check_db() { ensure(Orange::using_db(), "use some database first"); }
 
 public:
-    static bool create(const String& name, const std::vector<col_t>& cols, p_key_t p_key, const std::vector<f_key_t>& f_keys) {
+    static bool create(const String& name, std::vector<col_t> cols, p_key_t p_key, const std::vector<f_key_t>& f_keys) {
         ensure(!fs::exists(name), "table exists");
         ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
 
         fs::create_directory(name);
         auto table = new_table(name);
-        table->cols = cols;
+        std::sort(cols.begin(), cols.end(), [] (col_t a, col_t b) { return strncmp(a.name.data, b.name.data, COL_NAME_LIM) < 0; });
+        table->cols = std::move(cols);
         table->p_key = p_key;
         table->f_keys = f_keys;
-        table->record_cnt = 0;
+        table->rec_cnt = 0;
         table->write_metadata();
 
         return 1;
@@ -106,24 +114,39 @@ public:
     static Table* open(const String& name) {
         check_db();
         ensure(fs::exists(name), "table[" + name + "] does not exists in database [" + Orange::get_cur() + "]");
-
+        for (int i = 0; i < MAX_TBL_NUM; i++) {
+            if (tables[i] && tables[i]->name.data == name) {
+                // 或者还是抛个异常？ 
+                return tables[i];
+            }
+        }
+        
         auto table = new_table(name);
         table->read_metadata();
         return table;
     }
 
     bool close() {
-        write_metadata();
-        return 1;
-    }
-
-    bool drop() {
-        namespace fs = std::filesystem;
         ensure(this == tables[id], "this is magic");
-        fs::remove(name.data);
+        write_metadata();
         tables[id] = nullptr;
         delete this;
         return 1;
+    }
+
+    static bool drop(const String& name) {
+        check_db();
+        ensure(fs::exists(name), "table [" + name + "] does not exists");
+
+        // 写暴力真爽
+        for (int i = 0; i < MAX_TBL_NUM; i++) {
+            if (tables[i] && tables[i]->name.data == name) {
+                delete tables[i];
+                tables[i] = nullptr;
+                break;
+            }
+        }
+        return fs::remove(name);
     }
 
     // 一般是换数据库的时候调用这个
@@ -132,5 +155,9 @@ public:
             delete tables[i];
             tables[i] = nullptr;
         }
+    }
+
+    void insert(table_t table) {
+        
     }
 };

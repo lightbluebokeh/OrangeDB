@@ -14,18 +14,16 @@ constexpr bool is_byte_v = (sizeof(T) == 1);
 using byte_t = uint8_t;
 static_assert(is_byte_v<byte_t>);
 using bytes_t = byte_t*;
-
-using ByteArr = std::basic_string<byte_t>;
-static_assert(std::is_same_v<ByteArr::value_type, byte_t>);
+using rec_t = std::vector<byte_t>;
 
 typedef struct { int file_id, page_id; } page_t;
 
 typedef struct { bytes_t bytes = nullptr; int buf_id; } buf_t;
 
 constexpr int MAX_COL_NUM = 20;
-constexpr int MAX_TBL_NUM = 16;
+constexpr int MAX_TBL_NUM = 12;
 constexpr int MAX_DB_NUM = 5;
-constexpr int MAX_FILE_NUM = MAX_DB_NUM * MAX_TBL_NUM * (1 + 1 + 1 + 1 + MAX_COL_NUM);
+constexpr int MAX_FILE_NUM = MAX_DB_NUM * MAX_TBL_NUM * (4 + 2 * MAX_COL_NUM);
 
 #include <iostream>
 
