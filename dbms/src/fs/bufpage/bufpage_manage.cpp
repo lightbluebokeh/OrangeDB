@@ -1,3 +1,6 @@
+#include <utils/find_replace.h>
+#include <fs/file/file_manage.h>
+#include <fs/bufpage/bufpage_map.h>
 #include <fs/bufpage/bufpage_manage.h>
 
 // FileManager* fileManager;

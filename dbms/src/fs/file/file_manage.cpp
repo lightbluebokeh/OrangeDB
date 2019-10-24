@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include <fs/file/file_manage.h>
+#include <fs/bufpage/bufpage_manage.h>
 
 static int fd[MAX_FILE_NUM];
 static std::stack<int> id_pool;
@@ -14,6 +15,10 @@ static std::unordered_map<String, int> opened_files;
 static String filenames[MAX_FILE_NUM];
 
 namespace FileManage {
+    void init() {
+        for (int i = 0; i < MAX_FILE_NUM; i++) id_pool.push(i);
+    }
+
     int write_page(page_t page, bytes_t bytes, int off) {
         int f = fd[page.file_id];
         off_t offset = page.page_id;
@@ -42,6 +47,7 @@ namespace FileManage {
         id_pool.push(file_id);
         int f = fd[file_id];
         opened_files.erase(filenames[file_id]);
+        BufpageManage::wirte_back_file(file_id);
         return close(f);
     }
     int create_file(const String& name) {

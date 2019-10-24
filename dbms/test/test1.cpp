@@ -13,6 +13,7 @@ using namespace std;
 constexpr int TEST_PAGE_NUM = BUF_CAP;
 
 int main() {
+    FileManage::init();
     fs::create_directory("test_dir");
     fs::current_path("test_dir");
     cout << fs::current_path() << endl;

@@ -16,6 +16,7 @@ class Table {
     }
     ~Table() {}
 
+    // metadata
     int record_size, record_cnt;
     std::vector<col_t> cols;
     p_key_t p_key;
@@ -87,7 +88,6 @@ public:
         ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
 
         fs::create_directory(name);
-        // String a = String(name.data, strlen(name.data));
         auto table = new_table(name);
         table->cols = cols;
         table->p_key = p_key;
@@ -103,13 +103,18 @@ public:
         return fs::exists(name);
     }
 
-    static Table* get(const String& name) {
+    static Table* open(const String& name) {
         check_db();
-        ensure(fs::exists(name), "table does not exists in database " + Orange::get_cur());
+        ensure(fs::exists(name), "table[" + name + "] does not exists in database [" + Orange::get_cur() + "]");
 
         auto table = new_table(name);
         table->read_metadata();
         return table;
+    }
+
+    bool close() {
+        write_metadata();
+        return 1;
     }
 
     bool drop() {
