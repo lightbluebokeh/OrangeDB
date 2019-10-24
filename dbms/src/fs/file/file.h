@@ -90,7 +90,15 @@ public:
 
     template<typename T, bool use_buf = true>
     File* write(const T& t, size_t n = sizeof(T)) {
-        return write_bytes<use_buf>((bytes_t)&t, n);
+        if constexpr (is_std_vector_v<T>) {
+            File* ret = write<typename T::size_type, use_buf>(t.size());
+            for (auto x: t) {
+                ret->write<typename T::value_type, use_buf>(x);
+            }
+            return ret;
+        } else {
+            return write_bytes<use_buf>((bytes_t)&t, n);
+        }
     }
 
     // warning: 直接写文件的时候没有将缓存写回，仅供测试
@@ -127,7 +135,21 @@ public:
     }
 
     template<typename T, bool use_buf = true>
-    File* read(T& t, size_t n = sizeof(T)) { return read_bytes<use_buf>((bytes_t)&t, n); }
+    File* read(T& t, size_t n = sizeof(T)) { 
+        if constexpr (is_std_vector_v<T>) {
+            using size_t = typename T::size_type;
+            using value_t = typename T::value_type;
+            size_t size;
+            File* ret = read<size_t, use_buf>(size);
+            t.resize(size);
+            for (size_t i = 0; i < size; i++) {
+                ret = ret->read<value_t, use_buf>(t[i]);
+            }
+            return ret;
+        } else {
+            return read_bytes<use_buf>((bytes_t)&t, n); 
+        }
+    }
 
     template<typename T, bool use_buf = true>
     T read() {
@@ -136,11 +158,6 @@ public:
         return *(T*)bytes;
     }
 
-    template<typename T, bool use_buf = true>
-    File* write_vec(const std::vector<T>& vec) {
-        
-    }
-
-    void seek_pos(size_t pos) { offset = pos; }
-    void seek_off(size_t off) { offset += off; }
+    File* seek_pos(size_t pos) { offset = pos; return this; }
+    File* seek_off(size_t off) { offset += off; return this; }
 };

@@ -28,51 +28,35 @@ class Table {
     // metadata
     int rec_cnt;
     std::vector<col_t> cols;
-    // rec_t dft[MAX_COL_NUM];
-
+    std::vector<rec_t> dft;
     size_t col_offset[MAX_COL_NUM];
+
     p_key_t p_key;
     std::vector<f_key_t> f_keys;
 
-    inline String metadata_name() { return String(name.data) + "/metadata.txt"; }
-    inline String data_name() { return String(name.data) + "/data.txt"; }
+    inline String metadata_name() { return name.get() + "/metadata.tbl"; }
 
     void write_metadata() {
         if (!fs::exists(metadata_name())) File::create(metadata_name());
-
-        auto file = File::open(metadata_name());
-        file->seek_pos(0);
-
-        file->write(cols.size(), 1);
-        for (auto col: cols) {
-            file->write(col);
-        }
-        file->write(rec_cnt)
+        File::open(metadata_name())
+            ->seek_pos(0)
+            ->write(cols)
+            ->write(rec_cnt)
             ->write(p_key)
-            ->write(f_keys.size(), 4);
-        for (auto f_key: f_keys) {
-            file->write(f_key);
-        }
-        file->close();
+            ->write(f_keys)
+            ->close();
+
+        constexpr int a = sizeof(std::vector<int>);
     }
 
     void read_metadata() {
-        auto file = File::open(metadata_name());
-        file->seek_pos(0);
-        cols.clear();
-        cols.reserve(file->read<byte_t>());
-        for (int i = 0; i < (int)cols.size(); i++) {
-            cols.push_back(file->read<col_t>());
-        }
-        file->read(rec_cnt)
-            ->read(p_key);
-
-        f_keys.clear();
-        f_keys.reserve(file->read<int>());
-        for (int i = 0; i < (int)f_keys.capacity(); i++) {
-            f_keys.push_back(file->read<f_key_t>());
-        }
-        file->close();
+        File::open(metadata_name())
+            ->seek_pos(0)
+            ->read(cols)
+            ->read(rec_cnt)
+            ->read(p_key)
+            ->read(f_keys)
+            ->close();
     }
 
     static Table *tables[MAX_TBL_NUM];

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -80,3 +81,10 @@ struct col_name_list_t {
         data[size++] = name;
     }
 };
+
+template<typename>
+struct is_std_vector : std::false_type {};
+template<typename T>
+struct is_std_vector<std::vector<T>> : std::true_type {};
+template<typename T>
+constexpr bool is_std_vector_v = is_std_vector<T>::value;
