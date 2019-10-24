@@ -9,7 +9,6 @@
 
 class Table {
     int id;
-    // String dbname;
     tbl_name_t name;
 
     Table(int id, const String& name) : id(id) {
@@ -122,7 +121,7 @@ public:
         return 1;
     }
 
-
+    // 一般是换数据库的时候调用这个
     static void close_all() {
         for (int i = 0; i < MAX_TBL_NUM; i++) {
             delete tables[i];

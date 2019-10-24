@@ -1,7 +1,7 @@
 #pragma once
 
 #include <defs.h>
-#include <fs/bufpage/bufpage_manager.h>
+#include <fs/bufpage/bufpage_manage.h>
 
 class File;
 
@@ -15,10 +15,9 @@ public:
     Bufpage(int file_id, int page_id) : Bufpage(page_t{file_id, page_id}) {}
 
     void ensure_buf() {
-        auto bfm = BufpageManager::get_instance();
         static_assert(sizeof(page_t) == sizeof(int64));
-        if (buf.bytes == nullptr || *(int64*)&page == *(int64*)&(const page_t&)bfm->get_page(buf.buf_id)) {
-            buf = bfm->get_page_buf(page);
+        if (buf.bytes == nullptr || *(int64*)&page == *(int64*)&(const page_t&)BufpageManage::get_page(buf.buf_id)) {
+            buf = BufpageManage::get_page_buf(page);
         }
     }
 

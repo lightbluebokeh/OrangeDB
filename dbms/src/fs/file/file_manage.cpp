@@ -1,33 +1,20 @@
-#pragma once
-
-#include <fcntl.h>
 #include <stack>
-#include <unordered_map>
+#include <fcntl.h>
 #include <unordered_set>
-#include <mutex>
+#include <unordered_map>
 
-#include <defs.h>
+#include <fs/file/file_manage.h>
 
-class BufpageManager;
-class File;
+static int fd[MAX_FILE_NUM];
+static std::stack<int> id_pool;
 
-class FileManager {
-private:
-    int fd[MAX_FILE_NUM];
-    std::stack<int> id_pool;
+static std::unordered_set<String> files;
+static std::unordered_map<String, int> opened_files;
+// 其实就是上面的逆映射
+static String filenames[MAX_FILE_NUM];
 
-    std::unordered_set<String> files;
-    std::unordered_map<String, int> opened_files;
-    String opened_filenames[MAX_FILE_NUM];
-
-    FileManager() {
-        for (int i = 0; i < MAX_FILE_NUM; i++) {
-            id_pool.push(i);
-        }
-    }
-    FileManager(const FileManager&) = delete;
-
-    int write_page(page_t page, bytes_t bytes, int off = 0) {
+namespace FileManage {
+    int write_page(page_t page, bytes_t bytes, int off) {
         int f = fd[page.file_id];
         off_t offset = page.page_id;
         offset = (offset << PAGE_SIZE_IDX);
@@ -39,8 +26,7 @@ private:
         error = write(f, b, PAGE_SIZE);
         return 0;
     }
-
-    int read_page(page_t page, bytes_t bytes, int off = 0) {
+    int read_page(page_t page, bytes_t bytes, int off) {
         int f = fd[page.file_id];
         off_t offset = page.page_id;
         offset = (offset << PAGE_SIZE_IDX);
@@ -52,14 +38,12 @@ private:
         error = read(f, (void*)b, PAGE_SIZE);
         return 0;
     }
-
     int close_file(int file_id) {
         id_pool.push(file_id);
         int f = fd[file_id];
-        opened_files.erase(opened_filenames[file_id]);
+        opened_files.erase(filenames[file_id]);
         return close(f);
     }
-
     int create_file(const String& name) {
         if (file_exists(name)) return 0;
         FILE* f = fopen(name.c_str(), "ab+");
@@ -71,7 +55,6 @@ private:
         fclose(f);
         return 0;
     }
-
     // return fd if success
     int open_file(const String& name, int& file_id, int& fd) {
         if (!file_exists(name)) return -1;
@@ -87,38 +70,17 @@ private:
         if (fd == -1) return -1;
         file_id = id_pool.top();
         id_pool.pop();
-        this->fd[file_id] = fd;
+        ::fd[file_id] = fd;
         opened_files[name] = file_id;
-        opened_filenames[file_id] = name;
+        filenames[file_id] = name;
         return 0;
     }
-
     int remove_file(const String& name) {
         if (!file_exists(name)) return 0;
-        if (file_opened(name)) {
-            return -1;
-        }
+        if (file_opened(name)) close_file(opened_files[name]);
         files.erase(name);
-        int ret = remove(name.c_str());
-        return ret;
+        return remove(name.c_str());
     }
-
-public:
     bool file_opened(const String& name) { return opened_files.count(name); }
     bool file_exists(const String& name) { return files.count(name); }
-
-    static FileManager* get_instance() {
-        static std::mutex mutex;
-        static FileManager* instance = nullptr;
-        if (instance == nullptr) {
-            mutex.lock();
-            if (instance == nullptr) instance = new FileManager;
-            mutex.unlock();
-        }
-        return instance;
-    }
-
-    friend class BufpageManager;
-    friend class File;
-    friend int main();  // for test
-};
+}

@@ -13,6 +13,8 @@ include_directories(
 set(SRCS 
     "src/defs.cpp"
     "src/orange/orange.cpp"
+    "src/fs/file/file_manage.cpp"
+    "src/fs/bufpage/bufpage_manage.cpp"
 )
 
 # 设置编译方式

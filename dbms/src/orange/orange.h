@@ -4,6 +4,7 @@
 #include <unordered_set>
 
 namespace Orange {
+    void init();
     bool exists(const String& name);
     bool create(const String& name);
     bool drop(const String& name);

@@ -3,7 +3,7 @@
 #include <defs.h>
 
 #include <fs/file/file.h>
-#include <fs/file/file_manager.h>
+#include <fs/file/file_manage.h>
 #include <fs/bufpage/bufpage.h>
 #include <fs/bufpage/bufpage_stream.h>
 #include <utils/pagedef.h>
@@ -43,7 +43,7 @@ int main() {
     }
     cerr << GREEN << "success" << RESET << endl;
     cerr << "checking write back..." << endl;
-    BufpageManager::get_instance()->write_back();
+    BufpageManage::write_back();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         f2->seek_pos(page_id << PAGE_SIZE_IDX);
         ensure(f2->read<int, 0>() == page_id, "unexpected result");

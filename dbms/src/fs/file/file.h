@@ -6,9 +6,9 @@
 #include <vector>
 
 #include <defs.h>
-#include <fs/file/file_manager.h>
+#include <fs/file/file_manage.h>
 #include <fs/bufpage/bufpage.h>
-#include <fs/bufpage/bufpage_manager.h>
+#include <fs/bufpage/bufpage_manage.h>
 #include <fs/bufpage/bufpage_stream.h>
 
 // 打开的文件
@@ -23,36 +23,35 @@ private:
 
     ~File() {}
 
-    Bufpage get_buf_page(int page_id) { return Bufpage(id, page_id); }
+    Bufpage get_bufpage(int page_id) { return Bufpage(id, page_id); }
 
     static File* files[MAX_FILE_NUM];
 public:
     static bool create(const std::string& name) {
-        auto fm = FileManager::get_instance();
-        ensure(fm->create_file(name.c_str()) == 0, "file create fail");
+        ensure(FileManage::create_file(name.c_str()) == 0, "file create fail");
         return 1;
     }
 
     // 不存在就错误了
     static File* open(const String& name) {
-        auto fm = FileManager::get_instance();
         int id, fd;
-        ensure(fm->open_file(name.c_str(), id, fd) == 0, "file open failed");
+        ensure(FileManage::open_file(name.c_str(), id, fd) == 0, "file open failed");
         if (files[id] == nullptr) files[id] = new File(id, fd, name);
         return files[id];
     }
 
     bool close() {
-        auto fm = FileManager::get_instance();
-        ensure(fm->close_file(id) == 0, "close file fail");
+        ensure(FileManage::close_file(id) == 0, "close file fail");
         ensure(this == files[id], "this is magic");
         delete this;
         return 1;
     }
 
     static bool remove(const String& name) {
-        auto fm = FileManager::get_instance();
-        ensure(fm->remove_file(name) == 0, "remove file failed");
+        
+        // 偷懒.jpg
+        if (FileManage::file_opened(name)) open(name)->close();
+        ensure(FileManage::remove_file(name) == 0, "remove file failed");
         return 1;
     }
  

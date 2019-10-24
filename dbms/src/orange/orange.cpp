@@ -36,7 +36,6 @@ namespace Orange {
 
     std::vector<String> all() { return {names.begin(), names.end()}; }
     std::vector<String> all_tables() {
-        // if (cur == "") return {};
         if (!using_db()) return {};
         std::vector<String> ret;
         for (auto it: fs::directory_iterator(cur)) {
