@@ -15,9 +15,6 @@ int main() {
     FileManage::init();
     fs::create_directory("test_dir");
     fs::current_path("test_dir");
-    cout << fs::current_path() << endl;
-    fs::current_path("..");
-    cout << fs::current_path() << endl;
 
     String name1 = "testfile1.txt", name2 = "testfile2.txt";
     File::create(name1);
@@ -28,25 +25,27 @@ int main() {
 
     cerr << "writing..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        f1->seek_pos(page_id << PAGE_SIZE_IDX);
-        f1->write<int, 0>(page_id);
-        f2->seek_pos(page_id << PAGE_SIZE_IDX);
-        f2->write<int, 1>(page_id);
+        printf("\r page id: %d", page_id);
+        f1->seek_pos(page_id << PAGE_SIZE_IDX)
+            ->write<std::vector<int>, 0>({page_id, page_id + 233, page_id + 2333});
+        f2->seek_pos(page_id << PAGE_SIZE_IDX)
+            ->write<std::vector<int>, 1>({page_id, page_id - 233, page_id - 2333});
     }
 
-    cerr << "checking buf..." << endl;
+    cerr << "\nchecking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         f1->seek_pos(page_id << PAGE_SIZE_IDX);
-        ensure(f1->read<int, 0>() == page_id, "unexpected result");
+        ensure(f1->read<std::vector<int>, 0>() == (std::vector<int>){page_id, page_id + 233, page_id + 2333}, "unexpected result");
         f2->seek_pos(page_id << PAGE_SIZE_IDX);
-        ensure(f2->read<int, 1>() == page_id, "unexpected result");
+        ensure(f2->read<std::vector<int>, 1>() == (std::vector<int>){page_id, page_id - 233, page_id - 2333}, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
+
     cerr << "checking write back..." << endl;
     BufpageManage::write_back();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         f2->seek_pos(page_id << PAGE_SIZE_IDX);
-        ensure(f2->read<int, 0>() == page_id, "unexpected result");
+        ensure(f2->read<std::vector<int>, 0>() == (std::vector<int>){page_id, page_id - 233, page_id - 2333}, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
 
@@ -55,6 +54,7 @@ int main() {
     ensure(f2->close(), "close failed");
     ensure(File::remove(name2), "remove failed");
 
+    fs::remove("test_dir");
     cerr << "save your disk!" << endl;
 
     return 0;

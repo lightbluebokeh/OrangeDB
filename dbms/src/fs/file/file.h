@@ -62,7 +62,7 @@ public:
             ::write(fd, bytes, n);
         } else {
             int page_id = offset >> PAGE_SIZE_IDX;
-            offset &= PAGE_SIZE - 1;
+            auto offset  = this->offset & (PAGE_SIZE - 1);
             BufpageStream bps(Bufpage(id, page_id));
             bps.seekpos(offset);
             auto rest = bps.rest();
@@ -109,7 +109,8 @@ public:
             ::read(fd, bytes, n);
         } else {
             int page_id = offset >> PAGE_SIZE_IDX;
-            offset &= PAGE_SIZE - 1;
+            auto offset = this->offset & (PAGE_SIZE - 1);
+            // offset &= PAGE_SIZE - 1;
             BufpageStream bps(Bufpage(id, page_id));
             bps.seekpos(offset);
             auto rest = bps.rest();
@@ -131,6 +132,7 @@ public:
                 }
             }
         }
+        offset += n;
         return this;
     }
 
@@ -153,9 +155,9 @@ public:
 
     template<typename T, bool use_buf = true>
     T read() {
-        static byte_t bytes[sizeof(T)];
-        read_bytes<use_buf>(bytes, sizeof(T));
-        return *(T*)bytes;
+        T t;
+        read<T, use_buf>(t);
+        return t;
     }
 
     File* seek_pos(size_t pos) { offset = pos; return this; }
