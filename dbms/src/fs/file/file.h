@@ -136,6 +136,11 @@ public:
         return *(T*)bytes;
     }
 
+    template<typename T, bool use_buf = true>
+    File* write_vec(const std::vector<T>& vec) {
+        
+    }
+
     void seek_pos(size_t pos) { offset = pos; }
     void seek_off(size_t off) { offset += off; }
 };

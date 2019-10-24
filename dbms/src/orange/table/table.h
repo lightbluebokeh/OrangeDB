@@ -28,6 +28,8 @@ class Table {
     // metadata
     int rec_cnt;
     std::vector<col_t> cols;
+    // rec_t dft[MAX_COL_NUM];
+
     size_t col_offset[MAX_COL_NUM];
     p_key_t p_key;
     std::vector<f_key_t> f_keys;
@@ -155,6 +157,10 @@ public:
             delete tables[i];
             tables[i] = nullptr;
         }
+    }
+
+    bool check_insert() {
+        
     }
 
     void insert(table_t table) {

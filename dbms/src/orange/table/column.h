@@ -43,7 +43,7 @@ struct col_t {
     datatype_t datatype;
     bool nullable;
 
-    int get_size() { return datatype.size + nullable; }
+    int get_size() { return nullable + datatype.size; }
 };
 
 constexpr auto col_size = sizeof(col_t);

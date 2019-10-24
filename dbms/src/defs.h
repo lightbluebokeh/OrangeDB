@@ -64,7 +64,10 @@ struct f_key_name_t { char data[F_KEY_NAME_LIM + 1]; };
 constexpr int COL_NAME_LIM = 32;
 struct col_name_t { char data[COL_NAME_LIM + 1]; };
 constexpr int TBL_NAME_LIM = 32;
-struct tbl_name_t { char data[TBL_NAME_LIM + 1]; };
+struct tbl_name_t { 
+    char data[TBL_NAME_LIM + 1]; 
+    String get() { return "[" + String(data) + "]"; }
+};
 constexpr int COL_NAME_LIST_LIM = 5;
 struct col_name_list_t {
     col_name_t data[COL_NAME_LIST_LIM]; 
