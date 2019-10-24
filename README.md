@@ -28,11 +28,13 @@ TODO
 
 一张表在其数据库目录下对应一个文件夹，下有：
 
-- 元数据文件 `metatdata.txt`
-- 数据文件 `data.txt`
-- 索引池文件 `pool.txt`
-- 主键索引文件 `index.txt`
-- 索引文件夹 `index/`，下有各列的索引，为 `${colName}.txt`
+- 元数据文件 `metatdata.tbl`
+- 数据文件夹，`data/`：
+  - 下有各列的的数据，名为 `${colName}.db`。大小定长，顺序存放；
+- 编号栈 `id.stk`；
+- 主键索引文件 `primary.idx`；
+- 索引文件夹 `index/`：
+  - 下有各列的索引，为 `${colName}.idx`
 
 #### 元数据
 
