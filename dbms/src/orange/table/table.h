@@ -45,8 +45,6 @@ class Table {
             ->write(p_key)
             ->write(f_keys)
             ->close();
-
-        constexpr int a = sizeof(std::vector<int>);
     }
 
     void read_metadata() {
@@ -82,7 +80,7 @@ public:
 
         fs::create_directory(name);
         auto table = new_table(name);
-        std::sort(cols.begin(), cols.end(), [] (col_t a, col_t b) { return strncmp(a.name.data, b.name.data, COL_NAME_LIM) < 0; });
+        // std::sort(cols.begin(), cols.end(), [] (col_t a, col_t b) { return strncmp(a.name.data, b.name.data, COL_NAME_LIM) < 0; });
         table->cols = std::move(cols);
         table->p_key = p_key;
         table->f_keys = f_keys;

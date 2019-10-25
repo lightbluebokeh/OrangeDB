@@ -89,15 +89,15 @@ public:
     }
 
     template<typename T, bool use_buf = true>
-    File* write(const T& t, size_t n = sizeof(T)) {
+    File* write(const T& t) {
         if constexpr (is_std_vector_v<T>) {
-            File* ret = write<typename T::size_type, use_buf>(t.size());
+            auto ret = write<typename T::size_type, use_buf>(t.size());
             for (auto x: t) {
-                ret->write<typename T::value_type, use_buf>(x);
+                ret->template write<typename T::value_type, use_buf>(x);
             }
             return ret;
         } else {
-            return write_bytes<use_buf>((bytes_t)&t, n);
+            return write_bytes<use_buf>((bytes_t)&t, sizeof(T));
         }
     }
 
@@ -137,20 +137,43 @@ public:
     }
 
     template<typename T, bool use_buf = true>
-    File* read(T& t, size_t n = sizeof(T)) { 
+    File* read(T& t) {
+        File* ret = this;
         if constexpr (is_std_vector_v<T>) {
             using size_t = typename T::size_type;
             using value_t = typename T::value_type;
             size_t size;
-            File* ret = read<size_t, use_buf>(size);
+            ret = ret->read<size_t, use_buf>(size);
             t.resize(size);
             for (size_t i = 0; i < size; i++) {
                 ret = ret->read<value_t, use_buf>(t[i]);
             }
-            return ret;
         } else {
-            return read_bytes<use_buf>((bytes_t)&t, n); 
+            ret = ret->read_bytes<use_buf>((bytes_t)&t, sizeof(T));
         }
+        return ret;
+    }
+
+    template<typename T, typename... Ts, bool use_buf = true>
+    File* read(T& t, Ts&... ts) {        
+        File* ret = this;
+        // if constexpr (is_std_vector_v<T>) {
+        //     using size_t = typename T::size_type;
+        //     using value_t = typename T::value_type;
+        //     size_t size;
+        //     ret = ret->read<size_t, use_buf>(size);
+        //     t.resize(size);
+        //     for (size_t i = 0; i < size; i++) {
+        //         ret = ret->read<value_t, use_buf>(t[i]);
+        //     }
+        // } else {
+        //     ret = ret->read_bytes<use_buf>((bytes_t)&t, n); 
+        // }
+        ret = ret->read(t);
+        if constexpr (sizeof...(Ts) != 0) {
+            ret = ret->read(ts...);
+        }
+        return ret;
     }
 
     template<typename T, bool use_buf = true>
