@@ -16,7 +16,7 @@ public:
 
     void ensure_buf() {
         static_assert(sizeof(page_t) == sizeof(int64));
-        if (buf.bytes == nullptr || *(int64*)&page == *(int64*)&(const page_t&)BufpageManage::get_page(buf.buf_id)) {
+        if (buf.bytes == nullptr || *(int64*)&page != *(int64*)&(const page_t&)BufpageManage::get_page(buf.buf_id)) {
             buf = BufpageManage::get_page_buf(page);
         }
     }

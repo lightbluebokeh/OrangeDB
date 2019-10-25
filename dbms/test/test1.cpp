@@ -27,25 +27,31 @@ int main() {
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         printf("\r page id: %d", page_id);
         f1->seek_pos(page_id << PAGE_SIZE_IDX)
-            ->write<std::vector<int>, 0>({page_id, page_id + 233, page_id + 2333});
+            ->write(page_id + 666, (std::vector<int>){page_id + 233, page_id + 2333});
         f2->seek_pos(page_id << PAGE_SIZE_IDX)
-            ->write<std::vector<int>, 1>({page_id, page_id - 233, page_id - 2333});
+            ->write(page_id - 777, (std::vector<int>){page_id - 62, page_id - 233, page_id - 2333});
     }
 
     cerr << "\nchecking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         f1->seek_pos(page_id << PAGE_SIZE_IDX);
-        ensure(f1->read<std::vector<int>, 0>() == (std::vector<int>){page_id, page_id + 233, page_id + 2333}, "unexpected result");
+        ensure(f1->read<int>() == page_id + 666, "unexpected result");
+        ensure(f1->read<std::vector<int>>() == (std::vector<int>){page_id + 233, page_id + 2333}, "unexpected result");
         f2->seek_pos(page_id << PAGE_SIZE_IDX);
-        ensure(f2->read<std::vector<int>, 1>() == (std::vector<int>){page_id, page_id - 233, page_id - 2333}, "unexpected result");
+        ensure(f2->read<int>() == page_id - 777, "unexpected result");
+        ensure(f2->read<std::vector<int>>() == (std::vector<int>){page_id - 62, page_id - 233, page_id - 2333}, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
 
     cerr << "checking write back..." << endl;
     BufpageManage::write_back();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
+        f1->seek_pos(page_id << PAGE_SIZE_IDX);
+        ensure(f1->read<int>() == page_id + 666, "unexpected result");
+        ensure(f1->read<std::vector<int>>() == (std::vector<int>){page_id + 233, page_id + 2333}, "unexpected result");
         f2->seek_pos(page_id << PAGE_SIZE_IDX);
-        ensure(f2->read<std::vector<int>, 0>() == (std::vector<int>){page_id, page_id - 233, page_id - 2333}, "unexpected result");
+        ensure(f2->read<int>() == page_id - 777, "unexpected result");
+        ensure(f2->read<std::vector<int>>() == (std::vector<int>){page_id - 62, page_id - 233, page_id - 2333}, "unexpected result");
     }
     cerr << GREEN << "success" << RESET << endl;
 
