@@ -21,10 +21,11 @@ typedef struct { int file_id, page_id; } page_t;
 
 typedef struct { bytes_t bytes = nullptr; int buf_id; } buf_t;
 
-constexpr int MAX_COL_NUM = 20;
-constexpr int MAX_TBL_NUM = 12;
 constexpr int MAX_DB_NUM = 5;
-constexpr int MAX_FILE_NUM = MAX_DB_NUM * MAX_TBL_NUM * (4 + 2 * MAX_COL_NUM);
+constexpr int MAX_TBL_NUM = 12;
+constexpr int MAX_COL_NUM = 20;
+// 最多同时打开的文件数目
+constexpr int MAX_FILE_NUM = MAX_TBL_NUM * (2 * MAX_COL_NUM + 3);
 
 #include <iostream>
 
@@ -70,7 +71,7 @@ struct col_name_t {
 constexpr int TBL_NAME_LIM = 32;
 struct tbl_name_t { 
     char data[TBL_NAME_LIM + 1]; 
-    inline String get() { return "[" + String(data) + "]"; }
+    inline String get() { return String(data); }
 };
 constexpr int COL_NAME_LIST_LIM = 5;
 struct col_name_list_t {

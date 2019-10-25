@@ -64,7 +64,7 @@ int main() {
     fs::remove("test_dir");
     cerr << "save your disk!" << endl;
 
-    Table::open("233")->insert({std::make_pair((byte_arr_t){1, 2, 5}, "{1, 2}")});
+    Table::get("233")->insert({std::make_pair((byte_arr_t){1, 2, 5}, "{1, 2}")});
 
     return 0;
 }

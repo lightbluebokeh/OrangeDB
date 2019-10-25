@@ -40,8 +40,6 @@ public:
         return files[id];
     }
 
-    static bool close(const String& name) { open(name)->close(); }
-
     bool close() {
         ensure(FileManage::close_file(id) == 0, "close file fail");
         ensure(this == files[id], "this is magic");

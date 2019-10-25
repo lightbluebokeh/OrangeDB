@@ -43,7 +43,7 @@ private:
 
         bool ajust(const byte_arr_t& byte_arr) {
             throw "unimplemented";
-            return 1;
+            return byte_arr.size();
         }
     };
     col_name_t name;
