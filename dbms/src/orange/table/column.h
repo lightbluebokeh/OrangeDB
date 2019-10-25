@@ -3,7 +3,8 @@
 #include <defs.h>
 #include <cstring>
 
-struct col_t {
+class col_t {
+private:
     struct datatype_t {
         enum kind_t {
             INT,
@@ -19,12 +20,14 @@ struct col_t {
         // 保证以 0 结尾 233
         static datatype_t parse(const String& raw_type) {
             int size, p, s;
-            if (sscanf(raw_type.data(), "INT(%d)", &size) == 1) {
+            if (raw_type == "INT") {
                 return {INT, 4};
             } else if (sscanf(raw_type.data(), "VARCHAR(%d)", &size) == 1) {
-                return {VARCHAR, size};
+                ensure(size <= MAX_CHAR_LEN, "varchar limit too long");
+                return {VARCHAR, size + 1};
             } else if (sscanf(raw_type.data(), "CHAR(%d)", &size) == 0) {
-                return {CHAR, size};
+                ensure(size <= MAX_CHAR_LEN, "char limit too long");
+                return {CHAR, size + 1};
             } else if (strcmp(raw_type.data(), "DATE") == 0) {
                 return {DATE, 2};
             } else if (strcmp(raw_type.data(), "NUMERIC") == 0) {
@@ -37,13 +40,28 @@ struct col_t {
                 throw "ni zhe shi shen me dong xi";
             }
         }
-    };
 
+        bool ajust(const byte_arr_t& byte_arr) {
+            throw "unimplemented";
+            return 1;
+        }
+    };
     col_name_t name;
     datatype_t datatype;
     bool nullable;
+    // is_null + max + '\0'
+    byte_t dft[MAX_CHAR_LEN + 2];
+public:
+    int get_size() { return 1 + datatype.size; }
+    inline String get_name() { return name.get(); }
+    bool has_dft() { return nullable || dft[0]; }
+    byte_arr_t get_dft() { return byte_arr_t(dft, dft + get_size()); }
 
-    int get_size() { return nullable + datatype.size; }
+    bool ajust(byte_arr_t& byte_arr) {
+        if (byte_arr.empty()) return 0;
+        if (!byte_arr.front()) return nullable;
+        return datatype.ajust(byte_arr);
+    }
 };
 
 constexpr auto col_size = sizeof(col_t);

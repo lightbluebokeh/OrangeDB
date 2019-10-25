@@ -15,7 +15,7 @@ constexpr bool is_byte_v = (sizeof(T) == 1);
 using byte_t = uint8_t;
 static_assert(is_byte_v<byte_t>);
 using bytes_t = byte_t*;
-using rec_t = std::vector<byte_t>;
+using byte_arr_t = std::vector<byte_t>;
 
 typedef struct { int file_id, page_id; } page_t;
 
@@ -63,11 +63,14 @@ using uint8 = uint8_t;
 constexpr int F_KEY_NAME_LIM = 32;
 struct f_key_name_t { char data[F_KEY_NAME_LIM + 1]; };
 constexpr int COL_NAME_LIM = 32;
-struct col_name_t { char data[COL_NAME_LIM + 1]; };
+struct col_name_t {
+    char data[COL_NAME_LIM + 1]; 
+    inline String get() const { return String(data); }
+};
 constexpr int TBL_NAME_LIM = 32;
 struct tbl_name_t { 
     char data[TBL_NAME_LIM + 1]; 
-    String get() { return "[" + String(data) + "]"; }
+    inline String get() { return "[" + String(data) + "]"; }
 };
 constexpr int COL_NAME_LIST_LIM = 5;
 struct col_name_list_t {
@@ -88,3 +91,5 @@ template<typename T>
 struct is_std_vector<std::vector<T>> : std::true_type {};
 template<typename T>
 constexpr bool is_std_vector_v = is_std_vector<T>::value;
+
+constexpr int MAX_CHAR_LEN = 256;

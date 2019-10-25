@@ -12,7 +12,7 @@
 // 大概是运算的结果的表？
 struct table_t {
     std::vector<col_t> cols;
-    std::vector<rec_t> recs;
+    std::vector<byte_arr_t> recs;
 };
 
 // 数据库中的表
@@ -28,33 +28,28 @@ class Table {
     // metadata
     int rec_cnt;
     std::vector<col_t> cols;
-    std::vector<rec_t> dft;
+    std::vector<byte_arr_t> dft;
     size_t col_offset[MAX_COL_NUM];
 
     p_key_t p_key;
     std::vector<f_key_t> f_keys;
 
-    inline String metadata_name() { return name.get() + "/metadata.tbl"; }
+    inline String prefix() { return name.get() + "/"; }
+    inline String metadata_name() { return prefix() + "metadata.tbl"; }
+    inline String data_name(const String& col_name) { return prefix() + "data/" + col_name + ".db";  } 
+    inline String index_name(const String& col_name) { return prefix() + "index/" + col_name + ".idx"; }
+    inline String p_index_name() { return prefix() + "primary.idx"; }
+    inline String id_name() { return prefix() + "id.stk"; }
 
     void write_metadata() {
         if (!fs::exists(metadata_name())) File::create(metadata_name());
-        File::open(metadata_name())
-            ->seek_pos(0)
-            ->write(cols)
-            ->write(rec_cnt)
-            ->write(p_key)
-            ->write(f_keys)
-            ->close();
+        File::open(metadata_name())->seek_pos(0)
+            ->write(cols, rec_cnt, dft, p_key, f_keys);
     }
 
     void read_metadata() {
-        File::open(metadata_name())
-            ->seek_pos(0)
-            ->read(cols)
-            ->read(rec_cnt)
-            ->read(p_key)
-            ->read(f_keys)
-            ->close();
+        File::open(metadata_name())->seek_pos(0)
+            ->read(cols, rec_cnt, dft, p_key, f_keys);
     }
 
     static Table *tables[MAX_TBL_NUM];
@@ -73,6 +68,10 @@ class Table {
 
     static void check_db() { ensure(Orange::using_db(), "use some database first"); }
 
+    void insert_internal(const std::vector<byte_arr_t>& rec) {
+
+    }
+
 public:
     static bool create(const String& name, std::vector<col_t> cols, p_key_t p_key, const std::vector<f_key_t>& f_keys) {
         ensure(!fs::exists(name), "table exists");
@@ -80,7 +79,7 @@ public:
 
         fs::create_directory(name);
         auto table = new_table(name);
-        // std::sort(cols.begin(), cols.end(), [] (col_t a, col_t b) { return strncmp(a.name.data, b.name.data, COL_NAME_LIM) < 0; });
+        std::sort(cols.begin(), cols.end(), [] (col_t a, col_t b) { return a.get_name() < b.get_name(); });
         table->cols = std::move(cols);
         table->p_key = p_key;
         table->f_keys = f_keys;
@@ -113,6 +112,14 @@ public:
     bool close() {
         ensure(this == tables[id], "this is magic");
         write_metadata();
+        File::close(metadata_name());
+        for (auto& col: cols) {
+            File::close(data_name(col.get_name()));
+            File::close(index_name(col.get_name()));
+        }
+        File::close(p_index_name());
+        File::close(id_name());
+
         tables[id] = nullptr;
         delete this;
         return 1;
@@ -125,8 +132,7 @@ public:
         // 写暴力真爽
         for (int i = 0; i < MAX_TBL_NUM; i++) {
             if (tables[i] && tables[i]->name.data == name) {
-                delete tables[i];
-                tables[i] = nullptr;
+                ensure(tables[i]->close(), "close table failed");
                 break;
             }
         }
@@ -135,17 +141,42 @@ public:
 
     // 一般是换数据库的时候调用这个
     static void close_all() {
-        for (int i = 0; i < MAX_TBL_NUM; i++) {
-            delete tables[i];
-            tables[i] = nullptr;
+        for (auto table: tables) {
+            if (table) ensure(table->close(), "close table failed");
         }
     }
 
-    bool check_insert() {
-        
+    void insert(std::vector<std::pair<byte_arr_t, String>> val_name_list) {
+        sort(val_name_list.begin(), val_name_list.end(), [] (auto a, auto b) { return a.second < b.second; });
+        std::vector<byte_arr_t> rec;
+        auto it = cols.begin();
+        for (auto [val, name]: val_name_list) {
+            if (it != cols.end() && it->get_name() > name) continue;
+            while (it != cols.end() && it->get_name() < name) {
+                ensure(it->has_dft(), "no default value for non-null column: " + it->get_name());
+                rec.push_back(it->get_dft());
+                it++;
+            }
+            if (it != cols.end() && it->get_name() == name) {
+                ensure(!it->ajust(val), "column constraints failed");
+                rec.push_back(val);
+                it++;
+                while (it != cols.end() && it->get_name() == (it - 1)->get_name()) it++;
+            }
+        }
+        while (it != cols.end()) {
+            ensure(it->has_dft(), "no default value for non-null column: " + it->get_name());
+            rec.push_back(it->get_dft());
+            it++;
+        }
+        insert_internal(rec);
     }
 
-    void insert(table_t table) {
-        
+    void insert(std::vector<byte_arr_t> rec) {
+        ensure(rec.size() == cols.size(), "wrong parameter size");
+        for (unsigned i = 0; i < rec.size(); i++) {
+            ensure(cols[i].ajust(rec[i]), "column constraints failed");
+        }
+        insert_internal(rec);
     }
 };

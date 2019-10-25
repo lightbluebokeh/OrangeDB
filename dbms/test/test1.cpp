@@ -6,6 +6,7 @@
 #include <fs/file/file_manage.h>
 #include <fs/bufpage/bufpage.h>
 #include <fs/bufpage/bufpage_stream.h>
+#include <orange/table/table.h>
 
 using namespace std;
 
@@ -62,6 +63,8 @@ int main() {
 
     fs::remove("test_dir");
     cerr << "save your disk!" << endl;
+
+    Table::open("233")->insert({std::make_pair((byte_arr_t){1, 2, 5}, "{1, 2}")});
 
     return 0;
 }

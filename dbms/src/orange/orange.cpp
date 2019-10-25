@@ -43,4 +43,6 @@ namespace Orange {
         }
         return ret;
     }
+
+    String get_cur() { return cur; }
 }
