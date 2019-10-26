@@ -36,6 +36,7 @@ elseif(MSVC)
     add_compile_definitions(_CRT_NONSTDC_NO_WARNINGS)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
+
     
 add_library(dbms SHARED src/dbms.cpp ${SRCS})
-add_executable(test1 test/test1.cpp ${SRCS})
+add_executable(test test/tests.cpp test/main.cpp ${SRCS})

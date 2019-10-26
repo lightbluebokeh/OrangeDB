@@ -81,7 +81,7 @@ public:
         return this;
     }
 
-    template<typename T, typename... Ts, bool use_buf = true>
+    template<typename T, typename... Ts>
     File* write(const T& t, const Ts&... ts) {
         auto ret = this;
         if constexpr (is_std_vector_v<T>) {

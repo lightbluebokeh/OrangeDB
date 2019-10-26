@@ -38,7 +38,7 @@ class Table {
     std::vector<f_key_t> f_keys;
 
     File *f_data[MAX_COL_NUM], *f_idx[MAX_COL_NUM], *f_pidx, *f_id;
-    int stk_top;
+    rid_t stk_top;
 
     inline String root() { return get_root(name.get()); }
     inline String data_root() { return root() + "data/"; }
@@ -80,9 +80,10 @@ class Table {
 
     // rec 万无一失
     void insert_internal(const std::vector<byte_arr_t>& rec) {
-        throw "unimplemented";
-        int a = rec.size();
-        a++;
+        rid_t rid = new_rid();
+        for (unsigned i = 0; i < rec.size(); i++) {
+            f_data[i]->seek_pos(rid * cols[i].get_size())->write(rec[i]);
+        }
     }
 
     void open_files() {
@@ -125,6 +126,7 @@ public:
         table->rec_cnt = 0;
         table->write_metadata();
         table->open_files();
+        table->f_id->write(table->stk_top = 0);
 
         return 1;
     }
@@ -143,9 +145,11 @@ public:
         return table;
     }
 
+    //  切换数据库的时候调用
     bool close() {
         ensure(this == tables[id], "this is magic");
         write_metadata();
+        f_id->seek_pos(0)->write(stk_top);
         close_files();
         free_table(this);
         return 1;
@@ -198,5 +202,10 @@ public:
             ensure(cols[i].ajust(rec[i]), "column constraints failed");
         }
         insert_internal(rec);
+    }
+
+    void remove(rid_t rid) { 
+        stk_top++;
+        f_id->seek_pos(sizeof(rid_t) * rid)->write(rid);
     }
 };
