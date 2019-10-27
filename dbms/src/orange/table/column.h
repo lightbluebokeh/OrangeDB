@@ -52,6 +52,7 @@ private:
     // is_null + max + '\0'
     byte_t dft[MAX_CHAR_LEN + 2];
 public:
+    // one more bytes for null/valid
     int get_size() { return 1 + datatype.size; }
     inline String get_name() { return name.get(); }
     bool has_dft() { return nullable || dft[0]; }
@@ -59,7 +60,7 @@ public:
 
     bool ajust(byte_arr_t& byte_arr) {
         if (byte_arr.empty()) return 0;
-        if (!byte_arr.front()) return nullable;
+        if (byte_arr.front() == DATA_NULL) return nullable;
         return datatype.ajust(byte_arr);
     }
 };

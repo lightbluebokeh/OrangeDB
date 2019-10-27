@@ -16,6 +16,7 @@ static String filenames[MAX_FILE_NUM];
 
 namespace FileManage {
     void init() {
+        while (!id_pool.empty()) id_pool.pop();
         for (int i = 0; i < MAX_FILE_NUM; i++) {
             id_pool.push(i);
         }

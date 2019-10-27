@@ -8,6 +8,7 @@
 #include <orange/orange.h>
 #include <orange/table/key.h>
 #include <orange/table/column.h>
+#include <orange/index/index.h>
 
 // 大概是运算的结果的表？
 struct table_t {
@@ -31,7 +32,7 @@ class Table {
     ~Table() {}
 
     // metadata
-    int rec_cnt;
+    cnt_t rec_cnt;
     std::vector<col_t> cols;
 
     p_key_t p_key;
@@ -206,6 +207,46 @@ public:
 
     void remove(rid_t rid) { 
         stk_top++;
+        for (unsigned i = 0; i < cols.size(); i++) {
+            f_data[i]->seek_pos(cols[i].get_size() * rid)->write<byte_t>(DATA_INVALID);
+        }
         f_id->seek_pos(sizeof(rid_t) * rid)->write(rid);
+    }
+
+    auto get(rid_t rid) {
+        static byte_t bytes[MAX_CHAR_LEN + 2];
+
+        std::vector<byte_arr_t> ret;
+        ret.reserve(cols.size());
+        for (unsigned i = 0; i < cols.size(); i++) {
+            f_data[i]->seek_pos(rid * cols[i].get_size())->read_bytes(bytes, cols[i].get_size());
+            ret.push_back(byte_arr_t(bytes, bytes + cols[i].get_size()));
+        }
+        return ret;
+    }
+
+    auto find_col(const String& col_name) {
+        auto it = cols.begin();
+        while (it != cols.end() && it->get_name() != col_name) it++;
+        return it;
+    }
+
+
+    void update(rid_t rid, const String& col_name, byte_arr_t val) {
+        auto pos = find_col(col_name);
+        if (pos == cols.end()) { 
+            throw "yu shi bu jue pao yi chang";
+        }
+
+        int id = pos - cols.begin();
+        auto rec = get(rid);
+        // 确保完整性约束（之类的）
+        remove(rid);
+        rec[id] = val;
+        insert(rec);
+    }
+
+    std::vector<rid_t> get_rid(const String& col_name, const byte_arr_t& val) {
+        
     }
 };

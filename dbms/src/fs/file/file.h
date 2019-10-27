@@ -98,7 +98,6 @@ public:
         return ret;
     }
 
-    // warning: 直接写文件的时候没有将缓存写回，仅供测试
     File* read_bytes(bytes_t bytes, size_t n) {
         int page_id = offset >> PAGE_SIZE_IDX;
         BufpageStream bps(Bufpage(id, page_id));

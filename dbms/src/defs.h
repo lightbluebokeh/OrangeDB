@@ -16,6 +16,7 @@ using byte_t = uint8_t;
 static_assert(is_byte_v<byte_t>);
 using bytes_t = byte_t*;
 using byte_arr_t = std::vector<byte_t>;
+using rec_t = std::vector<byte_arr_t>;
 
 typedef struct { int file_id, page_id; } page_t;
 
@@ -94,3 +95,11 @@ template<typename T>
 constexpr bool is_std_vector_v = is_std_vector<T>::value;
 
 constexpr int MAX_CHAR_LEN = 256;
+
+#define DATA_NULL 0x0
+#define DATA_NORMAL 0x1
+#define DATA_INVALID 0xff
+
+#define UNIMPLEMENTED throw "unimplemented";
+
+using cnt_t = int;

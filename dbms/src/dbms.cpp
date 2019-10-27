@@ -5,5 +5,6 @@
 #endif
 
 #include <orange/table/table.h>
+#include <orange/orange.h>
 
 API void f() {}

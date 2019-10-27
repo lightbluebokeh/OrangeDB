@@ -59,6 +59,7 @@ TEST_CASE("test fs io", "[fs]") {
     ensure(f2->close(), "close failed");
     ensure(File::remove(name2), "remove failed");
 
+    fs::current_path("..");
     fs::remove("test_dir");
     cerr << "save your disk!" << endl;
 }
