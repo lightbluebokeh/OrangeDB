@@ -5,8 +5,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
 
-include_directories("./")
+include_directories(
+    "src",
+    "thirdparty"
+)
 
+set(SRCS 
+    "src/defs.cpp"
+    "src/orange/orange.cpp"
+    "src/fs/file/file_manage.cpp"
+    "src/fs/bufpage/bufpage_manage.cpp"
+)
+ 
 # 设置编译方式
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "No build type selected, set CMAKE_BUILD_TYPE to Release")
@@ -18,13 +28,15 @@ endif()
 if(UNIX)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
     set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
-
+    link_libraries(-lstdc++fs)
     add_compile_options("-Wall")
+    add_compile_options("-Wextra")
 elseif(MSVC)
     add_compile_options("/utf-8")
     add_compile_definitions(_CRT_NONSTDC_NO_WARNINGS)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
+
     
-add_library(dbms SHARED dbms.cpp)
-add_executable(test1 test/test1.cpp)
+add_library(dbms SHARED src/dbms.cpp ${SRCS})
+add_executable(test test/tests.cpp test/main.cpp ${SRCS})

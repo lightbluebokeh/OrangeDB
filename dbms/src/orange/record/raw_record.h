@@ -4,17 +4,13 @@
 #include <unordered_map>
 
 #include <defs.h>
-#include <fs/utils/pagedef.h>
 
 class RawRecord {
-    rid_t id;
     bytes_t data;
     int* offset;
 
 public:
-    RawRecord(rid_t id, bytes_t data, int* offset) : id(id), data(data), offset(offset) {}
-
-    rid_t get_id() const { return id; }
+    RawRecord(bytes_t data, int* offset) : data(data), offset(offset) {}
 
     template <class T>
     T& get(int n) {

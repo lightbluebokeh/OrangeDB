@@ -1,6 +1,7 @@
 #pragma once
+
 // template <int LIST_NUM, int cap>
-class MyLinkList {
+class YourLinkList {
 private:
     struct ListNode {
         int next;
@@ -41,7 +42,7 @@ public:
     int next(int index) { return a[index].next; }
     bool isHead(int index) { return index >= cap; }
     bool isAlone(int index) { return (a[index].next == index); }
-    MyLinkList(int c, int n) {
+    YourLinkList(int c, int n) {
         cap = c;
         LIST_NUM = n;
         a = new ListNode[n + c];

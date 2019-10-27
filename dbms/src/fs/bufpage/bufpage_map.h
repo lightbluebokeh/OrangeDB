@@ -1,11 +1,10 @@
 #pragma once
 
 #include <defs.h>
-#include <fs/utils/pagedef.h>
 #include <unordered_map>
 #include <unordered_set>
 
-class BufPageMap {
+class BufpageMap {
 private:
     std::unordered_map<int, int> map[MAX_FILE_NUM];
     page_t map_inv[BUF_CAP];
@@ -24,14 +23,23 @@ public:
 
     void set_map(page_t page, int buf_id) {
         auto pre = map_inv[buf_id];
-        if (pre != page_t{-1, -1}) map[pre.file_id].erase(pre.page_id);
+        if (pre.page_id != -1) map[pre.file_id].erase(pre.page_id);
         map[page.file_id][page.page_id] = buf_id;
         map_inv[buf_id] = page;
     }
 
-    BufPageMap() {
+    BufpageMap() {
         for (int i = 0; i < BUF_CAP; ++i) {
             map_inv[i] = {-1, -1};
         }
+    }
+
+    // 返回 file_id 对应文件所有的缓存页编号
+    std::vector<int> get_all(int file_id) {
+        std::vector<int> ret = {};
+        for (auto x: map[file_id]) {
+            ret.push_back(x.second);
+        }
+        return ret;
     }
 };

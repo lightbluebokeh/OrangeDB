@@ -36,3 +36,4 @@ build/
 lib/
 bin/
 testfile*.txt
+test_dir/
