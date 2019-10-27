@@ -9,6 +9,7 @@
 #include <orange/table/column.h>
 #include <orange/table/key.h>
 #include <orange/index/index.h>
+#include <utils/id_pool.h>
 
 // 大概是运算的结果的表？
 struct table_t {
@@ -20,6 +21,7 @@ struct table_t {
 class Table {
     int id;
     tbl_name_t name;
+
 
     Table(int id, const String& name) : id(id) {
         memset(f_data, 0, sizeof(f_data));
