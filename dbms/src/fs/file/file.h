@@ -57,7 +57,7 @@ public:
         return true;
     }
 
-    void write_bytes(const bytes_t bytes, size_t n) {
+    File* write_bytes(const bytes_t bytes, size_t n) {
         int page_id = offset >> PAGE_SIZE_IDX;
         BufpageStream bps(Bufpage(id, page_id));
         bps.seekpos(offset & (PAGE_SIZE - 1));
@@ -80,25 +80,27 @@ public:
             }
         }
         offset += tot;
+        return this;
     }
 
     template <typename... T>
-    void write(const T&... args) {
+    File* write(const T&... args) {
         auto write_each = [&](auto&& arg) {
             if constexpr (is_std_vector_v<decltype(arg)>) {
-                write(t.size());
-                for (auto x : t) {
+                write(arg.size());
+                for (auto x : arg) {
                     write(x);
                 }
             } else {
-                write_bytes((bytes_t)&t, sizeof(decltype(arg)));
+                write_bytes((bytes_t)&arg, sizeof(decltype(arg)));
             }
         };
         expand(write_each, args...);
+        return this;
     }
 
     // warning: 直接写文件的时候没有将缓存写回，仅供测试
-    void read_bytes(bytes_t bytes, size_t n) {
+    File* read_bytes(bytes_t bytes, size_t n) {
         int page_id = offset >> PAGE_SIZE_IDX;
         BufpageStream bps(Bufpage(id, page_id));
         bps.seekpos(offset & (PAGE_SIZE - 1));
@@ -121,24 +123,25 @@ public:
             }
         }
         offset += n;
+        return this;
     }
 
-    template <typename T, typename... Ts>
-    void read(T& t, Ts&... ts) {
-        if constexpr (is_std_vector_v<T>) {
-            using size_t = typename T::size_type;
-            size_t size;
-            read(size);
-            t.resize(size);
-            for (size_t i = 0; i < size; i++) {
-                read(t[i]);
+    template <typename... T>
+    File* read(T&... args) {
+        auto read_each = [&](auto& arg) {
+            if constexpr (is_std_vector_v<decltype(arg)>) {
+                size_t size;
+                read(size);
+                arg.resize(size);
+                for (size_t i = 0; i < size; i++) {
+                    read(arg[i]);
+                }
+            } else {
+                read_bytes((bytes_t)&arg, sizeof(decltype(arg)));
             }
-        } else {
-            read_bytes((bytes_t)&t, sizeof(T));
-        }
-        if constexpr (sizeof...(Ts) != 0) {
-            read(ts...);
-        }
+        };
+        expand(read_each, args...);
+        return this;
     }
 
     template <typename T>
@@ -148,6 +151,12 @@ public:
         return t;
     }
 
-    void seek_pos(size_t pos) { offset = pos; }
-    void seek_off(size_t off) { offset += off; }
+    File* seek_pos(size_t pos) {
+        offset = pos;
+        return this;
+    }
+    File* seek_off(size_t off) {
+        offset += off;
+        return this;
+    }
 };

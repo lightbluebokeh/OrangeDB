@@ -32,9 +32,9 @@ const int MAX_FILE_NUM = MAX_TBL_NUM * (2 * MAX_COL_NUM + 3);
 
 #include <iostream>
 
-const char* RESET = "\033[0m";
-const char* RED = "\033[31m";   /* Red */
-const char* GREEN = "\033[32m"; /* Green */
+constexpr const char* RESET = "\033[0m";
+constexpr const char* RED = "\033[31m";   /* Red */
+constexpr const char* GREEN = "\033[32m"; /* Green */
 
 void ensure(bool cond, const String& msg);
 
@@ -100,5 +100,6 @@ const int MAX_CHAR_LEN = 256;
 
 template <class Fn, class... Args>
 void expand(Fn&& func, Args&&... args) {
-    std::initializer_list<int>((func(std::forward<Args&&>(args)), 0)...);
+    int arr[]{(func(std::forward<Args&&>(args)), 0)...};
+    arr[0] = 0;
 }

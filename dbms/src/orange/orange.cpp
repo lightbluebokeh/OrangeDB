@@ -38,11 +38,11 @@ namespace Orange {
     std::vector<String> all_tables() {
         if (!using_db()) return {};
         std::vector<String> ret;
-        for (auto it: fs::directory_iterator(cur)) {
-            if (it.is_directory()) ret.push_back(it.path().filename());
+        for (auto it : fs::directory_iterator(cur)) {
+            if (it.is_directory()) ret.push_back(it.path().filename().string());
         }
         return ret;
     }
 
     String get_cur() { return cur; }
-}
+}  // namespace Orange

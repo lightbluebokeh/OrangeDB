@@ -58,10 +58,10 @@ public:
     bool has_dft() { return nullable || dft[0]; }
     byte_arr_t get_dft() { return byte_arr_t(dft, dft + get_size()); }
 
-    bool ajust(byte_arr_t& byte_arr) {
+    bool adjust(byte_arr_t& byte_arr) {
         if (byte_arr.empty()) return 0;
         if (!byte_arr.front()) return nullable;
-        return datatype.ajust(byte_arr);
+        return datatype.adjust(byte_arr);
     }
 };
 
