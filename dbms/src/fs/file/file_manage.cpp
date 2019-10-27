@@ -1,10 +1,10 @@
-#include <stack>
 #include <fcntl.h>
-#include <unordered_set>
+#include <stack>
 #include <unordered_map>
+#include <unordered_set>
 
-#include <fs/file/file_manage.h>
 #include <fs/bufpage/bufpage_manage.h>
+#include <fs/file/file_manage.h>
 
 static int fd[MAX_FILE_NUM];
 static std::stack<int> id_pool;
@@ -49,7 +49,7 @@ namespace FileManage {
         id_pool.push(file_id);
         int f = fd[file_id];
         opened_files.erase(filenames[file_id]);
-        BufpageManage::wirte_back_file(file_id);
+        BufpageManage::write_back_file(file_id);
         return close(f);
     }
     int create_file(const String& name) {
@@ -70,10 +70,10 @@ namespace FileManage {
             file_id = opened_files[name];
             return 0;
         }
-#if __unix__
-        fd = open(name.c_str(), O_RDWR);
-#else
+#if _WIN32
         fd = open(name.c_str(), O_RDWR | O_BINARY);
+#else
+        fd = open(name.c_str(), O_RDWR);
 #endif
         if (fd == -1) return -1;
         if (id_pool.empty()) return -1;
@@ -92,4 +92,4 @@ namespace FileManage {
     }
     bool file_opened(const String& name) { return opened_files.count(name); }
     bool file_exists(const String& name) { return files.count(name); }
-}
+}  // namespace FileManage

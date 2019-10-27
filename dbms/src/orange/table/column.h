@@ -1,7 +1,7 @@
 #pragma once
 
-#include <defs.h>
 #include <cstring>
+#include <defs.h>
 
 class col_t {
 private:
@@ -41,7 +41,7 @@ private:
             }
         }
 
-        bool ajust(const byte_arr_t& byte_arr) {
+        bool adjust(byte_arr_t& byte_arr) {
             throw "unimplemented";
             return byte_arr.size();
         }
@@ -51,6 +51,7 @@ private:
     bool nullable;
     // is_null + max + '\0'
     byte_t dft[MAX_CHAR_LEN + 2];
+
 public:
     int get_size() { return 1 + datatype.size; }
     inline String get_name() { return name.get(); }

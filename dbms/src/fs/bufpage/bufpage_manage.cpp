@@ -1,14 +1,16 @@
-#include <utils/find_replace.h>
-#include <fs/file/file_manage.h>
-#include <fs/bufpage/bufpage_map.h>
 #include <fs/bufpage/bufpage_manage.h>
+#include <fs/bufpage/bufpage_map.h>
+#include <fs/file/file_manage.h>
+#include <utils/find_replace.h>
 
 // FileManager* fileManager;
 static FindReplace replace;
 static BufpageMap bufpage_map;
 static bool dirty[BUF_CAP];
 static bytes_t addr[BUF_CAP];
-static bytes_t alloc_page() { return new byte_t[PAGE_SIZE]; }
+static bytes_t alloc_page() {
+    return new byte_t[PAGE_SIZE];
+}
 
 static void access(int buf_id) {
     static int last = -1;
@@ -66,8 +68,8 @@ namespace BufpageManage {
 
     bool tracking(page_t page) { return bufpage_map.contains(page); }
 
-    void wirte_back_file(int file_id) {
-        for (int buf_id: bufpage_map.get_all(file_id)) {
+    void write_back_file(int file_id) {
+        for (int buf_id : bufpage_map.get_all(file_id)) {
             ::write_back(buf_id);
         }
     }
@@ -86,4 +88,4 @@ namespace BufpageManage {
 
 
     void mark_dirty(int buf_id) { dirty[buf_id] = true; }
-}
+}  // namespace BufpageManage
