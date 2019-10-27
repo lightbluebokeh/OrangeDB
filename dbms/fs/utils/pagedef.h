@@ -5,9 +5,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#ifdef __linux__
+#ifdef __GNUC__
 #include <unistd.h>
-#define O_BINARY 0
 #elif _WIN32
 #include <io.h>
 #endif
