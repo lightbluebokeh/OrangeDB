@@ -1,7 +1,7 @@
 #pragma once
 
-#include <defs.h>
 #include <cstring>
+#include <defs.h>
 
 class col_t {
 private:
@@ -41,7 +41,7 @@ private:
             }
         }
 
-        bool ajust(const byte_arr_t& byte_arr) {
+        bool adjust(byte_arr_t& byte_arr) {
             throw "unimplemented";
             return byte_arr.size();
         }
@@ -51,6 +51,7 @@ private:
     bool nullable;
     // is_null + max + '\0'
     byte_t dft[MAX_CHAR_LEN + 2];
+
 public:
     // one more bytes for null/valid
     int get_size() { return 1 + datatype.size; }
@@ -58,10 +59,10 @@ public:
     bool has_dft() { return nullable || dft[0]; }
     byte_arr_t get_dft() { return byte_arr_t(dft, dft + get_size()); }
 
-    bool ajust(byte_arr_t& byte_arr) {
+    bool adjust(byte_arr_t& byte_arr) {
         if (byte_arr.empty()) return 0;
-        if (byte_arr.front() == DATA_NULL) return nullable;
-        return datatype.ajust(byte_arr);
+        if (!byte_arr.front()) return nullable;
+        return datatype.adjust(byte_arr);
     }
 };
 

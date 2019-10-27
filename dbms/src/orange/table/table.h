@@ -1,13 +1,13 @@
 #pragma once
 
-#include <filesystem>
 #include <algorithm>
+#include <filesystem>
 
 #include <defs.h>
 #include <fs/file/file.h>
 #include <orange/orange.h>
-#include <orange/table/key.h>
 #include <orange/table/column.h>
+#include <orange/table/key.h>
 #include <orange/index/index.h>
 
 // 大概是运算的结果的表？
@@ -45,15 +45,19 @@ class Table {
     inline String data_root() { return root() + "data/"; }
     inline String index_root() { return root() + "index/"; }
     inline String metadata_name() { return root() + "metadata.tbl"; }
-    inline String data_name(const String& col_name) { return data_root() + col_name + ".db";  } 
+    inline String data_name(const String& col_name) { return data_root() + col_name + ".db"; }
     inline String index_name(const String& col_name) { return index_root() + col_name + ".idx"; }
     inline String p_index_name() { return root() + "primary.idx"; }
     inline String id_name() { return root() + "id.stk"; }
 
-    void write_metadata() { File::open(metadata_name())->seek_pos(0)->write(cols, rec_cnt, p_key, f_keys)->close(); }
-    void read_metadata() { File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close(); }
+    void write_metadata() {
+        File::open(metadata_name())->seek_pos(0)->write(cols, rec_cnt, p_key, f_keys)->close();
+    }
+    void read_metadata() {
+        File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
+    }
 
-    static Table *tables[MAX_TBL_NUM];
+    static Table* tables[MAX_TBL_NUM];
 
     static Table* new_table(const String& name) {
         for (int i = 0; i < MAX_TBL_NUM; i++) {
@@ -110,17 +114,20 @@ class Table {
         tables[table->id] = nullptr;
         delete table;
     }
+
 public:
     static String get_root(const String& name) { return "[" + name + "]/"; }
 
-    static bool create(const String& name, std::vector<col_t> cols, p_key_t p_key, const std::vector<f_key_t>& f_keys) {
+    static bool create(const String& name, std::vector<col_t> cols, p_key_t p_key,
+                       const std::vector<f_key_t>& f_keys) {
         check_db();
         ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
 
         std::error_code e;
         if (!fs::create_directory(get_root(name), e)) throw e.message();
         auto table = new_table(name);
-        std::sort(cols.begin(), cols.end(), [] (col_t a, col_t b) { return a.get_name() < b.get_name(); });
+        std::sort(cols.begin(), cols.end(),
+                  [](col_t a, col_t b) { return a.get_name() < b.get_name(); });
         table->cols = std::move(cols);
         table->p_key = p_key;
         table->f_keys = f_keys;
@@ -165,17 +172,18 @@ public:
 
     // 一般是换数据库的时候调用这个
     static void close_all() {
-        for (auto table: tables) {
+        for (auto table : tables) {
             if (table) ensure(table->close(), "close table failed");
         }
     }
 
     // 这一段代码把输入的值补全
     void insert(std::vector<std::pair<byte_arr_t, String>> val_name_list) {
-        sort(val_name_list.begin(), val_name_list.end(), [] (auto a, auto b) { return a.second < b.second; });
+        sort(val_name_list.begin(), val_name_list.end(),
+             [](auto a, auto b) { return a.second < b.second; });
         std::vector<byte_arr_t> rec;
         auto it = cols.begin();
-        for (auto [val, name]: val_name_list) {
+        for (auto [val, name] : val_name_list) {
             if (it != cols.end() && it->get_name() > name) continue;
             while (it != cols.end() && it->get_name() < name) {
                 ensure(it->has_dft(), "no default value for non-null column: " + it->get_name());
@@ -183,7 +191,7 @@ public:
                 it++;
             }
             if (it != cols.end() && it->get_name() == name) {
-                ensure(!it->ajust(val), "column constraints failed");
+                ensure(!it->adjust(val), "column constraints failed");
                 rec.push_back(val);
                 it++;
                 while (it != cols.end() && it->get_name() == (it - 1)->get_name()) it++;
@@ -200,12 +208,12 @@ public:
     void insert(std::vector<byte_arr_t> rec) {
         ensure(rec.size() == cols.size(), "wrong parameter size");
         for (unsigned i = 0; i < rec.size(); i++) {
-            ensure(cols[i].ajust(rec[i]), "column constraints failed");
+            ensure(cols[i].adjust(rec[i]), "column constraints failed");
         }
         insert_internal(rec);
     }
 
-    void remove(rid_t rid) { 
+    void remove(rid_t rid) {
         stk_top++;
         for (unsigned i = 0; i < cols.size(); i++) {
             f_data[i]->seek_pos(cols[i].get_size() * rid)->write<byte_t>(DATA_INVALID);

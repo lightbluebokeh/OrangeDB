@@ -45,4 +45,4 @@ namespace Orange {
     }
 
     String get_cur() { return cur; }
-}
+}  // namespace Orange

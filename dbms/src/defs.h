@@ -1,48 +1,50 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include <type_traits>
-#include <filesystem>
+
+static_assert(sizeof(std::size_t) == 8, "x64 only");
 
 namespace fs = std::filesystem;
 
 using rid_t = uint64_t;
 using String = std::string;
 
-template <typename T>
-constexpr bool is_byte_v = (sizeof(T) == 1);
-
 using byte_t = uint8_t;
-static_assert(is_byte_v<byte_t>);
 using bytes_t = byte_t*;
+using const_bytes_t = const byte_t*;
 using byte_arr_t = std::vector<byte_t>;
 using rec_t = std::vector<byte_arr_t>;
 
-typedef struct { int file_id, page_id; } page_t;
+struct page_t {
+    int file_id, page_id;
+};
 
-typedef struct { bytes_t bytes = nullptr; int buf_id; } buf_t;
+struct buf_t {
+    bytes_t bytes = nullptr;
+    int buf_id;
+};
 
-constexpr int MAX_DB_NUM = 5;
-constexpr int MAX_TBL_NUM = 12;
-constexpr int MAX_COL_NUM = 20;
+const int MAX_DB_NUM = 5;
+const int MAX_TBL_NUM = 12;
+const int MAX_COL_NUM = 20;
 // 最多同时打开的文件数目
-constexpr int MAX_FILE_NUM = MAX_TBL_NUM * (2 * MAX_COL_NUM + 3);
+const int MAX_FILE_NUM = MAX_TBL_NUM * (2 * MAX_COL_NUM + 3);
 
 #include <iostream>
 
-#define RESET "\033[0m"
-#define RED "\033[31m"   /* Red */
-#define GREEN "\033[32m" /* Green */
+constexpr const char* RESET = "\033[0m";
+constexpr const char* RED = "\033[31m";   /* Red */
+constexpr const char* GREEN = "\033[32m"; /* Green */
 
 void ensure(bool cond, const String& msg);
 
-#ifdef __linux__
+#ifdef __GNUC__
 #include <unistd.h>
-#elif _WIN32
+#elif _MSC_VER
 #include <io.h>
 #endif
-
-#include <defs.h>
 
 constexpr int PAGE_SIZE = 8192;
 constexpr int PAGE_SIZE_IDX = 13;
@@ -62,21 +64,23 @@ using uint64 = unsigned long long;
 using uint8 = uint8_t;
 
 // 没法重载赋值 /cy
-constexpr int F_KEY_NAME_LIM = 32;
-struct f_key_name_t { char data[F_KEY_NAME_LIM + 1]; };
-constexpr int COL_NAME_LIM = 32;
+const int F_KEY_NAME_LIM = 32;
+struct f_key_name_t {
+    char data[F_KEY_NAME_LIM + 1];
+};
+const int COL_NAME_LIM = 32;
 struct col_name_t {
-    char data[COL_NAME_LIM + 1]; 
+    char data[COL_NAME_LIM + 1];
     inline String get() const { return String(data); }
 };
-constexpr int TBL_NAME_LIM = 32;
-struct tbl_name_t { 
-    char data[TBL_NAME_LIM + 1]; 
+const int TBL_NAME_LIM = 32;
+struct tbl_name_t {
+    char data[TBL_NAME_LIM + 1];
     inline String get() { return String(data); }
 };
-constexpr int COL_NAME_LIST_LIM = 5;
+const int COL_NAME_LIST_LIM = 5;
 struct col_name_list_t {
-    col_name_t data[COL_NAME_LIST_LIM]; 
+    col_name_t data[COL_NAME_LIST_LIM];
     int size = 0;
 
     void add(col_name_t name) {
@@ -87,12 +91,12 @@ struct col_name_list_t {
     }
 };
 
-template<typename>
+template <typename>
 struct is_std_vector : std::false_type {};
-template<typename T>
+template <typename T>
 struct is_std_vector<std::vector<T>> : std::true_type {};
-template<typename T>
-constexpr bool is_std_vector_v = is_std_vector<T>::value;
+template <typename T>
+constexpr bool is_std_vector_v = is_std_vector<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
 constexpr int MAX_CHAR_LEN = 256;
 
@@ -103,3 +107,8 @@ constexpr int MAX_CHAR_LEN = 256;
 #define UNIMPLEMENTED throw "unimplemented";
 
 using cnt_t = int;
+template <class Fn, class... Args>
+void expand(Fn&& func, Args&&... args) {
+    int arr[]{(func(std::forward<Args&&>(args)), 0)...};
+    arr[0] = arr[0];
+}
