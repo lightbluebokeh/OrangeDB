@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <filesystem>
 
 #include <defs.h>
@@ -20,37 +21,25 @@ struct table_t {
 // 数据库中的表
 class Table {
     int id;
-    tbl_name_t name;
+    // tbl_name_t name;
+    String name;
+    IdPool<rid_t> rid_pl;
 
-
-    Table(int id, const String& name) : id(id) {
-        memset(f_data, 0, sizeof(f_data));
-        memset(f_idx, 0, sizeof(f_idx));
-        f_pidx = 0;
-        f_id = 0;
-
-        memcpy(this->name.data, name.data(), name.length() + 1);
-    }
+    Table(int id, const String& name) : id(id), name(name), rid_pl(pool_name()) {}
     ~Table() {}
 
     // metadata
     cnt_t rec_cnt;
     std::vector<col_t> cols;
-
     p_key_t p_key;
     std::vector<f_key_t> f_keys;
 
-    File *f_data[MAX_COL_NUM], *f_idx[MAX_COL_NUM], *f_pidx, *f_id;
-    rid_t stk_top;
+    std::vector<Index> idxs;
 
-    inline String root() { return get_root(name.get()); }
+    inline String root() { return get_root(name) + "/"; }
     inline String data_root() { return root() + "data/"; }
-    inline String index_root() { return root() + "index/"; }
     inline String metadata_name() { return root() + "metadata.tbl"; }
-    inline String data_name(const String& col_name) { return data_root() + col_name + ".db"; }
-    inline String index_name(const String& col_name) { return index_root() + col_name + ".idx"; }
-    inline String p_index_name() { return root() + "primary.idx"; }
-    inline String id_name() { return root() + "id.stk"; }
+    inline String pool_name() { return root() + "rid.pl"; }
 
     void write_metadata() {
         File::open(metadata_name())->seek_pos(0)->write(cols, rec_cnt, p_key, f_keys)->close();
@@ -75,40 +64,13 @@ class Table {
 
     static void check_db() { ensure(Orange::using_db(), "use some database first"); }
 
-    rid_t new_rid() {
-        if (stk_top) {
-            return f_id->seek_pos(stk_top-- * sizeof(rid_t))->read<rid_t>();
-        } else {
-            return rec_cnt++;
-        }
-    }
-
-    void recycle_id(rid_t rid) { f_id->seek_pos(++stk_top * sizeof(rid_t))->write(rid); }
-
     // rec 万无一失
     void insert_internal(const std::vector<byte_arr_t>& rec) {
-        rid_t rid = new_rid();
+        rid_t rid = rid_pl.new_id();
         for (unsigned i = 0; i < rec.size(); i++) {
-            f_data[i]->seek_pos(rid * cols[i].get_size())->write(rec[i]);
+            idxs[i].insert(rec[i], rid);
         }
-    }
-
-    void open_files() {
-        for (unsigned i = 0; i < cols.size(); i++) {
-            f_data[i] = File::open(data_name(cols[i].get_name()));
-            f_idx[i] = File::open(index_name(cols[i].get_name()));
-        }
-        f_pidx = File::open(p_index_name());
-        f_id = File::open(id_name());
-    }
-
-    void close_files() {
-        for (unsigned i = 0; i < cols.size(); i++) {
-            f_data[i]->close();
-            f_idx[i]->close();
-        }
-        f_pidx->close();
-        f_id->close();
+        rec_cnt++;
     }
 
     static void free_table(Table* table) {
@@ -117,6 +79,19 @@ class Table {
         delete table;
     }
 
+    void on_create(std::vector<col_t> cols, p_key_t p_key, const std::vector<f_key_t>& f_keys) {
+        std::sort(cols.begin(), cols.end(), [](col_t a, col_t b) { return a.get_name() < b.get_name(); });
+        this->cols = std::move(cols);
+        this->p_key = p_key;
+        this->f_keys = f_keys;
+        this->rec_cnt = 0;
+        write_metadata();
+        rid_pl.init();
+        for (auto col: cols) {
+            idxs.push_back(Index(col.get_size(), data_root()));
+            if (col.is_indexed()) idxs.back().turn_on();
+        }
+    }
 public:
     static String get_root(const String& name) { return "[" + name + "]/"; }
 
@@ -135,9 +110,10 @@ public:
         table->f_keys = f_keys;
         table->rec_cnt = 0;
         table->write_metadata();
-        table->open_files();
-        table->f_id->write(table->stk_top = 0);
-
+        table->rid_pl.init();
+        for (auto col: cols) {
+            table->idxs.push_back(Index(col.get_size(), table->data_root()));
+        }
         return 1;
     }
 
@@ -145,13 +121,13 @@ public:
         check_db();
         ensure(fs::exists(get_root(name)), "table `" + name + "` does not exists");
         for (int i = 0; i < MAX_TBL_NUM; i++) {
-            if (tables[i] && tables[i]->name.data == name) {
+            if (tables[i] && tables[i]->name == name) {
                 return tables[i];
             }
         }
         auto table = new_table(name);
         table->read_metadata();
-        table->open_files();
+        table->rid_pl.load();
         return table;
     }
 
@@ -159,15 +135,14 @@ public:
     bool close() {
         ensure(this == tables[id], "this is magic");
         write_metadata();
-        f_id->seek_pos(0)->write(stk_top);
-        close_files();
         free_table(this);
         return 1;
     }
 
     static bool drop(const String& name) {
         auto table = get(name);
-        table->close_files();
+        // table->close_files();
+        table->close();
         free_table(table);
         return fs::remove(name);
     }
@@ -177,6 +152,12 @@ public:
         for (auto table : tables) {
             if (table) ensure(table->close(), "close table failed");
         }
+    }
+
+    auto find_col(const String& col_name) {
+        auto it = cols.begin();
+        while (it != cols.end() && it->get_name() != col_name) it++;
+        return it;
     }
 
     // 这一段代码把输入的值补全
@@ -215,48 +196,48 @@ public:
         insert_internal(rec);
     }
 
-    void remove(rid_t rid) {
-        stk_top++;
-        for (unsigned i = 0; i < cols.size(); i++) {
-            f_data[i]->seek_pos(cols[i].get_size() * rid)->write<byte_t>(DATA_INVALID);
+    void remove(WhereClause wc) {
+        auto it = find_col(wc.col_name);
+        ensure(it != cols.end(), "where clause failed");
+        int col_id = it - cols.begin();
+        cols[col_id].adjust(wc.val);
+        auto &idx = idxs[col_id];
+        for (auto rid: idx.get_rid(wc.cmp, wc.val)) {
+            idx.remove(rid);
+            rec_cnt--;
         }
-        f_id->seek_pos(sizeof(rid_t) * rid)->write(rid);
     }
 
-    auto get(rid_t rid) {
-        static byte_t bytes[MAX_CHAR_LEN + 2];
-
-        std::vector<byte_arr_t> ret;
-        ret.reserve(cols.size());
-        for (unsigned i = 0; i < cols.size(); i++) {
-            f_data[i]->seek_pos(rid * cols[i].get_size())->read_bytes(bytes, cols[i].get_size());
-            ret.push_back(byte_arr_t(bytes, bytes + cols[i].get_size()));
+    auto select(std::vector<String> names, WhereClause wc) {
+        auto it = find_col(wc.col_name);
+        ensure(it != cols.end(), "where clause failed");
+        int col_id = it - cols.begin();
+        cols[col_id].adjust(wc.val);
+        std::vector<std::vector<byte_arr_t>> ret;
+        std::vector<int> col_ids;
+        for (auto name: names) {
+            auto it = find_col(name);
+            ensure(it != cols.end(), "???");
+            col_ids.push_back(it - cols.begin());
+        }
+        for (auto rid: idxs[col_id].get_rid(wc.cmp, wc.val)) {
+            std::vector<byte_arr_t> cur;
+            for (auto cid: col_ids) {
+                cur.push_back(idxs[cid].get_val(rid));
+            }
+            ret.push_back(cur);
         }
         return ret;
     }
 
-    auto find_col(const String& col_name) {
-        auto it = cols.begin();
-        while (it != cols.end() && it->get_name() != col_name) it++;
-        return it;
-    }
-
-
-    void update(rid_t rid, const String& col_name, byte_arr_t val) {
-        auto pos = find_col(col_name);
-        if (pos == cols.end()) { 
-            throw "yu shi bu jue pao yi chang";
+    void update(std::function<byte_arr_t(byte_arr_t)> expr, WhereClause wc) {
+        auto it = find_col(wc.col_name);
+        ensure(it != cols.end(), "where clause failed");
+        int col_id = it - cols.begin();
+        cols[col_id].adjust(wc.val);
+        auto &idx = idxs[col_id];
+        for (auto rid: idx.get_rid(wc.cmp, wc.val)) {
+            idx.update(expr(idx.get_val(rid)), rid);
         }
-
-        int id = pos - cols.begin();
-        auto rec = get(rid);
-        // 确保完整性约束（之类的）
-        remove(rid);
-        rec[id] = val;
-        insert(rec);
-    }
-
-    std::vector<rid_t> get_rid(const String& col_name, const byte_arr_t& val) {
-        
     }
 };

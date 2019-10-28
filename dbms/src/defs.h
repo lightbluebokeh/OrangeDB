@@ -1,7 +1,8 @@
 #pragma once
 
-#include <filesystem>
 #include <string>
+#include <cstring>
+#include <filesystem>
 #include <type_traits>
 
 static_assert(sizeof(std::size_t) == 8, "x64 only");
@@ -76,6 +77,10 @@ struct col_name_t {
 const int TBL_NAME_LIM = 32;
 struct tbl_name_t {
     char data[TBL_NAME_LIM + 1];
+    // tbl_name_t(const String& name) {
+    //     memcpy(data, name.data(), name.size());
+    //     data[name.size()] = 0;
+    // }
     inline String get() { return String(data); }
 };
 const int COL_NAME_LIST_LIM = 5;
@@ -112,3 +117,30 @@ void expand(Fn&& func, Args&&... args) {
     int arr[]{(func(std::forward<Args&&>(args)), 0)...};
     arr[0] = arr[0];
 }
+
+
+struct WhereClause {
+    enum cmp_t {
+        EQ,
+        LT,
+        GT,
+        LE,
+        GE
+    };
+
+    String col_name;
+    cmp_t cmp;
+    byte_arr_t val;
+
+    bool test(const_bytes_t val) const {
+        // ensure(val.size() == this->val.size(), "ni chuan de sha dong xi");
+        auto code = strncmp((char*)val, (char*)this->val.data(), this->val.size());
+        switch (cmp) {
+            case EQ: return code == 0;
+            case LT: return code < 0;
+            case GT: return code > 0;
+            case LE: return code <= 0;
+            case GE: return code >= 0;
+        }
+    }
+};

@@ -51,6 +51,7 @@ private:
     bool nullable;
     // is_null + max + '\0'
     byte_t dft[MAX_CHAR_LEN + 2];
+    bool indexed;
 
 public:
     // one more bytes for null/valid
@@ -64,6 +65,8 @@ public:
         if (!byte_arr.front()) return nullable;
         return datatype.adjust(byte_arr);
     }
+
+    bool is_indexed() { return indexed; }
 };
 
 constexpr auto col_size = sizeof(col_t);

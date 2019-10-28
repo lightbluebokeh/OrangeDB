@@ -21,7 +21,7 @@ public:
 
     id_type new_id() {
         if (!top) return tot++;
-        id_type ret = f_pool->seek_pos((top + 1) * sizeof(id_type))->read<id_type>();
+        id_type ret = f_pool->seek_pos((top + 1) * sizeof(id_type))->template read<id_type>();
         top--;
         return ret;
     }
