@@ -21,7 +21,7 @@ private:
     }
 
 public:
-    constexpr List() : a() {
+    List() : a() {
         for (int i = 0; i < BUF_CAP + 1; ++i) {
             a[i] = {i + 1, i - 1};
         }
