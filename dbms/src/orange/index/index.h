@@ -17,7 +17,7 @@ private:
 
     File *f_data;
     // 之后这里可能放一个数据结构而非这个索引文件
-    File *f_idx;
+    // File *f_idx;
 
     inline String idx_name() { return prefix + ".idx"; }
     inline String data_name() { return prefix + ".data"; }
@@ -26,12 +26,16 @@ public:
     Index(size_t size, String prefix) : size(size), prefix(prefix) {
         on = 0;
         f_data = File::open(data_name());
-        f_idx = nullptr;
+        // f_idx = nullptr;
+    }
+
+    ~Index() {
+        f_data->close();
     }
 
     void turn_on() {
         if (!on) {
-            f_idx = File::open(idx_name());
+            // f_idx = File::open(idx_name());
             on = 1;
             UNIMPLEMENTED
         }
@@ -39,8 +43,9 @@ public:
 
     void turn_off() {
         if (on) {
-            f_idx->close();
+            // f_idx->close();
             on = 0;
+            UNIMPLEMENTED
         }
     }
 
@@ -65,7 +70,6 @@ public:
     }
 
     void update(const byte_arr_t& val, rid_t rid) {
-        // ensure(f_data->seek_pos(rid * sizeof(rid_t))->read<byte_t>() != DATA_INVALID, "update record that not exists");
         ensure_size(val);
         f_data->seek_pos(rid * sizeof(rid_t))->write_bytes(val.data(), size);
         if (on) {
@@ -73,7 +77,7 @@ public:
         }
     }
 
-    std::vector<rid_t> get_eq(const byte_arr_t& val) {
+    std::vector<rid_t> get_rid(WhereClause::cmp_t cmp, const byte_arr_t& val) {
         ensure_size(val);
         if (on) {
             UNIMPLEMENTED
@@ -81,75 +85,27 @@ public:
             std::vector<rid_t> ret;
             f_data->seek_pos(0);
             byte_t bytes[size];
+            auto test = [&val, this, cmp] (const_bytes_t bytes){
+                int code = strncmp((char*)bytes, (char*)val.data(), size);
+                switch (cmp) {
+                    case WhereClause::EQ: return code == 0;
+                    case WhereClause::LT: return code < 0;
+                    case WhereClause::GT: return code > 0;
+                    case WhereClause::LE: return code <= 0;
+                    case WhereClause::GE: return code >= 0;
+                }
+            };
             for (cnt_t i = 0; i < tot; i++) {
                 f_data->read_bytes(bytes, size);
-                if (strncmp((char*)val.data(), (char*)bytes, size) == 0) ret.push_back(i);
+                if (test(bytes)) ret.push_back(i);
             }
             return ret;
         }
     }
 
-    std::vector<rid_t> get_lt(const byte_arr_t& val) {
-        ensure_size(val);
-        if (on) {
-            UNIMPLEMENTED
-        } else {
-            std::vector<rid_t> ret;
-            f_data->seek_pos(0);
-            byte_t bytes[size];
-            for (cnt_t i = 0; i < tot; i++) {
-                f_data->read_bytes(bytes, size);
-                if (strncmp((char*)val.data(), (char*)bytes, size) < 0) ret.push_back(i);
-            }
-            return ret;
-        }
-    }
-
-    std::vector<rid_t> get_gt(const byte_arr_t& val) {
-        ensure_size(val);
-        if (on) {
-            UNIMPLEMENTED
-        } else {
-            std::vector<rid_t> ret;
-            f_data->seek_pos(0);
-            byte_t bytes[size];
-            for (cnt_t i = 0; i < tot; i++) {
-                f_data->read_bytes(bytes, size);
-                if (strncmp((char*)val.data(), (char*)bytes, size) > 0) ret.push_back(i);
-            }
-            return ret;
-        }
-    }
-
-    std::vector<rid_t> get_le(const byte_arr_t& val) {
-        ensure_size(val);
-        if (on) {
-            UNIMPLEMENTED
-        } else {
-            std::vector<rid_t> ret;
-            f_data->seek_pos(0);
-            byte_t bytes[size];
-            for (cnt_t i = 0; i < tot; i++) {
-                f_data->read_bytes(bytes, size);
-                if (strncmp((char*)val.data(), (char*)bytes, size) <= 0) ret.push_back(i);
-            }
-            return ret;
-        }
-    }
-
-    std::vector<rid_t> get_ge(const byte_arr_t& val) {
-        ensure_size(val);
-        if (on) {
-            UNIMPLEMENTED
-        } else {
-            std::vector<rid_t> ret;
-            f_data->seek_pos(0);
-            byte_t bytes[size];
-            for (cnt_t i = 0; i < tot; i++) {
-                f_data->read_bytes(bytes, size);
-                if (strncmp((char*)val.data(), (char*)bytes, size) >= 0) ret.push_back(i);
-            }
-            return ret;
-        }
+    byte_arr_t get_val(rid_t rid) {
+        byte_t bytes[size];
+        f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+        return byte_arr_t(bytes, bytes + size);
     }
 };

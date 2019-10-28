@@ -125,21 +125,19 @@ public:
         return this;
     }
 
-    template <typename... T>
-    File* read(T&... args) {
-        auto read_each = [&](auto& arg) {
-            if constexpr (is_std_vector_v<decltype(arg)>) {
-                size_t size;
-                read(size);
-                arg.resize(size);
-                for (size_t i = 0; i < size; i++) {
-                    read(arg[i]);
-                }
-            } else {
-                read_bytes((bytes_t)&arg, sizeof(decltype(arg)));
+    template <typename T, typename... Ts>
+    File* read(T& t, Ts&... ts) {
+        if constexpr (is_std_vector_v<T>) {
+            size_t size;
+            read(size);
+            t.resize(size);
+            for (size_t i = 0; i < size; i++) {
+                read(t[i]);
             }
-        };
-        expand(read_each, args...);
+        } else {
+            read_bytes((bytes_t)&t, sizeof(T));
+        }
+        if constexpr (sizeof...(Ts) != 0) read(ts...);
         return this;
     }
 

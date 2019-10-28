@@ -15,7 +15,6 @@ protected:
     }
     void after_O() override {
         BytesStream::after_O();
-        // auto bfm = BufpageManager::get_instance();
         BufpageManage::mark_dirty(page.buf.buf_id);
     }
 
