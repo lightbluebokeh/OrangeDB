@@ -4,6 +4,7 @@
 
 #include <defs.h>
 #include <fs/file/file.h>
+#include <orange/index/b_tree.h>
 
 // 同时维护数据和索引，有暴力模式和数据结构模式
 // 希望设计的时候索引模块不需要关注完整性约束，而交给其它模块
