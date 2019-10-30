@@ -134,6 +134,8 @@ public:
             for (size_t i = 0; i < size; i++) {
                 read(t[i]);
             }
+        } else if constexpr (std::is_array_v<T>) {
+            read_bytes((bytes_t)t, sizeof(T));
         } else {
             read_bytes((bytes_t)&t, sizeof(T));
         }

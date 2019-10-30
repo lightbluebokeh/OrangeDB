@@ -15,6 +15,8 @@ set(SRCS
     "src/orange/orange.cpp"
     "src/fs/file/file_manage.cpp"
     "src/fs/bufpage/bufpage_manage.cpp"
+    "thirdparty/gmpfrxx.cpp"
+    "thirdparty/mpfr_mul_d.c"
 )
  
 # 设置编译方式
@@ -29,6 +31,8 @@ if(UNIX)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
     set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
     link_libraries(-lstdc++fs)
+    link_libraries(-lgmp)
+    link_libraries(-lmpfr)
     add_compile_options("-Wall")
     add_compile_options("-Wextra")
 elseif(MSVC)
