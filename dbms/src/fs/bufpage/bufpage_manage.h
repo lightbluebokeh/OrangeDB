@@ -3,7 +3,7 @@
 #include <defs.h>
 
 namespace BufpageManage {
-    void write_back();
+    void write_back_all();
     // 要确保 buf_id 被使用过
     page_t get_page(int buf_id);
     bool tracking(page_t page);

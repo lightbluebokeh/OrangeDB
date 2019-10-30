@@ -2,13 +2,14 @@
 
 #include <fs/file/file.h>
 
-template<typename T>
+template <typename T>
 class IdPool {
 public:
     using id_type = T;
+
 private:
-    File *f_pool;
-    // 一般来说就那么多id，所以用同样的类型应该能存下 
+    File* f_pool;
+    // 一般来说就那么多id，所以用同样的类型应该能存下
     id_type top, tot;
 
 public:
@@ -26,7 +27,8 @@ public:
         return ret;
     }
     void free_id(id_type id) {
-        if (id == tot) tot--;
+        if (id == tot - 1)
+            tot--;
         else {
             top++;
             f_pool->seek_pos((top + 1) * sizeof(id_type))->write(id);
