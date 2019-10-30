@@ -9,6 +9,6 @@ Table* Table::tables[MAX_TBL_NUM];
 void ensure(bool cond, const String& msg) {
     if (cond == 0) {
         std::cerr << RED << "failed: " << RESET << msg << std::endl;
-        throw std::exception(msg.c_str());
+        throw OrangeException(msg);
     }
 }

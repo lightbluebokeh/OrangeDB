@@ -144,3 +144,11 @@ struct WhereClause {
         }
     }
 };
+
+class OrangeException : public std::exception {
+private:
+    String msg;
+public:
+    OrangeException(const String& msg) : msg(msg) {}
+    const char* what() { return msg.c_str(); }
+};
