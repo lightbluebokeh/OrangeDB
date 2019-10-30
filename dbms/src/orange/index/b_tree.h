@@ -41,7 +41,7 @@ public:
         UNIMPLEMENTED
     }
 
-    void key_type(key_type k, value_type v) {
+    void update(key_type k, value_type v) {
         UNIMPLEMENTED
     }
 

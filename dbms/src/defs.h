@@ -113,9 +113,9 @@ constexpr int MAX_CHAR_LEN = 256;
 
 using cnt_t = int;
 template <class Fn, class... Args>
-void expand(Fn&& func, Args&&... args) {
+int expand(Fn&& func, Args&&... args) {
     int arr[]{(func(std::forward<Args&&>(args)), 0)...};
-    arr[0] = arr[0];
+    return sizeof(arr) / sizeof(int);
 }
 
 

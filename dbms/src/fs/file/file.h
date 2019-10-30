@@ -58,7 +58,7 @@ public:
     }
 
     File* write_bytes(const_bytes_t bytes, size_t n) {
-        int page_id = offset >> PAGE_SIZE_IDX;
+        int page_id = int(offset >> PAGE_SIZE_IDX);
         BufpageStream bps(Bufpage(id, page_id));
         bps.seekpos(offset & (PAGE_SIZE - 1));
         auto rest = bps.rest(), tot = n;
@@ -100,7 +100,7 @@ public:
     }
 
     File* read_bytes(bytes_t bytes, size_t n) {
-        int page_id = offset >> PAGE_SIZE_IDX;
+        int page_id = int(offset >> PAGE_SIZE_IDX);
         BufpageStream bps(Bufpage(id, page_id));
         bps.seekpos(offset & (PAGE_SIZE - 1));
         auto rest = bps.rest(), tot = n;

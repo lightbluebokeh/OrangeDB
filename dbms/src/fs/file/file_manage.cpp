@@ -1,13 +1,33 @@
-#include <stack>
+#include <array>
+#include <cassert>
 #include <fcntl.h>
+#include <stack>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 #include <fs/bufpage/bufpage_manage.h>
 #include <fs/file/file_manage.h>
 
 static int fd[MAX_FILE_NUM];
-static std::stack<int> id_pool;
+
+struct IdPool {
+    int a[MAX_FILE_NUM];
+    int pos;
+
+    constexpr IdPool() : a(), pos(MAX_FILE_NUM) {
+        for (int i = 0; i < MAX_FILE_NUM; i++) {
+            a[i] = i;
+        }
+    }
+
+    void push(int id) { a[pos++] = id; }
+
+    int pop() { return a[--pos]; }
+
+    bool empty() const { return pos == 0; }
+};
+static IdPool id_pool;
 
 static std::unordered_set<String> files;
 static std::unordered_map<String, int> opened_files;
@@ -15,12 +35,6 @@ static std::unordered_map<String, int> opened_files;
 static String filenames[MAX_FILE_NUM];
 
 namespace FileManage {
-    void init() {
-        while (!id_pool.empty()) id_pool.pop();
-        for (int i = 0; i < MAX_FILE_NUM; i++) {
-            id_pool.push(i);
-        }
-    }
 
     int write_page(page_t page, bytes_t bytes, int off) {
         int f = fd[page.file_id];
@@ -34,6 +48,7 @@ namespace FileManage {
         error = write(f, b, PAGE_SIZE);
         return 0;
     }
+
     int read_page(page_t page, bytes_t bytes, int off) {
         int f = fd[page.file_id];
         off_t offset = page.page_id;
@@ -46,6 +61,7 @@ namespace FileManage {
         error = read(f, (void*)b, PAGE_SIZE);
         return 0;
     }
+    
     int close_file(int file_id) {
         id_pool.push(file_id);
         int f = fd[file_id];
@@ -78,8 +94,7 @@ namespace FileManage {
 #endif
         if (fd == -1) return -1;
         if (id_pool.empty()) return -1;
-        file_id = id_pool.top();
-        id_pool.pop();
+        file_id = id_pool.pop();
         ::fd[file_id] = fd;
         opened_files[name] = file_id;
         filenames[file_id] = name;

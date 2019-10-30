@@ -3,7 +3,6 @@
 #include <defs.h>
 
 namespace FileManage {
-    void init();
     int write_page(page_t page, bytes_t bytes, int off = 0);
     int read_page(page_t page, bytes_t bytes, int off = 0);
     int close_file(int file_id);
@@ -13,4 +12,4 @@ namespace FileManage {
     int remove_file(const String& name);
     bool file_opened(const String& name);
     bool file_exists(const String& name);
-}
+}  // namespace FileManage
