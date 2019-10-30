@@ -5,27 +5,35 @@
 template<typename Key, typename Value>
 class BTree {
 public:
-    using key_type = Key;
-    using value_type = Value;
+    using key_t = Key;
+    using value_t = Value;
 private:
     String name;
     File *file;
     using bid_t = long long;
 
-    // int t;
+    // 最小分叉数
+    constexpr static int t = (PAGE_SIZE - sizeof(int)) / (2 * (sizeof(key_t) + sizeof(value_t) + sizeof(bid_t)));
 
-    // bid_t root;
+    struct node_t {
+        byte_t data[PAGE_SIZE];
 
-    void insert_internal(bid_t x, key_type k, value_type v) {
-        UNIMPLEMENTED
+        int& key_num() {
+            return *(int*)data;
+        }
+    };
+
+    node_t* read(bid_t id) {
+        
     }
 
+    std::pair<bid_t, node_t*> new_node() {
 
-    constexpr static int t = PAGE_SIZE / (2 * (sizeof(key_type) + sizeof(value_type) + sizeof(bid_t)));
-    
-    struct node_t {
+    }
 
-    };
+    void insert_internal(bid_t x, key_t k, value_t v) {
+        UNIMPLEMENTED
+    }
 public:
 
     BTree(const String& name) {
@@ -40,19 +48,19 @@ public:
     //     UNIMPLEMENTED
     // }
 
-    void insert(key_type k, value_type v) {
+    void insert(key_t k, value_t v) {
         UNIMPLEMENTED
     }
 
-    void remove(key_type k, value_type v) {
+    void remove(key_t k, value_t v) {
         UNIMPLEMENTED
     }
 
-    void update(key_type k, value_type v) {
+    void update(key_t k, value_t v) {
         UNIMPLEMENTED
     }
 
-    std::vector<value_type> query(value_type lo, value_type hi) {
+    std::vector<value_t> query(value_t lo, value_t hi) {
         UNIMPLEMENTED
     }
 };
