@@ -111,7 +111,6 @@ constexpr int MAX_CHAR_LEN = 256;
 
 #define UNIMPLEMENTED throw "unimplemented";
 
-using cnt_t = int;
 template <class Fn, class... Args>
 int expand(Fn&& func, Args&&... args) {
     int arr[]{(func(std::forward<Args&&>(args)), 0)...};
@@ -154,3 +153,9 @@ public:
 };
 
 inline int bytesncmp(const_bytes_t a, const_bytes_t b, size_t n) { return strncmp((const char*)a, (const char*)b, n); }
+
+enum class index_key_kind_t {
+    BYTES,  // 可以对数据直接按照字节比较的类型
+    FLOAT,  // 浮点类型，比较可能要再看看
+    VARCHAR,   // varchar 地址类型
+};

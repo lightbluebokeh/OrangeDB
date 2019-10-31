@@ -29,7 +29,7 @@ class Table {
     ~Table() {}
 
     // metadata
-    cnt_t rec_cnt;
+    rid_t rec_cnt;
     std::vector<col_t> cols;
     p_key_t p_key;
     std::vector<f_key_t> f_keys;
@@ -87,8 +87,9 @@ class Table {
         this->rec_cnt = 0;
         write_metadata();
         rid_pool.init();
-        for (auto col : cols) {
-            indices.push_back(Index(col.get_size(), data_root()));
+        for (auto col: cols) {
+            indices.push_back(std::move(Index(col.key_kind(), col.get_size(), data_root())));
+            indices.back().init();
             if (col.is_indexed()) indices.back().turn_on();
         }
     }
@@ -98,7 +99,6 @@ class Table {
         while (it != cols.end() && it->get_name() != col_name) it++;
         return it;
     }
-
 public:
     static String get_root(const String& name) { return "[" + name + "]/"; }
 
@@ -110,17 +110,7 @@ public:
         std::error_code e;
         if (!fs::create_directory(get_root(name), e)) throw e.message();
         auto table = new_table(name);
-        std::sort(cols.begin(), cols.end(),
-                  [](col_t a, col_t b) { return a.get_name() < b.get_name(); });
-        table->cols = std::move(cols);
-        table->p_key = p_key;
-        table->f_keys = f_keys;
-        table->rec_cnt = 0;
-        table->write_metadata();
-        table->rid_pool.init();
-        for (auto col : cols) {
-            table->indices.push_back(Index(col.get_size(), table->data_root()));
-        }
+        table->on_create(cols, p_key, f_keys);
         return 1;
     }
 
@@ -160,7 +150,6 @@ public:
             if (table) ensure(table->close(), "close table failed");
         }
     }
-
 
     // 这一段代码把输入的值补全
     void insert(std::vector<std::pair<byte_arr_t, String>>&& val_name_list) {

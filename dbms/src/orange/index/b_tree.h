@@ -5,15 +5,9 @@
 #include <utils/id_pool.h>
 
 class BTree {
-public:
-    enum key_kind_t {
-        BYTES,  // 可以对数据直接按照字节比较的类型
-        FLOAT,  // 浮点类型，比较可能要再看看
-        VARCHAR,   // varchar 地址类型
-    };
 private:
     String prefix;
-    key_kind_t key_kind;
+    index_key_kind_t kind;
     size_t key_size;
     File *f_tree;
 
@@ -54,7 +48,6 @@ private:
     };
 
     using node_ptr_t = std::unique_ptr<node_t>;
-    
 
     node_ptr_t new_node() {
         auto id = pool.new_id();
@@ -71,13 +64,13 @@ private:
 
     node_ptr_t root;
     void read_root() {
-        std::ifstream is(prefix + ".meta");
+        std::ifstream is(prefix + ".root");
         bid_t id;
         is >> id;
         root = read_node(id);
     }
     void write_root() {
-        std::ofstream os(prefix + ".meta");
+        std::ofstream os(prefix + ".root");
         os << root->id;
         write_node(std::move(root));
     }
@@ -91,24 +84,33 @@ private:
                 / (2 * (sizeof(bid_t) + key_size + sizeof(rid_t)));
     }
 public:
-    BTree(const String& prefix, key_kind_t key_kind, size_t key_size) : 
+    BTree(index_key_kind_t kind, size_t key_size, const String& prefix) : 
         prefix(prefix),
-        key_kind(key_kind), 
+        kind(kind), 
         key_size(key_size),
         pool(pool_name()),
         t(fanout(key_size)) {}
-
+    BTree(BTree&& tree) : pool(tree.pool), t(tree.t), root(std::move(tree.root)) {}
     ~BTree() {
         write_root();
         f_tree->close();
     }
 
-    void init() {
+    void init(File* f_data) {
         f_tree = File::create_open(tree_name());
         root = new_node();
         pool.init();
+        byte_arr_t key(key_size);
+        f_data->seek_pos(0);
+        for (rid_t i = 0, tot = f_data->size() / key_size; i < tot; i++) {
+            f_data->read_bytes(key.data(), key_size);
+            if (key.front() != DATA_INVALID) {
+                insert(key, i);
+            }
+        }
     }
     void load() {
+        f_tree = File::open(tree_name());
         read_root();
         pool.load();
     }
@@ -125,7 +127,7 @@ public:
         UNIMPLEMENTED
     }
 
-    std::vector<rid_t> query(byte_arr_t lo, byte_arr_t hi, cnt_t lim) {
+    std::vector<rid_t> query(byte_arr_t lo, byte_arr_t hi, rid_t lim) {
         UNIMPLEMENTED
     }
 };

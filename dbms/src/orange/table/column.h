@@ -67,6 +67,13 @@ public:
     }
 
     bool is_indexed() { return indexed; }
+    index_key_kind_t key_kind() {
+        switch (datatype.kind) {
+            case datatype_t::NUMERIC: return index_key_kind_t::FLOAT;
+            case datatype_t::VARCHAR: return index_key_kind_t::VARCHAR;
+            default: return index_key_kind_t::BYTES;
+        }
+    }
 };
 
 constexpr auto col_size = sizeof(col_t);

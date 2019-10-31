@@ -10,43 +10,65 @@
 // 希望设计的时候索引模块不需要关注完整性约束，而交给其它模块
 class Index {
 private:
-    bool on;
-    // 这个属性所占字节数，不包括 rid
+    index_key_kind_t kind;
     size_t size;
-    cnt_t tot;
     String prefix;
 
-    File* f_data;
-    // 之后这里可能放一个数据结构而非这个索引文件
-    // File *f_idx;
+    //  meta
+    rid_t tot;
+    bool on;
 
-    inline String idx_name() { return prefix + ".idx"; }
-    inline String data_name() { return prefix + ".data"; }
+    File* f_data;
+    BTree *tree;
+
+    String data_name() { return prefix + ".data"; }
+    String meta_name() { return prefix + ".meta"; }
     void ensure_size(const byte_arr_t& val) {
         ensure(val.size() == size, "size check failed in index");
     }
 
+    void read_meta() {
+        std::ifstream is(meta_name());
+        is >> tot >> on;
+    }
+    void write_meta() {
+        std::ofstream os(meta_name());
+        os << tot << on;
+    }
 public:
-    Index(size_t size, String prefix) : size(size), prefix(prefix) {
-        on = 0;
-        f_data = File::open(data_name());
-        // f_idx = nullptr;
+    Index(index_key_kind_t kind, size_t size, const String& prefix) : kind(kind), size(size), prefix(prefix) {}
+    ~Index() {
+        write_meta();
+        f_data->close();
     }
 
-    ~Index() { f_data->close(); }
+    void init() {
+        f_data = File::create_open(data_name());
+        tot = 0;
+        on = 0;
+    }
+    void load() {
+        f_data = File::open(data_name());
+        read_meta();
+        if (on) {
+            tree = new BTree(kind, size, prefix);
+            tree->load();
+        }
+    }
 
     void turn_on() {
         if (!on) {
-            // f_idx = File::open(idx_name());
             on = 1;
+            tree = new BTree(kind, size, prefix);
+            tree->init(f_data);
             UNIMPLEMENTED
         }
     }
 
     void turn_off() {
         if (on) {
-            // f_idx->close();
             on = 0;
+            delete tree;
             UNIMPLEMENTED
         }
     }
@@ -63,9 +85,12 @@ public:
 
     // 调用合适应该不会有问题8
     void remove(rid_t rid) {
-        // ensure(f_data->seek_pos(rid * sizeof(rid_t))->read<byte_t>() != DATA_INVALID, "remove
-        // record that not exists");
-        f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
+        if (fs::file_size(data_name()) == rid * size) {
+            fs::resize_file(data_name(), (rid - 1) * size);
+        } else {
+            f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
+        }
+
         if (on) {
             UNIMPLEMENTED
         }
@@ -85,9 +110,6 @@ public:
         if (on) {
             UNIMPLEMENTED
         } else {
-            std::vector<rid_t> ret;
-            f_data->seek_pos(0);
-            std::vector<byte_t> bytes(size);
             auto test = [&val, this, cmp](const_bytes_t bytes) {
                 int code = strncmp((char*)bytes, (char*)val.data(), size);
                 switch (cmp) {
@@ -98,10 +120,14 @@ public:
                     case WhereClause::GE: return code >= 0;
                 }
             };
-            for (cnt_t i = 0; i < tot; i++) {
-                f_data->read_bytes(bytes.data(), size);
-                if (test(bytes.data())) ret.push_back(i);
+            std::vector<rid_t> ret;
+            bytes_t bytes = new byte_t[size];
+            f_data->seek_pos(0);
+            for (rid_t i = 0, lim = fs::file_size(data_name()) / size; i < lim; i++) {
+                f_data->read_bytes(bytes, size);
+                if (test(bytes)) ret.push_back(i);
             }
+            delete[] bytes;
             return ret;
         }
     }
