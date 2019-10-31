@@ -152,3 +152,5 @@ public:
     OrangeException(const String& msg) : msg(msg) {}
     const char* what() { return msg.c_str(); }
 };
+
+inline int bytesncmp(const_bytes_t a, const_bytes_t b, size_t n) { return strncmp((const char*)a, (const char*)b, n); }

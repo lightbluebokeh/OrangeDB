@@ -8,6 +8,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
 include_directories(
     "src"
     "thirdparty"
+    "thirdparty/mpfr"
 )
 
 set(SRCS 
@@ -15,8 +16,8 @@ set(SRCS
     "src/orange/orange.cpp"
     "src/fs/file/file_manage.cpp"
     "src/fs/bufpage/bufpage_manage.cpp"
-    "thirdparty/gmpfrxx.cpp"
-    "thirdparty/mpfr_mul_d.c"
+    # "thirdparty/mpfr/gmpfrxx.cpp"
+    # "thirdparty/mpfr/mpfr_mul_d.c"
 )
  
 # 设置编译方式
