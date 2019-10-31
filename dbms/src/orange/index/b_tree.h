@@ -1,6 +1,7 @@
 #pragma once
 
-#include <fs/file/file.h>
+#include <fstream>
+
 #include <utils/id_pool.h>
 
 class BTree {
@@ -14,13 +15,15 @@ private:
     String prefix;
     key_kind_t key_kind;
     size_t key_size;
-    File *file;
+    File *f_tree;
 
     using bid_t = long long;
     IdPool<bid_t> pool;
     const int t;
 
+    String tree_name() { return prefix + ".bt"; }
     String pool_name() { return prefix + ".pl"; }
+    String varchar_name() { return prefix + "vch"; }
 
     struct node_t {
         byte_t data[PAGE_SIZE];
@@ -29,22 +32,20 @@ private:
 
         node_t(bid_t id, size_t key_size) : id(id),  key_size(key_size) {}
 
-        // void read(File* file) { file->seek_pos(id * PAGE_SIZE)->read_bytes(data, PAGE_SIZE); }
-
-        // void write(File* file) { file->seek_pos(id * PAGE_SIZE)->write_bytes(data, PAGE_SIZE); }
-
         int& key_num() { return *(int*)data; }
         bid_t& ch(int i) {
             return *((bid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
                                     + i * (sizeof(bid_t) + key_size + sizeof(rid_t)));
         }
-
         bytes_t key(int i) {
             return data + sizeof(std::remove_reference_t<decltype(key_num())>) 
                         + i * (sizeof(bid_t) + key_size + sizeof(rid_t))
                         + sizeof(bid_t);
         }
-
+        void set_key(int i, bytes_t key) {
+            auto b = this->key(i);
+            memcpy(b, key, key_size);
+        }
         rid_t& val(int i) {
             return *((rid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
                                     + i * (sizeof(bid_t) + key_size + sizeof(rid_t))
@@ -53,51 +54,78 @@ private:
     };
 
     using node_ptr_t = std::unique_ptr<node_t>;
+    
 
     node_ptr_t new_node() {
         auto id = pool.new_id();
         return std::make_unique<node_t>(id, key_size);
     }
-
     node_ptr_t read_node(bid_t id) {
         auto node = std::make_unique<node_t>(id, key_size);
-        file->seek_pos(id * PAGE_SIZE)->read_bytes(node->data, PAGE_SIZE);
+        f_tree->seek_pos(id * PAGE_SIZE)->read_bytes(node->data, PAGE_SIZE);
         return node;
     }
-
-    // borrowed
     void write_node(node_ptr_t node) {
-        file->seek_pos(node->id * PAGE_SIZE)->write_bytes(node->data, PAGE_SIZE);
+        f_tree->seek_pos(node->id * PAGE_SIZE)->write_bytes(node->data, PAGE_SIZE);
     }
 
-    void insert_internal(node_ptr_t node, const byte_arr_t key, bid_t val) {
+    node_ptr_t root;
+    void read_root() {
+        std::ifstream is(prefix + ".meta");
+        bid_t id;
+        is >> id;
+        root = read_node(id);
+    }
+    void write_root() {
+        std::ofstream os(prefix + ".meta");
+        os << root->id;
+        write_node(std::move(root));
+    }
+
+    void insert_internal(node_ptr_t node, const byte_arr_t k, rid_t v) {
         UNIMPLEMENTED
+    }
+
+    int fanout(int key_size) {
+        return (PAGE_SIZE - sizeof(std::remove_reference_t<decltype(std::declval<node_t>().key_num())>))
+                / (2 * (sizeof(bid_t) + key_size + sizeof(rid_t)));
     }
 public:
-
-    BTree(const String& prefix, key_kind_t key_kind) : 
-        prefix(prefix), 
+    BTree(const String& prefix, key_kind_t key_kind, size_t key_size) : 
+        prefix(prefix),
         key_kind(key_kind), 
+        key_size(key_size),
         pool(pool_name()),
-        t((PAGE_SIZE - sizeof(std::remove_reference_t<decltype(std::declval<node_t>().key_num())>)) / (2 * (sizeof(bid_t) + key_size + sizeof(rid_t)))) {}
+        t(fanout(key_size)) {}
 
-    void create() {
+    ~BTree() {
+        write_root();
+        f_tree->close();
+    }
+
+    void init() {
+        f_tree = File::create_open(tree_name());
+        root = new_node();
+        pool.init();
+    }
+    void load() {
+        read_root();
+        pool.load();
+    }
+
+    void insert(byte_arr_t k, rid_t v) {
         UNIMPLEMENTED
     }
 
-    // void insert(key_t k, value_t v) {
-    //     UNIMPLEMENTED
-    // }
+    void remove(byte_arr_t k, rid_t v) {
+        UNIMPLEMENTED
+    }
 
-    // void remove(key_t k, value_t v) {
-    //     UNIMPLEMENTED
-    // }
+    void update(byte_arr_t k, rid_t v) {
+        UNIMPLEMENTED
+    }
 
-    // void update(key_t k, value_t v) {
-    //     UNIMPLEMENTED
-    // }
-
-    // std::vector<value_t> query(value_t lo, value_t hi) {
-    //     UNIMPLEMENTED
-    // }
+    std::vector<rid_t> query(byte_arr_t lo, byte_arr_t hi, cnt_t lim) {
+        UNIMPLEMENTED
+    }
 };

@@ -42,6 +42,11 @@ public:
         return files[id];
     }
 
+    static File* create_open(const String& name) {
+        create(name);
+        return open(name);
+    }
+
     bool close() {
         ensure(FileManage::close_file(id) == 0, "close file fail");
         ensure(this == files[id], "this is magic");
