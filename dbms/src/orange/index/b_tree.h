@@ -209,36 +209,36 @@ private:
 
     void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
         int i = upper_bound(x, k, v);
-        if (x->leaf()) {
-            ensure(i && cmp(k, v, x->key(i - 1), x->val(i - 1)) == 0, "trying to delete something does not exist");
-            i--;
-            for (int j = i; j + 1 < x->key_num(); j++) {
-                x->set_key(j, x->key(j + 1));
-                x->val(j) = x->val(j + 1);
-            }
-            x->key_num()--;
-        } else if (i && cmp(k, v, x->key(i - 1), x->val(i - 1)) == 0) {
-            i--;
-            auto y = read_node(x->ch(i));
-            if (!y->least()) {
-                auto [k_raw, v] = min(y);
-                x->set_key(i, k_raw.data());
-                x->val(i) = v;
-                remove_nonleast(y, convert(k_raw.data()), v);
+        if (i && cmp(k, v, x->key(i - 1), x->val(i - 1)) == 0) {
+            if (x->leaf()) {
+                for (int j = i; j + 1 < x->key_num(); j++) {
+                    x->set_key(j, x->key(j + 1));
+                    x->val(j) = x->val(j + 1);
+                }
+                x->key_num()--;
             } else {
-                auto z = read_node(x->ch(i + 1));
-                if (!z->least()) {
-                    auto [k_raw, v] = max(z);
+                auto y = read_node(x->ch(i));
+                if (!y->least()) {
+                    auto [k_raw, v] = min(y);
                     x->set_key(i, k_raw.data());
                     x->val(i) = v;
-                    remove_nonleast(z, convert(k_raw.data()), v);
+                    remove_nonleast(y, convert(k_raw.data()), v);
                 } else {
-                    merge(x, y, i, std::move(z));
-                    remove_nonleast(y, k, v);
-                    if (x->key_num() == 0) std::swap(x, y);
+                    auto z = read_node(x->ch(i + 1));
+                    if (!z->least()) {
+                        auto [k_raw, v] = max(z);
+                        x->set_key(i, k_raw.data());
+                        x->val(i) = v;
+                        remove_nonleast(z, convert(k_raw.data()), v);
+                    } else {
+                        merge(x, y, i, std::move(z));
+                        remove_nonleast(y, k, v);
+                        if (x->key_num() == 0) std::swap(x, y);
+                    }
                 }
-            }
+            } 
         } else {
+            ensure(!x->leaf(), "trying to delete something does not exist");
             auto y = read_node(x->ch(i));
             if (!y->least()) remove_nonleast(y, k, v);
             else {
