@@ -29,11 +29,21 @@ private:
         ~node_t() { tree.f_tree->seek_pos(id * PAGE_SIZE)->write_bytes(data, PAGE_SIZE); }
 
         int& key_num() { return *(int*)data; }
+        const int& key_num() const { return *(int*)data; }
         bid_t& ch(int i) {
             return *((bid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
                                     + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t)));
         }
+        const bid_t& ch(int i) const {
+            return *((bid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
+                                    + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t)));
+        }
         bytes_t key(int i) {
+            return data + sizeof(std::remove_reference_t<decltype(key_num())>) 
+                        + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
+                        + sizeof(bid_t);
+        }
+        const_bytes_t key(int i) const {
             return data + sizeof(std::remove_reference_t<decltype(key_num())>) 
                         + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
                         + sizeof(bid_t);
@@ -44,8 +54,14 @@ private:
                                     + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
                                     + sizeof(bid_t) + tree.key_size);
         }
-        bool leaf() { return ch(1) == 0; }
-        bool full() { return key_num() == tree.t * 2 - 1; }
+        const rid_t& val(int i) const {
+            return *((rid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
+                                    + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
+                                    + sizeof(bid_t) + tree.key_size);
+        }
+        bool leaf() const { return !ch(0) && !ch(1); }
+        bool full() const { return key_num() == tree.t * 2 - 1; }
+        bool least() const { return key_num() == tree.t - 1; }
     };
 
     using node_ptr_t = std::unique_ptr<node_t>;
@@ -80,11 +96,11 @@ private:
     // y 是 x 的 i 号儿子
     void split(node_ptr_t& x, node_ptr_t& y, int i) {
         node_ptr_t z = new_node();
-        z->key_num() = t - 1;
         for (int j = 0; j < t - 1; j++) {
-             z->set_key(j, y->key(j + t));
-             z->val(j) = y->val(j + t);
+            z->set_key(j, y->key(j + t));
+            z->val(j) = y->val(j + t);
         }
+        z->key_num() = t - 1;
         if (!y->leaf()) {
             for (int j = 0; j < t; j++) z->ch(j) = y->ch(j + t);
         }
@@ -103,7 +119,7 @@ private:
     }
 
     // 使用**二分查找**找到最大的 i 使得 (k, v) > (key(j), val(j)) (i > j)
-    int lower_bound(node_ptr_t &x, const byte_arr_t& k, rid_t v) {
+    int upper_bound(node_ptr_t &x, const byte_arr_t& k, rid_t v) {
         int i = 0;
         int l = 0, r = x->key_num() - 1;
         while (l <= r) {
@@ -137,7 +153,8 @@ private:
     }
 
     void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v) {
-        int i = lower_bound(x, k, v);
+        int i = upper_bound(x, k, v);
+        ensure(!i || cmp(k, v, x->key(i - 1), x->val(i - 1)) != 0, "try to insert something already exists");
         if (x->leaf()) {
             for (int j = x->key_num() - 1; j >= i; i--) {
                 x->set_key(j + 1, x->key(j));
@@ -156,6 +173,126 @@ private:
                 }
             }
             insert_nonfull(y, k_raw, k, v);
+        }
+    }
+
+    std::pair<byte_arr_t, rid_t> min(const node_ptr_t& x) {
+        if (!x->leaf()) return min(read_node(x->ch(0)));
+        auto key = x->key(0);
+        return std::make_pair(byte_arr_t(key, key + key_size), x->val(0));
+    }
+
+    std::pair<byte_arr_t, rid_t> max(const node_ptr_t& x) {
+        if (!x->leaf()) return min(read_node(x->ch(x->key_num())));
+        auto key = x->key(x->key_num() - 1);
+        return std::make_pair(byte_arr_t(key, key + key_size), x->val(x->key_num() - 1));
+    }
+
+    void merge(node_ptr_t& x, node_ptr_t& y, int i, node_ptr_t z) {
+        y->set_key(t, x->key(i));
+        y->val(t) = x->val(i);
+        for (int j = 0; j < t - 1; j++) {
+            y->ch(j + t) = z->ch(j);
+            y->set_key(j + t + 1, z->key(j));
+            y->val(j + t + 1) = z->val(j);
+        }
+        y->ch(2 * t - 1) = z->ch(t - 1);
+        y->key_num() = 2 * t - 1;
+        pool.free_id(z->id);
+        for (int j = i; j + 1 < x->key_num(); j++) {
+            x->set_key(j, x->key(j + 1));
+            x->val(j) = x->val(j + 1);
+            x->ch(j + 1) = x->ch(j + 2);
+        }
+        x->key_num()--;
+    }
+
+    void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
+        int i = upper_bound(x, k, v);
+        if (x->leaf()) {
+            ensure(i && cmp(k, v, x->key(i - 1), x->val(i - 1)) == 0, "trying to delete something does not exist");
+            i--;
+            for (int j = i; j + 1 < x->key_num(); j++) {
+                x->set_key(j, x->key(j + 1));
+                x->val(j) = x->val(j + 1);
+            }
+            x->key_num()--;
+        } else if (i && cmp(k, v, x->key(i - 1), x->val(i - 1)) == 0) {
+            i--;
+            auto y = read_node(x->ch(i));
+            if (!y->least()) {
+                auto [k_raw, v] = min(y);
+                x->set_key(i, k_raw.data());
+                x->val(i) = v;
+                remove_nonleast(y, convert(k_raw.data()), v);
+            } else {
+                auto z = read_node(x->ch(i + 1));
+                if (!z->least()) {
+                    auto [k_raw, v] = max(z);
+                    x->set_key(i, k_raw.data());
+                    x->val(i) = v;
+                    remove_nonleast(z, convert(k_raw.data()), v);
+                } else {
+                    merge(x, y, i, std::move(z));
+                    remove_nonleast(y, k, v);
+                    if (x->key_num() == 0) std::swap(x, y);
+                }
+            }
+        } else {
+            auto y = read_node(x->ch(i));
+            if (!y->least()) remove_nonleast(y, k, v);
+            else {
+                node_ptr_t l, r;
+                auto from_l = [&] {
+                    if (i == 0) return 0;
+                    l = read_node(x->ch(i - 1));
+                    if (l->least()) return 0;
+                    y->ch(t) = y->ch(t - 1);
+                    for (int j = t - 1; j > 0; j--) {
+                        y->set_key(j, y->key(j - 1));
+                        y->val(j) = y->val(j - 1);
+                        y->ch(j) = y->ch(j - 1);
+                    }
+                    y->set_key(0, x->key(i - 1));
+                    y->val(0) = x->val(i - 1);
+                    y->ch(0) = l->ch(l->key_num());
+                    y->key_num()++;
+                    x->set_key(i - 1, l->key(l->key_num() - 1));
+                    x->val(i - 1) = l->val(l->key_num() - 1);
+                    l->key_num()--;
+                    return 1;
+                };
+                auto from_r = [&] {
+                    if (i == 0) return 0;
+                    r = read_node(x->ch(i + 1));
+                    if (r->least()) return 0;
+                    y->set_key(y->key_num(), x->key(i));
+                    y->val(y->key_num()) = x->val(i);
+                    y->ch(y->key_num() + 1) = r->ch(0);
+                    y->key_num()++;
+                    x->set_key(i, r->key(0));
+                    x->val(i) = r->val(0);
+                    for (int j = 0; j + 1 < r->key_num(); j++) {
+                        r->ch(j) = r->ch(j + 1);
+                        r->set_key(j, r->key(j + 1));
+                        r->val(j) = r->val(j + 1);
+                    }
+                    r->ch(r->key_num() - 1) = r->ch(r->key_num());
+                    r->key_num()--;
+                    return 1;
+                };
+
+                if (from_l() || from_r()) remove_nonleast(y, k, v);
+                else if (i != 0) {
+                    merge(x, l, i - 1, std::move(y));
+                    remove_nonleast(l, k, v);
+                    if (x->key_num() == 0) std::swap(x, l);
+                } else {
+                    merge(x, y, i, std::move(r));
+                    remove_nonleast(y, k, v);
+                    if (x->key_num() == 0) std::swap(x, y);
+                }
+            }
         }
     }
 public:
@@ -192,7 +329,7 @@ public:
     void insert(const_bytes_t k_raw, rid_t v) {
         if (root->full()) {
             auto s = new_node();
-            swap(s, root);
+            std::swap(s, root);
             root->ch(0) = s->id;
             split(root, s, 0);
         }
@@ -200,13 +337,8 @@ public:
     }
 
     void remove(const_bytes_t k_raw, rid_t v) {
-        UNIMPLEMENTED
+        remove_nonleast(root, convert(k_raw), v);
     }
-
-    // 好像这个方法对于 B 树没有意义
-    // void update(const byte_arr_t& k_raw, rid_t v) {
-    //     UNIMPLEMENTED
-    // }
 
     std::vector<rid_t> query(const byte_arr_t& lo, const byte_arr_t& hi, rid_t lim) {
         UNIMPLEMENTED
