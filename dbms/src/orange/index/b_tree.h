@@ -9,7 +9,7 @@ private:
     String prefix;
     index_key_kind_t kind;
     size_t key_size;
-    File *f_tree;
+    File *f_tree, *f_vch;
 
     using bid_t = long long;
     IdPool<bid_t> pool;
@@ -24,7 +24,9 @@ private:
         bid_t id;
         size_t key_size;
 
-        node_t(bid_t id, size_t key_size) : id(id),  key_size(key_size) {}
+        node_t(bid_t id, size_t key_size) : id(id),  key_size(key_size) {
+            memset(data, 0, sizeof(data));
+        }
 
         int& key_num() { return *(int*)data; }
         bid_t& ch(int i) {
@@ -45,6 +47,8 @@ private:
                                     + i * (sizeof(bid_t) + key_size + sizeof(rid_t))
                                     + sizeof(bid_t) + key_size);
         }
+
+        bool leaf() { return ch(1) == 0; }
     };
 
     using node_ptr_t = std::unique_ptr<node_t>;
@@ -83,21 +87,45 @@ private:
         return (PAGE_SIZE - sizeof(std::remove_reference_t<decltype(std::declval<node_t>().key_num())>))
                 / (2 * (sizeof(bid_t) + key_size + sizeof(rid_t)));
     }
+
+    // y 是 x 的 i 号儿子
+    void split(node_ptr_t& x, node_ptr_t& y, int i) {
+        node_ptr_t z = new_node();
+        z->key_num() = t - 1;
+        for (int j = 0; j < t - 1; j++) z->set_key(j, y->key(j + t));
+        if (!y->leaf()) {
+            for (int j = 0; j < t; j++) z->ch(j) = y->ch(j + t);
+        }
+        y->key_num() = t - 1;
+        for (int j = x->key_num(); j > i; j--) {
+            x->ch(j + 1) = x->ch(j);
+        }
+        x->ch(i + 1) = z->id;
+        for (int j = x->key_num() - 1; j >= i; i--) {
+            x->set_key(j + 1, x->key(i));
+        }
+        x->set_key(i, y->key(t - 1));
+        x->key_num()++;
+        write_node(std::move(z));
+    }
 public:
     BTree(index_key_kind_t kind, size_t key_size, const String& prefix) : 
         prefix(prefix),
         kind(kind), 
         key_size(key_size),
         pool(pool_name()),
-        t(fanout(key_size)) {}
-    BTree(BTree&& tree) : pool(tree.pool), t(tree.t), root(std::move(tree.root)) {}
+        t(fanout(key_size)) { ensure(t >= 2, "fanout too few"); }
     ~BTree() {
         write_root();
         f_tree->close();
+        if (kind == index_key_kind_t::VARCHAR) {
+            f_vch->close();
+        }
     }
 
     void init(File* f_data) {
         f_tree = File::create_open(tree_name());
+        if (kind == index_key_kind_t::VARCHAR) f_vch = File::create_open(varchar_name());
         root = new_node();
         pool.init();
         byte_arr_t key(key_size);
@@ -111,6 +139,7 @@ public:
     }
     void load() {
         f_tree = File::open(tree_name());
+        if (kind == index_key_kind_t::VARCHAR) f_vch = File::open(varchar_name());
         read_root();
         pool.load();
     }
