@@ -38,10 +38,7 @@ private:
                         + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
                         + sizeof(bid_t);
         }
-        void set_key(int i, bytes_t key) {
-            auto b = this->key(i);
-            memcpy(b, key, tree.key_size);
-        }
+        void set_key(int i, const_bytes_t key) { memcpy(this->key(i), key, tree.key_size); }
         rid_t& val(int i) {
             return *((rid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
                                     + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
@@ -139,17 +136,27 @@ private:
         return v1 - v2;
     }
 
-    void insert_nonfull(node_ptr_t &x, const byte_arr_t& k, rid_t v) {
+    void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v) {
         int i = lower_bound(x, k, v);
-        auto y = read_node(x->ch(i));
-        if (y->full()) {
-            split(x, y, i);
-            if (cmp(k, v, x->key(i), x->val(i)) > 0) {
-                i++;
-                y = read_node(x->ch(i));
+        if (x->leaf()) {
+            for (int j = x->key_num() - 1; j >= i; i--) {
+                x->set_key(j + 1, x->key(j));
+                x->val(j + 1) = x->val(j);
             }
+            x->set_key(i, k_raw);
+            x->val(i) = v;
+            x->key_num()++;
+        } else {
+            auto y = read_node(x->ch(i));
+            if (y->full()) {
+                split(x, y, i);
+                if (cmp(k, v, x->key(i), x->val(i)) > 0) {
+                    i++;
+                    y = read_node(x->ch(i));
+                }
+            }
+            insert_nonfull(y, k_raw, k, v);
         }
-        insert_nonfull(y, k, v);
     }
 public:
     BTree(index_key_kind_t kind, size_t key_size, const String& prefix) : prefix(prefix), kind(kind), 
@@ -189,7 +196,7 @@ public:
             root->ch(0) = s->id;
             split(root, s, 0);
         }
-        insert_nonfull(root, convert(k_raw), v);
+        insert_nonfull(root, k_raw, convert(k_raw), v);
     }
 
     void remove(const_bytes_t k_raw, rid_t v) {
