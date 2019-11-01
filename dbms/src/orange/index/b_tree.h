@@ -51,19 +51,21 @@ private:
         bool leaf() { return ch(1) == 0; }
     };
 
-    using node_ptr_t = std::unique_ptr<node_t>;
+    using node_ptr_t = std::unique_ptr<node_t, std::function<void(node_t*)>>;
+
+    void write_node(node_t* node) {
+        f_tree->seek_pos(node->id * PAGE_SIZE)->write_bytes(node->data, PAGE_SIZE);
+        delete node;
+    }
 
     node_ptr_t new_node() {
         auto id = pool.new_id();
-        return std::make_unique<node_t>(id, key_size);
+        return node_ptr_t(new node_t(id, key_size), [this] (node_t *node) { this->write_node(node); });
     }
     node_ptr_t read_node(bid_t id) {
-        auto node = std::make_unique<node_t>(id, key_size);
+        auto node = node_ptr_t(new node_t(id, key_size), [this] (node_t *node) { this->write_node(node); });
         f_tree->seek_pos(id * PAGE_SIZE)->read_bytes(node->data, PAGE_SIZE);
         return node;
-    }
-    void write_node(node_ptr_t node) {
-        f_tree->seek_pos(node->id * PAGE_SIZE)->write_bytes(node->data, PAGE_SIZE);
     }
 
     node_ptr_t root;
@@ -76,11 +78,6 @@ private:
     void write_root() {
         std::ofstream os(prefix + ".root");
         os << root->id;
-        write_node(std::move(root));
-    }
-
-    void insert_internal(node_ptr_t node, const byte_arr_t k, rid_t v) {
-        UNIMPLEMENTED
     }
 
     int fanout(int key_size) {
@@ -106,7 +103,6 @@ private:
         }
         x->set_key(i, y->key(t - 1));
         x->key_num()++;
-        write_node(std::move(z));
     }
 public:
     BTree(index_key_kind_t kind, size_t key_size, const String& prefix) : 
@@ -149,9 +145,9 @@ public:
             auto s = new_node();
             swap(s, root);
             root->ch(0) = s->id;
-            
+            split(root, s, 0);
         }
-        UNIMPLEMENTED
+        
     }
 
     void remove(byte_arr_t k, rid_t v) {
