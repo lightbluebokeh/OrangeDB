@@ -145,6 +145,12 @@ public:
     }
 
     void insert(byte_arr_t k, rid_t v) {
+        if (root->key_num() == 2 * t - 1) {
+            auto s = new_node();
+            swap(s, root);
+            root->ch(0) = s->id;
+            
+        }
         UNIMPLEMENTED
     }
 
