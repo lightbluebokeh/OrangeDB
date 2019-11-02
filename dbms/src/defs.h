@@ -118,9 +118,8 @@ int expand(Fn&& func, Args&&... args) {
 }
 
 struct pred_t {
-    String col_name;
     byte_arr_t lo, hi;
-    bool lo_eq, ro_eq;
+    bool lo_eq, hi_eq;
 };
 
 class OrangeException : public std::exception {

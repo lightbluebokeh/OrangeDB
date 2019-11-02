@@ -52,12 +52,26 @@ private:
         int key_code = cmp_key(k1, k2);
         return key_code == 0 ? v1 - v2 : key_code;
     }
+
+    bool test_pred_lo(const byte_arr_t& k, const pred_t& pred) {
+        int code = cmp_key(pred.lo, k);
+        return code < 0 || (pred.lo_eq && code == 0);
+    }
+
+    bool test_pred_hi(const byte_arr_t& k, const pred_t& pred) {
+        int code = cmp_key(k, pred.hi);
+        return code < 0 || (pred.hi_eq && code == 0);
+    }
+
+    bool test_pred(const byte_arr_t& k, const pred_t& pred) {
+        return test_pred_hi(k, pred) && test_pred_hi(k, pred);
+    }
 public:
     Index(key_kind_t kind, size_t size, const String& prefix) : kind(kind), size(size), prefix(prefix) {}
     ~Index() {
+        if (on) turn_off();
         write_meta();
         f_data->close();
-        if (on) turn_off();
     }
 
     void init() {
@@ -118,19 +132,15 @@ public:
     }
 
     // lo_eq 为真表示允许等于
-    std::vector<rid_t> get_rid(const byte_arr_t& lo, bool lo_eq, const byte_arr_t& hi, bool hi_eq, rid_t lim) {
-        if (on) return tree->query(lo, lo_eq, hi, hi_eq, lim);
+    std::vector<rid_t> get_rid(const pred_t& pred, rid_t lim) {
+        if (on) return tree->query(pred, lim);
         else {
             std::vector<rid_t> ret;
             bytes_t bytes = new byte_t[size];
             f_data->seek_pos(0);
             for (rid_t i = 0; i * size < f_data->size(); i++) {
                 f_data->read_bytes(bytes, size);
-                if (*bytes != DATA_INVALID) {
-                    auto key = convert(bytes);
-                    int l = cmp_key(lo, key), r = cmp_key(key, hi);
-                    if (((lo_eq && l == 0) || l < 0) && (r < 0 || (hi_eq && r == 0))) ret.push_back(i);
-                }
+                if (*bytes != DATA_INVALID && test_pred(convert(bytes), pred)) ret.push_back(i);
             }
             delete bytes;
         }

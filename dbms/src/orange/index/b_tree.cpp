@@ -13,14 +13,14 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
         } else {
             auto y = read_node(x->ch(i));
             if (!y->least()) {
-                auto [k_raw, v] = min(y);
+                auto [k_raw, v] = min_raw(y);
                 x->set_key(i, k_raw.data());
                 x->val(i) = v;
                 remove_nonleast(y, index->convert(k_raw.data()), v);
             } else {
                 auto z = read_node(x->ch(i + 1));
                 if (!z->least()) {
-                    auto [k_raw, v] = max(z);
+                    auto [k_raw, v] = max_raw(z);
                     x->set_key(i, k_raw.data());
                     x->val(i) = v;
                     remove_nonleast(z, index->convert(k_raw.data()), v);
@@ -138,3 +138,19 @@ void BTree::insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t&
         insert_nonfull(y, k_raw, k, v);
     }
 }
+
+void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
+    int i = 0;
+    while (i < x->key_num() && !index->test_pred_lo(index->convert(x->key(i)), pred)) i++;
+    auto y = read_node(x->ch(i));
+    query(y, pred, ret, lim);
+    while (lim && i < x->key_num() && index->test_pred_hi(index->convert(x->key(i)), pred)) {
+        ret.push_back(x->val(i));
+        if (lim) {
+            y = read_node(x->ch(i + 1));
+            query(y, pred, ret, lim);
+        }
+        i++;
+    }
+}
+

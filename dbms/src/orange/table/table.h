@@ -188,14 +188,14 @@ public:
         insert_internal(rec);
     }
     
-    std::vector<rid_t> where(pred_t pred, rid_t lim) {
-        auto it = find_col(pred.col_name);
+    std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim) {
+        auto it = find_col(col_name);
         ensure(it != cols.end(), "where clause failed: unknown column name");
         int col_id = it - cols.begin();
         auto &col = cols[col_id];
         col.adjust(pred.lo);
         col.adjust(pred.hi);
-        return indices[col_id].get_rid(pred.lo, pred.lo_eq, pred.hi, pred.ro_eq, lim);
+        return indices[col_id].get_rid(pred, lim);
     }
 
     void remove(const std::vector<rid_t>& rids) {

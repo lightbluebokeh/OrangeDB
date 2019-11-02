@@ -143,20 +143,21 @@ private:
         x->key_num()--;
     }
 
-    std::pair<byte_arr_t, rid_t> min(const node_ptr_t& x) {
-        if (!x->leaf()) return min(read_node(x->ch(0)));
+    std::pair<byte_arr_t, rid_t> min_raw(const node_ptr_t& x) {
+        if (!x->leaf()) return min_raw(read_node(x->ch(0)));
         auto key = x->key(0);
         return std::make_pair(byte_arr_t(key, key + key_size), x->val(0));
     }
 
-    std::pair<byte_arr_t, rid_t> max(const node_ptr_t& x) {
-        if (!x->leaf()) return min(read_node(x->ch(x->key_num())));
+    std::pair<byte_arr_t, rid_t> max_raw(const node_ptr_t& x) {
+        if (!x->leaf()) return max_raw(read_node(x->ch(x->key_num())));
         auto key = x->key(x->key_num() - 1);
         return std::make_pair(byte_arr_t(key, key + key_size), x->val(x->key_num() - 1));
     }
 
     void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v);
     void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v);
+    void query(node_ptr_t &x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim);
 public:
     BTree(key_kind_t kind, size_t key_size, const String& prefix) : prefix(prefix), kind(kind), 
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { ensure(t >= 2, "fanout too few"); }
@@ -186,7 +187,9 @@ public:
     void insert(const_bytes_t k_raw, rid_t v);
     void remove(const_bytes_t k_raw, rid_t v);
 
-    std::vector<rid_t> query(const byte_arr_t& lo, bool lo_eq, const byte_arr_t& hi, bool hi_eq,rid_t lim) {
-        UNIMPLEMENTED
+    std::vector<rid_t> query(const pred_t& pred, rid_t lim) {
+        std::vector<rid_t> ret;
+        query(root, pred, ret, lim);
+        return ret;
     }
 };
