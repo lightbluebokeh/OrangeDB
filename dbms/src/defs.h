@@ -120,6 +120,7 @@ int expand(Fn&& func, Args&&... args) {
 struct pred_t {
     String col_name;
     byte_arr_t lo, hi;
+    bool lo_eq, ro_eq;
 };
 
 class OrangeException : public std::exception {
@@ -132,7 +133,7 @@ public:
 
 inline int bytesncmp(const_bytes_t a, const_bytes_t b, size_t n) { return strncmp((const char*)a, (const char*)b, n); }
 
-enum class index_key_kind_t {
+enum class key_kind_t {
     BYTES,  // 可以对数据直接按照字节比较的类型
     NUMERIC,  // 浮点类型，比较可能要再看看
     VARCHAR,   // varchar 地址类型

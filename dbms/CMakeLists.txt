@@ -16,6 +16,7 @@ set(SRCS
     "src/orange/orange.cpp"
     "src/fs/file/file_manage.cpp"
     "src/fs/bufpage/bufpage_manage.cpp"
+    "src/orange/index/b_tree.cpp"
     # "thirdparty/mpfr/gmpfrxx.cpp"
     # "thirdparty/mpfr/mpfr_mul_d.c"
 )

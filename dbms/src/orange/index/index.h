@@ -10,7 +10,7 @@
 // 希望设计的时候索引模块不需要关注完整性约束，而交给其它模块
 class Index {
 private:
-    index_key_kind_t kind;
+    key_kind_t kind;
     size_t size;
     String prefix;
 
@@ -31,8 +31,29 @@ private:
         std::ofstream os(meta_name());
         os << on;
     }
+
+    byte_arr_t convert(const_bytes_t k_raw) {
+        switch (kind) {
+            case key_kind_t::BYTES: return byte_arr_t(k_raw, k_raw + size);
+            case key_kind_t::NUMERIC: UNIMPLEMENTED
+            case key_kind_t::VARCHAR: UNIMPLEMENTED
+        }
+    }
+
+    int cmp_key(const byte_arr_t& k1, const byte_arr_t& k2) const {
+        switch (kind) {
+            case key_kind_t::BYTES: return bytesncmp(k1.data(), k2.data(), size);
+            case key_kind_t::NUMERIC: UNIMPLEMENTED
+            case key_kind_t::VARCHAR: UNIMPLEMENTED
+        }
+    }
+
+    int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const {
+        int key_code = cmp_key(k1, k2);
+        return key_code == 0 ? v1 - v2 : key_code;
+    }
 public:
-    Index(index_key_kind_t kind, size_t size, const String& prefix) : kind(kind), size(size), prefix(prefix) {}
+    Index(key_kind_t kind, size_t size, const String& prefix) : kind(kind), size(size), prefix(prefix) {}
     ~Index() {
         write_meta();
         f_data->close();
@@ -96,8 +117,23 @@ public:
         f_data->seek_pos(rid * size)->write_bytes(val, size);
     }
 
-    std::vector<rid_t> get_rid(const_bytes_t lo, const_bytes_t hi) {
-        
+    // lo_eq 为真表示允许等于
+    std::vector<rid_t> get_rid(const byte_arr_t& lo, bool lo_eq, const byte_arr_t& hi, bool hi_eq, rid_t lim) {
+        if (on) return tree->query(lo, lo_eq, hi, hi_eq, lim);
+        else {
+            std::vector<rid_t> ret;
+            bytes_t bytes = new byte_t[size];
+            f_data->seek_pos(0);
+            for (rid_t i = 0; i * size < f_data->size(); i++) {
+                f_data->read_bytes(bytes, size);
+                if (*bytes != DATA_INVALID) {
+                    auto key = convert(bytes);
+                    int l = cmp_key(lo, key), r = cmp_key(key, hi);
+                    if (((lo_eq && l == 0) || l < 0) && (r < 0 || (hi_eq && r == 0))) ret.push_back(i);
+                }
+            }
+            delete bytes;
+        }
     }
 
     byte_arr_t get_val(rid_t rid) {
@@ -105,4 +141,6 @@ public:
         f_data->seek_pos(rid * size)->read_bytes(bytes.data(), size);
         return bytes;
     }
+
+    friend class BTree;
 };

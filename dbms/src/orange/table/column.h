@@ -74,11 +74,11 @@ public:
     }
 
     bool is_indexed() { return indexed; }
-    index_key_kind_t key_kind() {
+    key_kind_t key_kind() {
         switch (datatype.kind) {
-            case datatype_t::NUMERIC: return index_key_kind_t::NUMERIC;
-            case datatype_t::VARCHAR: return index_key_kind_t::VARCHAR;
-            default: return index_key_kind_t::BYTES;
+            case datatype_t::NUMERIC: return key_kind_t::NUMERIC;
+            case datatype_t::VARCHAR: return key_kind_t::VARCHAR;
+            default: return key_kind_t::BYTES;
         }
     }
 };
