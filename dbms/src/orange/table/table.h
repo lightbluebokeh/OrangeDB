@@ -67,7 +67,7 @@ class Table {
     void insert_internal(const std::vector<byte_arr_t>& rec) {
         rid_t rid = rid_pool.new_id();
         for (unsigned i = 0; i < rec.size(); i++) {
-            indices[i].insert(rec[i], rid);
+            indices[i].insert(rec[i].data(), rid);
         }
         rec_cnt++;
     }
@@ -99,9 +99,8 @@ class Table {
         while (it != cols.end() && it->get_name() != col_name) it++;
         return it;
     }
-public:
     static String get_root(const String& name) { return "[" + name + "]/"; }
-
+public:
     static bool create(const String& name, std::vector<col_t> cols, p_key_t p_key,
                        const std::vector<f_key_t>& f_keys) {
         check_db();
@@ -165,7 +164,8 @@ public:
                 it++;
             }
             if (it != cols.end() && it->get_name() == name) {
-                ensure(!it->adjust(val), "column constraints failed");
+                ensure(!it->test(val), "column constraints failed");
+                it->adjust(val);
                 rec.push_back(val);
                 it++;
                 while (it != cols.end() && it->get_name() == (it - 1)->get_name()) it++;
@@ -182,28 +182,31 @@ public:
     void insert(std::vector<byte_arr_t> rec) {
         ensure(rec.size() == cols.size(), "wrong parameter size");
         for (unsigned i = 0; i < rec.size(); i++) {
-            ensure(cols[i].adjust(rec[i]), "column constraints failed");
+            ensure(cols[i].test(rec[i]), "column constraints failed");
+            cols[i].adjust(rec[i]);
         }
         insert_internal(rec);
     }
+    
+    std::vector<rid_t> where(pred_t pred) {
+        auto it = find_col(pred.col_name);
+        ensure(it != cols.end(), "where clause failed: unknown column name");
+        int col_id = it - cols.begin();
+        auto &col = cols[col_id];
+        col.adjust(pred.lo);
+        col.adjust(pred.hi);
+        return indices[col_id].get_rid(pred.lo.data(), pred.hi.data());
+    }
 
-    void remove(WhereClause wc) {
-        auto it = find_col(wc.col_name);
-        ensure(it != cols.end(), "where clause failed");
-        int64 col_id = it - cols.begin();
-        cols[col_id].adjust(wc.val);
-        auto& idx = indices[col_id];
-        for (auto rid : idx.get_rid(wc.cmp, wc.val)) {
-            idx.remove(rid);
-            rec_cnt--;
+    void remove(const std::vector<rid_t>& rids) {
+        for (auto &index: indices) {
+            for (auto rid: rids) {
+                index.remove(rid);
+            }
         }
     }
 
-    auto select(std::vector<String> names, WhereClause wc) {
-        auto it = find_col(wc.col_name);
-        ensure(it != cols.end(), "where clause failed");
-        int64 col_id = it - cols.begin();
-        cols[col_id].adjust(wc.val);
+    auto select(std::vector<String> names, const std::vector<rid_t>& rids) {
         std::vector<std::vector<byte_arr_t>> ret;
         std::vector<int> col_ids;
         for (auto name : names) {
@@ -211,7 +214,7 @@ public:
             ensure(it != cols.end(), "???");
             col_ids.push_back(int(it - cols.begin()));
         }
-        for (auto rid : indices[col_id].get_rid(wc.cmp, wc.val)) {
+        for (auto rid: rids) {
             std::vector<byte_arr_t> cur;
             for (auto cid : col_ids) {
                 cur.push_back(indices[cid].get_val(rid));
@@ -221,14 +224,17 @@ public:
         return ret;
     }
 
-    void update(std::function<byte_arr_t(byte_arr_t)> expr, WhereClause wc) {
-        auto it = find_col(wc.col_name);
-        ensure(it != cols.end(), "where clause failed");
-        int64 col_id = it - cols.begin();
-        cols[col_id].adjust(wc.val);
-        auto& idx = indices[col_id];
-        for (auto rid : idx.get_rid(wc.cmp, wc.val)) {
-            idx.update(expr(idx.get_val(rid)), rid);
+    void update(const String& col_name, std::function<byte_arr_t(byte_arr_t)> expr, const std::vector<rid_t>& rids) {
+        auto it = find_col(col_name);
+        ensure(it != cols.end(), "update failed: unknown column name");
+        int col_id = it - cols.begin();
+        auto &idx = indices[col_id];
+        auto &col = cols[col_id];
+        for (auto rid: rids) {
+            auto new_val = expr(idx.get_val(rid));
+            ensure(col.test(new_val), "update failed: new value fails constraint");
+            col.adjust(new_val);
+            idx.update(new_val.data(), rid);
         }
     }
 };

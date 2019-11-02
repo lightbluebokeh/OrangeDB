@@ -143,7 +143,7 @@ private:
             case index_key_kind_t::BYTES: return bytesncmp(k1.data(), k2_raw, key_size);
             case index_key_kind_t::NUMERIC: UNIMPLEMENTED
             case index_key_kind_t::VARCHAR: UNIMPLEMENTED        
-        }        
+        }
     }
 
     int cmp(const byte_arr_t& k1, rid_t v1, const_bytes_t k2_raw, rid_t v2) {

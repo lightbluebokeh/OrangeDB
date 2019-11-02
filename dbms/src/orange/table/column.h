@@ -41,9 +41,12 @@ private:
             }
         }
 
-        bool adjust(byte_arr_t& byte_arr) {
-            throw "unimplemented";
-            return byte_arr.size();
+        bool test(const byte_arr_t& val) {
+            UNIMPLEMENTED
+        }
+
+        bool adjust(byte_arr_t& val) {
+            UNIMPLEMENTED
         }
     };
     col_name_t name;
@@ -60,10 +63,14 @@ public:
     bool has_dft() { return nullable || dft[0]; }
     byte_arr_t get_dft() { return byte_arr_t(dft, dft + get_size()); }
 
-    bool adjust(byte_arr_t& byte_arr) {
-        if (byte_arr.empty()) return 0;
-        if (!byte_arr.front()) return nullable;
-        return datatype.adjust(byte_arr);
+    bool test(const byte_arr_t& val) {
+        if (val.empty()) return 0;
+        if (!val.front()) return nullable;
+        return datatype.test(val);
+    }
+
+    void adjust(byte_arr_t& val) {
+        datatype.adjust(val);
     }
 
     bool is_indexed() { return indexed; }

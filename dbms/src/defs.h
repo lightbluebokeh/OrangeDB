@@ -117,31 +117,9 @@ int expand(Fn&& func, Args&&... args) {
     return sizeof(arr) / sizeof(int);
 }
 
-
-struct WhereClause {
-    enum cmp_t {
-        EQ,
-        LT,
-        GT,
-        LE,
-        GE
-    };
-
+struct pred_t {
     String col_name;
-    cmp_t cmp;
-    byte_arr_t val;
-
-    bool test(const_bytes_t val) const {
-        // ensure(val.size() == this->val.size(), "ni chuan de sha dong xi");
-        auto code = strncmp((char*)val, (char*)this->val.data(), this->val.size());
-        switch (cmp) {
-            case EQ: return code == 0;
-            case LT: return code < 0;
-            case GT: return code > 0;
-            case LE: return code <= 0;
-            case GE: return code >= 0;
-        }
-    }
+    byte_arr_t lo, hi;
 };
 
 class OrangeException : public std::exception {
