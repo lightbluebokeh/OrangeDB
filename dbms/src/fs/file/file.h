@@ -171,7 +171,7 @@ public:
         return this;
     }
     
-    // 这两个函数效率可能比较慢，慎用
+    // 这两个函数效率可能比较慢，而且没有考虑缓存，慎用
     size_t size() { return fs::file_size(name); }
     void resize(size_t size) { fs::resize_file(name, size); }
 };

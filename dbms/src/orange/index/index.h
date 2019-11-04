@@ -6,10 +6,14 @@
 #include <fs/file/file.h>
 #include <orange/index/b_tree.h>
 
+class Table;
+
 // 同时维护数据和索引，有暴力模式和数据结构模式
 // 希望设计的时候索引模块不需要关注完整性约束，而交给其它模块
 class Index {
 private:
+    Table &table;
+
     key_kind_t kind;
     size_t size;
     String prefix;
@@ -45,23 +49,36 @@ private:
 
     bool test_pred_lo(const byte_arr_t& k, const pred_t& pred) {
         int code = cmp_key(pred.lo, k);
+        if (code == 0) {
+            int a = 1;
+            a++;
+        }
         return code < 0 || (pred.lo_eq && code == 0);
     }
 
     bool test_pred_hi(const byte_arr_t& k, const pred_t& pred) {
         int code = cmp_key(k, pred.hi);
+        if (code == 0) {
+            int a = 1;
+            a++;
+        }
         return code < 0 || (pred.hi_eq && code == 0);
     }
 
     bool test_pred(const byte_arr_t& k, const pred_t& pred) {
-        return test_pred_hi(k, pred) && test_pred_hi(k, pred);
+        return test_pred_lo(k, pred) && test_pred_hi(k, pred);
     }
+
+    // 返回 table 中的最大编号，f**k c++
+    rid_t get_tot();
 public:
-    Index(key_kind_t kind, size_t size, const String& prefix, bool on) : kind(kind), size(size), prefix(prefix), on(on) {
+    Index(Table &table, key_kind_t kind, size_t size, const String& prefix, bool on) : table(table), kind(kind), size(size), prefix(prefix), on(on) {
         if (!fs::exists(data_name())) File::create(data_name());
         f_data = File::open(data_name());
     }
-    Index(Index&& index) : kind(index.kind), size(index.size), prefix(index.prefix), on(index.on), f_data(index.f_data), tree(index.tree) {
+    Index(Index&& index) : table(index.table), kind(index.kind), size(index.size), prefix(index.prefix), 
+        on(index.on),
+        f_data(index.f_data), tree(index.tree) {
         index.f_data = nullptr;
         index.on = 0; 
     }
@@ -101,7 +118,7 @@ public:
             }
         }
         if (kind == key_kind_t::BYTES) {
-            f_data->seek_pos(rid * sizeof(rid_t))->write_bytes(val.data(), size);
+            f_data->seek_pos(rid * size)->write_bytes(val.data(), size);
         } else {
             UNIMPLEMENTED
         }
@@ -116,8 +133,7 @@ public:
             delete[] bytes;
         }
         if (kind == key_kind_t::BYTES) {
-            if (f_data->size() == rid * size) f_data->resize((rid - 1) * size);
-            else f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
+            f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
         } else {
             UNIMPLEMENTED
         }
@@ -142,11 +158,14 @@ public:
             std::vector<rid_t> ret;
             bytes_t bytes = new byte_t[size];
             f_data->seek_pos(0);
-            for (rid_t i = 0; i * size < f_data->size(); i++) {
+            for (rid_t i = 0, tot = get_tot(); i < tot; i++) {
                 f_data->read_bytes(bytes, size);
-                if (*bytes != DATA_INVALID && test_pred(convert(bytes), pred)) ret.push_back(i);
+                if (*bytes != DATA_INVALID && test_pred(convert(bytes), pred)) {
+                    ret.push_back(i);
+                }
             }
             delete bytes;
+            return ret;
         }
     }
 

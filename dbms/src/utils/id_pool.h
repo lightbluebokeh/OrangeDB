@@ -11,6 +11,7 @@ private:
     String filename;
     File* f_pool;
     // 一般来说就那么多id，所以用同样的类型应该能存下
+    // tot 是当前最大编号
     id_type top, tot;
 
 public:
@@ -42,4 +43,6 @@ public:
             f_pool->seek_pos((top + 1) * sizeof(id_type))->write(id);
         }
     }
+
+    rid_t get_tot() { return tot; }
 };

@@ -65,20 +65,50 @@ TEST_CASE("test fs io", "[fs]") {
     cerr << "save your disk!" << endl;
 }
 
+template<typename T>
+static byte_arr_t to_bytes(const T& t) {
+    byte_arr_t ret(sizeof(T) + 1);
+    ret[0] = 1;
+    *(T*)(ret.data() + 1) = t;
+    return ret;
+}
+
 TEST_CASE("table", "[table]") {
     fs::remove_all("db");
     fs::create_directory("db");
     fs::current_path("db");
+
     Orange::create("test");
     Orange::use("test");
 
     Table::create("test", {col_t("test", "INT", 0, 0, 1, {0, 1, 2, 3, 4}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = Table::get("test");
-    table->insert(std::vector<std::pair<String, byte_arr_t>>());
+
+    std::mt19937 rng(time(0));
+    constexpr int lim = 10000;
+    static int a[lim];
+    std::unordered_multiset<int> all, rm;
+    for (int i = 0; i < lim; i++) {
+        a[i] = rng();
+        all.insert(a[i]);
+        if (i & 1) rm.insert(a[i]);
+    }
+    for (int i = 0; i < lim; i++) {
+        table->insert({{"test", to_bytes(a[i])}});
+    }
+    for (int x: rm) {
+        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, 100);
+        cerr << x << endl;
+        REQUIRE(pos.size() == all.count(x));
+        
+        all.erase(all.find(x));
+        table->remove({pos.front()});
+    }
+
     Orange::unuse();
+
     fs::current_path("..");
-    cerr << fs::current_path() << endl;
     REQUIRE(fs::exists("db"));
     fs::remove_all("db");
 }

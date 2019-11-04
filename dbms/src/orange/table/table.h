@@ -31,7 +31,6 @@ class Table {
     // metadata
     rid_t rec_cnt;
     std::vector<col_t> cols;
-    // p_key_t p_key;
     std::vector<String> p_key;
     std::vector<f_key_t> f_keys;
 
@@ -49,7 +48,7 @@ class Table {
     void read_metadata() {
         File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
         for (auto &col: cols) {
-            indices.emplace_back(Index(col.key_kind(), col.get_size(), col_prefix(col.get_name()), col.has_index()));
+            indices.emplace_back(Index(*this, col.key_kind(), col.get_size(), col_prefix(col.get_name()), col.has_index()));
             indices.back().load();
         }
     }
@@ -96,7 +95,7 @@ class Table {
         for (auto col: this->cols) {
             // auto index = new Index(col.key_kind(), col.get_size(), data_root() + name, col.has_index());
             // indices.emplace_back(*index);
-            indices.emplace_back(Index(col.key_kind(), col.get_size(), data_root() + name, col.has_index()));
+            indices.emplace_back(Index(*this, col.key_kind(), col.get_size(), data_root() + name, col.has_index()));
         }
     }
 
@@ -234,4 +233,6 @@ public:
             idx.update(new_val, rid);
         }
     }
+
+    friend class Index;
 };
