@@ -7,9 +7,12 @@ namespace Orange {
     bool exists(const String& name) { return names.count(name); }
 
     bool create(const String& name) {
+        if (using_db()) fs::current_path("..");
         ensure(!exists(name), "database " + name + " already exists");
         names.insert(name);
-        return fs::create_directory(name);
+        auto ret = fs::create_directory(name);
+        if (using_db()) fs::current_path(cur);
+        return ret;
     }
 
     bool drop(const String& name) {
@@ -28,7 +31,7 @@ namespace Orange {
         if (name == cur) return 1;
         ensure(exists(name), "database " + name + " does not exist");
         if (cur.length()) fs::current_path("..");
-        fs::current_path("name");
+        fs::current_path(name);
         return 1;
     }
 

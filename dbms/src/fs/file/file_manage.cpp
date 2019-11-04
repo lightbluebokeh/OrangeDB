@@ -70,7 +70,8 @@ namespace FileManage {
         return close(f);
     }
     int create_file(const String& name) {
-        if (file_exists(name)) return 0;
+        // if (file_exists(name)) return 0;
+        if (fs::exists(name)) return 0;
         FILE* f = fopen(name.c_str(), "ab+");
         if (f == nullptr) {
             std::cout << "fail" << std::endl;
@@ -82,9 +83,11 @@ namespace FileManage {
     }
     // return fd if success
     int open_file(const String& name, int& file_id, int& fd) {
-        if (!file_exists(name)) return -1;
+        // if (!file_exists(name)) return -1;
+        if (!fs::exists(name)) return -1;
         if (file_opened(name)) {
             file_id = opened_files[name];
+            fd = ::fd[file_id];
             return 0;
         }
 #if _WIN32
@@ -101,11 +104,15 @@ namespace FileManage {
         return 0;
     }
     int remove_file(const String& name) {
-        if (!file_exists(name)) return 0;
+        // if (!file_exists(name)) return 0;
+        if (!fs::exists(name)) return 0;
         if (file_opened(name)) close_file(opened_files[name]);
         files.erase(name);
         return remove(name.c_str());
     }
     bool file_opened(const String& name) { return opened_files.count(name); }
-    bool file_exists(const String& name) { return files.count(name); }
+    // bool file_exists(const String& name) { 
+    //     return fs::exists(name);
+    //     // return files.count(name); 
+    // }
 }  // namespace FileManage

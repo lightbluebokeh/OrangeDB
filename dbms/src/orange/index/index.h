@@ -14,7 +14,6 @@ private:
     size_t size;
     String prefix;
 
-    //  meta
     bool on;
 
     File* f_data;
@@ -22,15 +21,6 @@ private:
 
     String data_name() { return prefix + ".data"; }
     String meta_name() { return prefix + ".meta"; }
-
-    void read_meta() {
-        std::ifstream is(meta_name());
-        is >> on;
-    }
-    void write_meta() {
-        std::ofstream os(meta_name());
-        os << on;
-    }
 
     byte_arr_t convert(const_bytes_t k_raw) {
         switch (kind) {
@@ -67,24 +57,17 @@ private:
         return test_pred_hi(k, pred) && test_pred_hi(k, pred);
     }
 public:
-    Index(key_kind_t kind, size_t size, const String& prefix) : kind(kind), size(size), prefix(prefix) {}
-    ~Index() {
-        if (on) turn_off();
-        write_meta();
-        f_data->close();
-    }
-
-    void init() {
-        f_data = File::create_open(data_name());
-        on = 0;
-    }
-    void load() {
-        f_data = File::open(data_name());
-        read_meta();
+    Index(key_kind_t kind, size_t size, const String& prefix, bool on) : kind(kind), size(size), prefix(prefix), on(on) {
         if (on) {
             tree = new BTree(kind, size, prefix);
             tree->load();
         }
+        if (!fs::exists(data_name())) File::create(data_name());
+        f_data = File::open(data_name());
+    }
+    ~Index() {
+        if (on) turn_off();
+        f_data->close();
     }
 
     void turn_on() {
@@ -102,10 +85,19 @@ public:
         }
     }
 
-    // 插入前保证已经得到调整
-    void insert(const_bytes_t val, rid_t rid) {
-        if (on) tree->insert(val, rid);
-        f_data->seek_pos(rid * sizeof(rid_t))->write_bytes(val, size);
+    void insert(const byte_arr_t& val, rid_t rid) {
+        if (on) {
+            if (kind == key_kind_t::BYTES) {
+                tree->insert(val.data(), rid);
+            } else {
+                UNIMPLEMENTED
+            }
+        }
+        if (kind == key_kind_t::BYTES) {
+            f_data->seek_pos(rid * sizeof(rid_t))->write_bytes(val.data(), size);
+        } else {
+            UNIMPLEMENTED
+        }
     }
 
     // 调用合适应该不会有问题8
@@ -116,19 +108,24 @@ public:
             tree->remove(bytes, rid);
             delete[] bytes;
         }
-        if (f_data->size() == rid * size) f_data->resize((rid - 1) * size);
-        else f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
+        if (kind == key_kind_t::BYTES) {
+            if (f_data->size() == rid * size) f_data->resize((rid - 1) * size);
+            else f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
+        } else {
+            UNIMPLEMENTED
+        }
     }
 
-    void update(const_bytes_t val, rid_t rid) {
+    void update(const byte_arr_t& val, rid_t rid) {
         if (on) {
-            bytes_t bytes = new byte_t[size];
-            f_data->read_bytes(bytes, size);
-            tree->remove(bytes, rid);
-            tree->insert(val, rid);
-            delete[] bytes;
+            remove(rid);
+            insert(val, rid);
         }
-        f_data->seek_pos(rid * size)->write_bytes(val, size);
+        if (kind == key_kind_t::BYTES) {
+            f_data->seek_pos(rid * size)->write_bytes(val.data(), size);
+        } else {
+            UNIMPLEMENTED
+        }
     }
 
     // lo_eq 为真表示允许等于

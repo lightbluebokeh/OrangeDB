@@ -31,13 +31,15 @@ class Table {
     // metadata
     rid_t rec_cnt;
     std::vector<col_t> cols;
-    p_key_t p_key;
+    // p_key_t p_key;
+    std::vector<String> p_key;
     std::vector<f_key_t> f_keys;
 
     std::vector<Index> indices;
 
     String root() { return get_root(name); }
     String data_root() { return root() + "data/"; }
+    String col_prefix(const String& col_name) { return data_root() + col_name; }
     String metadata_name() { return root() + "metadata.tbl"; }
     String pool_name() { return root() + "rid.pl"; }
 
@@ -46,6 +48,9 @@ class Table {
     }
     void read_metadata() {
         File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
+        for (auto &col: cols) {
+            indices.push_back(Index(col.key_kind(), col.get_size(), col_prefix(col.get_name()), col.has_index()));
+        }
     }
 
     static Table* tables[MAX_TBL_NUM];
@@ -67,7 +72,7 @@ class Table {
     void insert_internal(const std::vector<byte_arr_t>& rec) {
         rid_t rid = rid_pool.new_id();
         for (unsigned i = 0; i < rec.size(); i++) {
-            indices[i].insert(rec[i].data(), rid);
+            indices[i].insert(rec[i], rid);
         }
         rec_cnt++;
     }
@@ -78,19 +83,17 @@ class Table {
         delete table;
     }
 
-    void on_create(std::vector<col_t> cols, p_key_t p_key, const std::vector<f_key_t>& f_keys) {
+    void on_create(std::vector<col_t> cols, std::vector<String> p_key, const std::vector<f_key_t>& f_keys) {
         std::sort(cols.begin(), cols.end(),
                   [](col_t a, col_t b) { return a.get_name() < b.get_name(); });
         this->cols = std::move(cols);
-        this->p_key = p_key;
+        this->p_key = std::move(p_key);
         this->f_keys = f_keys;
         this->rec_cnt = 0;
         write_metadata();
         rid_pool.init();
-        for (auto col: cols) {
-            indices.push_back(std::move(Index(col.key_kind(), col.get_size(), data_root())));
-            indices.back().init();
-            if (col.is_indexed()) indices.back().turn_on();
+        for (auto col: this->cols) {
+            indices.push_back(Index(col.key_kind(), col.get_size(), data_root(), 0));
         }
     }
 
@@ -99,9 +102,10 @@ class Table {
         while (it != cols.end() && it->get_name() != col_name) it++;
         return it;
     }
+
     static String get_root(const String& name) { return "[" + name + "]/"; }
 public:
-    static bool create(const String& name, std::vector<col_t> cols, p_key_t p_key,
+    static bool create(const String& name, const std::vector<col_t>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_keys) {
         check_db();
         ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
@@ -165,7 +169,7 @@ public:
             }
             if (it != cols.end() && it->get_name() == name) {
                 ensure(!it->test(val), "column constraints failed");
-                it->adjust(val);
+                // it->adjust(val);
                 rec.push_back(val);
                 it++;
                 while (it != cols.end() && it->get_name() == (it - 1)->get_name()) it++;
@@ -183,7 +187,7 @@ public:
         ensure(rec.size() == cols.size(), "wrong parameter size");
         for (unsigned i = 0; i < rec.size(); i++) {
             ensure(cols[i].test(rec[i]), "column constraints failed");
-            cols[i].adjust(rec[i]);
+            // cols[i].adjust(rec[i]);
         }
         insert_internal(rec);
     }
@@ -193,8 +197,7 @@ public:
         ensure(it != cols.end(), "where clause failed: unknown column name");
         int col_id = it - cols.begin();
         auto &col = cols[col_id];
-        col.adjust(pred.lo);
-        col.adjust(pred.hi);
+        ensure(col.test(pred.lo) && col.test(pred.hi), "bad where clause");
         return indices[col_id].get_rid(pred, lim);
     }
 
@@ -233,8 +236,7 @@ public:
         for (auto rid: rids) {
             auto new_val = expr(idx.get_val(rid));
             ensure(col.test(new_val), "update failed: new value fails constraint");
-            col.adjust(new_val);
-            idx.update(new_val.data(), rid);
+            idx.update(new_val, rid);
         }
     }
 };

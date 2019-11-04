@@ -12,6 +12,8 @@
 #include <fs/bufpage/bufpage_stream.h>
 #include <fs/file/file_manage.h>
 
+class col_t;
+
 // 打开的文件
 class File {
 private:
@@ -57,7 +59,7 @@ public:
 
     static bool remove(const String& name) {
         // 偷懒.jpg
-        if (FileManage::file_opened(name)) open(name)->close();
+        // if (FileManage::file_opened(name)) open(name)->close();
         ensure(FileManage::remove_file(name) == 0, "remove file failed");
         return true;
     }
@@ -91,13 +93,19 @@ public:
     template <typename... T>
     File* write(const T&... args) {
         auto write_each = [&](auto&& arg) {
-            if constexpr (is_std_vector_v<decltype(arg)>) {
+            using arg_t = decltype(arg);
+            if constexpr (is_std_vector_v<arg_t> || is_basic_string_v<arg_t>) {
                 write(arg.size());
                 for (auto x : arg) {
                     write(x);
                 }
+            } else if constexpr (is_pair_v<arg_t>) {
+                write(arg.first);
+                write(arg.second);
+            } else if constexpr (std::is_same_v<arg_t, col_t>) {
+                arg.write(this);
             } else {
-                write_bytes((bytes_t)&arg, sizeof(decltype(arg)));
+                write_bytes((bytes_t)&arg, sizeof(arg_t));
             }
         };
         expand(write_each, args...);

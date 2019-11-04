@@ -3,6 +3,11 @@
 #include <cstring>
 #include <defs.h>
 
+// struct constraint_t {
+//     bool nullable, unique;
+//     byte_arr_t lo, hi, dft;
+// };
+
 class col_t {
 private:
     struct datatype_t {
@@ -31,55 +36,85 @@ private:
             } else if (strcmp(raw_type.data(), "DATE") == 0) {
                 return {DATE, 2};
             } else if (strcmp(raw_type.data(), "NUMERIC") == 0) {
-                return {NUMERIC, 8};
+                return {NUMERIC, 17};
             } else if (sscanf(raw_type.data(), "NUMERIC(%d)", &p) == 1) {
-                return {NUMERIC, 8, p};
+                return {NUMERIC, 17, p};
             } else if (sscanf(raw_type.data(), "NUMERIC(%d,%d)", &p, &s) == 2) {
-                return {NUMERIC, 8, p, s};
+                return {NUMERIC, 17, p, s};
             } else {
                 throw "ni zhe shi shen me dong xi";
             }
         }
 
-        bool test(const byte_arr_t& val) {
-            UNIMPLEMENTED
-        }
-
-        bool adjust(byte_arr_t& val) {
-            UNIMPLEMENTED
-        }
+        bool is_string() const { return kind == CHAR || kind == VARCHAR; }
     };
-    col_name_t name;
+    // col_name_t name;
+    String name;
     datatype_t datatype;
-    bool nullable;
-    // is_null + max + '\0'
-    byte_t dft[MAX_CHAR_LEN + 2];
-    bool indexed;
+    bool unique, nullable, index;
+    byte_arr_t dft;
+    std::vector<std::pair<byte_arr_t, byte_arr_t>> ranges;
 
+    bool test_size(byte_arr_t& val) {
+        unsigned size = get_size();
+        if (val.size() > size) return 0;
+        if (val.size() < size) {
+            if (!datatype.is_string()) return 0;
+            if (datatype.kind == datatype_t::CHAR) val.resize(size);
+        }
+        return 1;
+    }
 public:
+    col_t() {}
+    col_t(const String& name, const String& raw_type, bool unique, bool index, bool nullable, byte_arr_t dft, 
+        std::vector<std::pair<byte_arr_t, byte_arr_t>> ranges) 
+        : name(name), datatype(datatype_t::parse(raw_type)), 
+            unique(unique), nullable(nullable), index(index), 
+            dft(dft), ranges(ranges) {
+        for (auto &[lo, hi]: this->ranges) {
+            ensure(test_size(lo) && test_size(hi), "bad constraint parameter");
+            lo.resize(get_size());
+            hi.resize(get_size());
+        }
+        ensure(test(this->dft), "default value fails constraint");
+    }
+
     // one more bytes for null/valid
     int get_size() { return 1 + datatype.size; }
-    inline String get_name() { return name.get(); }
+    String get_name() { return name; }
     bool has_dft() { return nullable || dft[0]; }
-    byte_arr_t get_dft() { return byte_arr_t(dft, dft + get_size()); }
+    byte_arr_t get_dft() { return dft; }
 
-    bool test(const byte_arr_t& val) {
+    // 测试 val 能否插入到这一列；对于 char 会补零
+    bool test(byte_arr_t& val) {
         if (val.empty()) return 0;
         if (!val.front()) return nullable;
-        return datatype.test(val);
+        if (!test_size(val)) return 0;
+        auto tmp = val;
+        tmp.resize(get_size());
+        for (auto [lo, hi]: ranges) {
+            if (bytesncmp(tmp.data(), lo.data(), tmp.size()) < 0 
+                || bytesncmp(hi.data(), tmp.data(), tmp.size())< 0) return 0;
+        }
+        return 1;
     }
 
-    void adjust(byte_arr_t& val) {
-        datatype.adjust(val);
-    }
-
-    bool is_indexed() { return indexed; }
+    bool has_index() { return index; }
+    bool is_unique() { return unique; }
     key_kind_t key_kind() {
         switch (datatype.kind) {
             case datatype_t::NUMERIC: return key_kind_t::NUMERIC;
             case datatype_t::VARCHAR: return key_kind_t::VARCHAR;
             default: return key_kind_t::BYTES;
         }
+    }
+
+    void write(File* file) const {
+        file->write(name, datatype, unique, nullable, index, dft, ranges);
+    }
+
+    void read(File* file) {
+        file->read(name, datatype, unique, nullable, index, dft, ranges);
     }
 };
 

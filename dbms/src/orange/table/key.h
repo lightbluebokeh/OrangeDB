@@ -2,13 +2,13 @@
 
 #include <defs.h>
 
-struct p_key_t {
-    col_name_list_t list;
-    bool valid;
-};
+// struct p_key_t {
+//     col_name_list_t list;
+//     bool valid;
+// };
 
-// 我就看看
-constexpr int p_key_size = sizeof(p_key_t);
+// // 我就看看
+// constexpr int p_key_size = sizeof(p_key_t);
 
 struct f_key_t {
     f_key_name_t name;

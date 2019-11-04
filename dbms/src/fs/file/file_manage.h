@@ -11,5 +11,5 @@ namespace FileManage {
     int open_file(const String& name, int& file_id, int& fd);
     int remove_file(const String& name);
     bool file_opened(const String& name);
-    bool file_exists(const String& name);
+    // bool file_exists(const String& name);
 }  // namespace FileManage

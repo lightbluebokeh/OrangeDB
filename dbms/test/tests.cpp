@@ -64,3 +64,14 @@ TEST_CASE("test fs io", "[fs]") {
     fs::remove("test_dir");
     cerr << "save your disk!" << endl;
 }
+
+TEST_CASE("table", "[table]") {
+    fs::create_directory("db");
+    fs::current_path("db");
+    Orange::create("test");
+    Orange::use("test");
+
+    // Table::create("test", {
+    //     col_t("test", "INT", 1, {0, 0}),
+    // }, {}, {});
+}

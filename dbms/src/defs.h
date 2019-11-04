@@ -73,6 +73,10 @@ const int COL_NAME_LIM = 32;
 struct col_name_t {
     char data[COL_NAME_LIM + 1];
     inline String get() const { return String(data); }
+    void set(const String& name) { 
+        memcpy(data, name.data(), name.length());
+        data[name.length()] = 0;
+    }
 };
 const int TBL_NAME_LIM = 32;
 struct tbl_name_t {
@@ -102,6 +106,20 @@ template <typename T>
 struct is_std_vector<std::vector<T>> : std::true_type {};
 template <typename T>
 constexpr bool is_std_vector_v = is_std_vector<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+
+template <typename>
+struct is_basic_string : std::false_type {};
+template <typename T>
+struct is_basic_string<std::basic_string<T>> : std::true_type {};
+template <typename T>
+constexpr bool is_basic_string_v = is_basic_string<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+
+template <typename>
+struct is_pair : std::false_type {};
+template <typename T, typename U>
+struct is_pair<std::pair<T, U>> : std::true_type {};
+template <typename T>
+constexpr bool is_pair_v = is_pair<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
 constexpr int MAX_CHAR_LEN = 256;
 
