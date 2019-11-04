@@ -11,6 +11,7 @@ namespace Orange {
     bool use(const String& name);
     //  正在使用某个数据库
     bool using_db();
+    bool unuse();
     String get_cur();
     std::vector<String> all();
     std::vector<String> all_tables();

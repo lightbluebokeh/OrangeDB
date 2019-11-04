@@ -1,4 +1,5 @@
 #include <orange/orange.h>
+#include <orange/table/table.h>
 
 static std::unordered_set<String> names;
 static String cur = "";
@@ -19,6 +20,7 @@ namespace Orange {
         ensure(exists(name), "database " + name + " does not exist");
         names.erase(name);
         if (name == cur) {
+            unuse();
             fs::current_path("..");
             cur = "";
             return fs::remove(name);
@@ -29,10 +31,20 @@ namespace Orange {
 
     bool use(const String& name) {
         if (name == cur) return 1;
+        unuse();
         ensure(exists(name), "database " + name + " does not exist");
         if (cur.length()) fs::current_path("..");
         fs::current_path(name);
         cur = name;
+        return 1;
+    }
+
+    bool unuse() {
+        if (using_db()) {
+            Table::close_all();
+            cur = "";
+            fs::current_path("..");
+        }
         return 1;
     }
 

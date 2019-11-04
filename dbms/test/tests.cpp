@@ -73,6 +73,12 @@ TEST_CASE("table", "[table]") {
     Orange::use("test");
 
     Table::create("test", {col_t("test", "INT", 0, 0, 1, {0, 1, 2, 3, 4}, {})}, {}, {});
+    cerr << "create table test" << endl;
     auto table = Table::get("test");
     table->insert(std::vector<std::pair<String, byte_arr_t>>());
+    Orange::unuse();
+    fs::current_path("..");
+    cerr << fs::current_path() << endl;
+    REQUIRE(fs::exists("db"));
+    fs::remove_all("db");
 }
