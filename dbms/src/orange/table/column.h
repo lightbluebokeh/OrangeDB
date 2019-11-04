@@ -3,10 +3,7 @@
 #include <cstring>
 #include <defs.h>
 
-// struct constraint_t {
-//     bool nullable, unique;
-//     byte_arr_t lo, hi, dft;
-// };
+class File;
 
 class col_t {
 private:
@@ -88,8 +85,8 @@ public:
     // 测试 val 能否插入到这一列；对于 char 会补零
     bool test(byte_arr_t& val) {
         if (val.empty()) return 0;
-        if (!val.front()) return nullable;
         if (!test_size(val)) return 0;
+        if (!val.front()) return nullable;
         auto tmp = val;
         tmp.resize(get_size());
         for (auto [lo, hi]: ranges) {
@@ -110,11 +107,11 @@ public:
     }
 
     void write(File* file) const {
-        file->write(name, datatype, unique, nullable, index, dft, ranges);
+        file->seek_pos(0)->write(name, datatype, unique, nullable, index, dft, ranges);
     }
 
     void read(File* file) {
-        file->read(name, datatype, unique, nullable, index, dft, ranges);
+        file->seek_pos(0)->read(name, datatype, unique, nullable, index, dft, ranges);
     }
 };
 

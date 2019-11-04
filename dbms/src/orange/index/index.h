@@ -58,16 +58,23 @@ private:
     }
 public:
     Index(key_kind_t kind, size_t size, const String& prefix, bool on) : kind(kind), size(size), prefix(prefix), on(on) {
+        if (!fs::exists(data_name())) File::create(data_name());
+        f_data = File::open(data_name());
+    }
+    Index(Index&& index) : kind(index.kind), size(index.size), prefix(index.prefix), on(index.on), f_data(index.f_data), tree(index.tree) {
+        index.f_data = nullptr;
+        index.on = 0; 
+    }
+    ~Index() {
+        if (on) turn_off();
+        if (f_data) f_data->close();
+    }
+
+    void load() {
         if (on) {
             tree = new BTree(kind, size, prefix);
             tree->load();
         }
-        if (!fs::exists(data_name())) File::create(data_name());
-        f_data = File::open(data_name());
-    }
-    ~Index() {
-        if (on) turn_off();
-        f_data->close();
     }
 
     void turn_on() {
@@ -144,9 +151,15 @@ public:
     }
 
     byte_arr_t get_val(rid_t rid) {
-        byte_arr_t bytes(size);
-        f_data->seek_pos(rid * size)->read_bytes(bytes.data(), size);
-        return bytes;
+        auto bytes = new byte_t[size];
+        f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+        if (kind == key_kind_t::BYTES) {
+            auto ret = byte_arr_t(bytes, bytes + size);
+            delete[] bytes;
+            return ret;
+        } else {
+            UNIMPLEMENTED
+        }
     }
 
     friend class BTree;

@@ -32,6 +32,7 @@ namespace Orange {
         ensure(exists(name), "database " + name + " does not exist");
         if (cur.length()) fs::current_path("..");
         fs::current_path(name);
+        cur = name;
         return 1;
     }
 

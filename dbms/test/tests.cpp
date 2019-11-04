@@ -66,12 +66,13 @@ TEST_CASE("test fs io", "[fs]") {
 }
 
 TEST_CASE("table", "[table]") {
+    fs::remove_all("db");
     fs::create_directory("db");
     fs::current_path("db");
     Orange::create("test");
     Orange::use("test");
 
-    // Table::create("test", {
-    //     col_t("test", "INT", 1, {0, 0}),
-    // }, {}, {});
+    Table::create("test", {col_t("test", "INT", 0, 0, 1, {0, 1, 2, 3, 4}, {})}, {}, {});
+    auto table = Table::get("test");
+    table->insert(std::vector<std::pair<String, byte_arr_t>>());
 }

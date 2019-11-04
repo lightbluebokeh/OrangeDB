@@ -96,9 +96,7 @@ public:
             using arg_t = decltype(arg);
             if constexpr (is_std_vector_v<arg_t> || is_basic_string_v<arg_t>) {
                 write(arg.size());
-                for (auto x : arg) {
-                    write(x);
-                }
+                for (auto x : arg) write(x);
             } else if constexpr (is_pair_v<arg_t>) {
                 write(arg.first);
                 write(arg.second);
@@ -140,15 +138,16 @@ public:
 
     template <typename T, typename... Ts>
     File* read(T& t, Ts&... ts) {
-        if constexpr (is_std_vector_v<T>) {
+        if constexpr (is_std_vector_v<T> || is_basic_string_v<T>) {
             size_t size;
             read(size);
             t.resize(size);
-            for (size_t i = 0; i < size; i++) {
-                read(t[i]);
-            }
-        } else if constexpr (std::is_array_v<T>) {
-            read_bytes((bytes_t)t, sizeof(T));
+            for (auto &x: t) read(x);
+        } else if constexpr (is_pair_v<T>) {
+            read(t.first);
+            read(t.second);
+        } else if constexpr (std::is_same_v<T, col_t>) {
+            t.read(this);
         } else {
             read_bytes((bytes_t)&t, sizeof(T));
         }

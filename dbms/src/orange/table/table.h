@@ -49,7 +49,8 @@ class Table {
     void read_metadata() {
         File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
         for (auto &col: cols) {
-            indices.push_back(Index(col.key_kind(), col.get_size(), col_prefix(col.get_name()), col.has_index()));
+            indices.emplace_back(Index(col.key_kind(), col.get_size(), col_prefix(col.get_name()), col.has_index()));
+            indices.back().load();
         }
     }
 
@@ -83,17 +84,19 @@ class Table {
         delete table;
     }
 
-    void on_create(std::vector<col_t> cols, std::vector<String> p_key, const std::vector<f_key_t>& f_keys) {
-        std::sort(cols.begin(), cols.end(),
-                  [](col_t a, col_t b) { return a.get_name() < b.get_name(); });
-        this->cols = std::move(cols);
-        this->p_key = std::move(p_key);
+    void on_create(const std::vector<col_t>& cols, const std::vector<String>& p_key, const std::vector<f_key_t>& f_keys) {
+        this->cols = cols;
+        this->p_key = p_key;
         this->f_keys = f_keys;
         this->rec_cnt = 0;
+        File::create(metadata_name());
         write_metadata();
         rid_pool.init();
+        fs::create_directory(data_root());
         for (auto col: this->cols) {
-            indices.push_back(Index(col.key_kind(), col.get_size(), data_root(), 0));
+            // auto index = new Index(col.key_kind(), col.get_size(), data_root() + name, col.has_index());
+            // indices.emplace_back(*index);
+            indices.emplace_back(Index(col.key_kind(), col.get_size(), data_root() + name, col.has_index()));
         }
     }
 
@@ -102,14 +105,15 @@ class Table {
         while (it != cols.end() && it->get_name() != col_name) it++;
         return it;
     }
+    bool has_col(const String& col_name) { return find_col(col_name) != cols.end(); }
 
-    static String get_root(const String& name) { return "[" + name + "]/"; }
+    static String get_root(const String& name) { return name + "/"; }
 public:
     static bool create(const String& name, const std::vector<col_t>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_keys) {
         check_db();
         ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
-
+        ensure(!fs::exists(get_root(name)), "table `" + name + "' exists");
         std::error_code e;
         if (!fs::create_directory(get_root(name), e)) throw e.message();
         auto table = new_table(name);
@@ -155,30 +159,22 @@ public:
     }
 
     // 这一段代码把输入的值补全
-    void insert(std::vector<std::pair<byte_arr_t, String>>&& val_name_list) {
-        sort(val_name_list.begin(), val_name_list.end(),
-             [](auto a, auto b) { return a.second < b.second; });
-        std::vector<byte_arr_t> rec;
-        auto it = cols.begin();
-        for (auto [val, name] : val_name_list) {
-            if (it != cols.end() && it->get_name() > name) continue;
-            while (it != cols.end() && it->get_name() < name) {
-                ensure(it->has_dft(), "no default value for non-null column: " + it->get_name());
-                rec.push_back(it->get_dft());
-                it++;
-            }
-            if (it != cols.end() && it->get_name() == name) {
-                ensure(!it->test(val), "column constraints failed");
-                // it->adjust(val);
-                rec.push_back(val);
-                it++;
-                while (it != cols.end() && it->get_name() == (it - 1)->get_name()) it++;
-            }
+    void insert(const std::vector<std::pair<String, byte_arr_t>>& values) {
+        std::unordered_map<String, byte_arr_t> map;
+        for (auto [name, val]: values) {
+            ensure(has_col(name), "insertion failed: unknown column name");
+            map[name] = val;
         }
-        while (it != cols.end()) {
-            ensure(it->has_dft(), "no default value for non-null column: " + it->get_name());
-            rec.push_back(it->get_dft());
-            it++;
+        std::vector<byte_arr_t> rec;
+        for (auto &col: cols) {
+            auto it = map.find(col.get_name());
+            if (it == map.end()) {
+                ensure(col.has_dft(), "insertion failed: no default value for unspecified column: " + col.get_name());
+                rec.push_back(col.get_dft());
+            } else {
+                ensure(col.test(it->second), "insertion failed: value fails constraints");
+                rec.push_back(it->second);
+            }
         }
         insert_internal(rec);
     }
@@ -187,7 +183,6 @@ public:
         ensure(rec.size() == cols.size(), "wrong parameter size");
         for (unsigned i = 0; i < rec.size(); i++) {
             ensure(cols[i].test(rec[i]), "column constraints failed");
-            // cols[i].adjust(rec[i]);
         }
         insert_internal(rec);
     }
