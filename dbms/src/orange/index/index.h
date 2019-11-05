@@ -53,7 +53,11 @@ private:
             int a = 1;
             a++;
         }
-        return code < 0 || (pred.lo_eq && code == 0);
+        if (code < 0 || (pred.lo_eq && code == 0)) {
+            return 1;
+        } else {
+            return 0;
+        }
     }
 
     bool test_pred_hi(const byte_arr_t& k, const pred_t& pred) {
@@ -62,11 +66,21 @@ private:
             int a = 1;
             a++;
         }
-        return code < 0 || (pred.hi_eq && code == 0);
+        if (code < 0 || (pred.hi_eq && code == 0)) {
+            return 1;
+        } else {
+            return 0;
+        }
     }
 
     bool test_pred(const byte_arr_t& k, const pred_t& pred) {
-        return test_pred_lo(k, pred) && test_pred_hi(k, pred);
+        if (test_pred_lo(k, pred) && test_pred_hi(k, pred)) {
+            // test_pred_lo(k, pred);
+            // test_pred_hi(k, pred);
+            return 1;
+        } else {
+            return 0;
+        }
     }
 
     // 返回 table 中的最大编号，f**k c++
@@ -158,10 +172,11 @@ public:
             std::vector<rid_t> ret;
             bytes_t bytes = new byte_t[size];
             f_data->seek_pos(0);
-            for (rid_t i = 0, tot = get_tot(); i < tot; i++) {
+            for (rid_t i = 0, tot = get_tot(); i < tot && lim; i++) {
                 f_data->read_bytes(bytes, size);
                 if (*bytes != DATA_INVALID && test_pred(convert(bytes), pred)) {
                     ret.push_back(i);
+                    lim--;
                 }
             }
             delete bytes;

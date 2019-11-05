@@ -150,7 +150,13 @@ public:
     const char* what() { return msg.c_str(); }
 };
 
-inline int bytesncmp(const_bytes_t a, const_bytes_t b, size_t n) { return strncmp((const char*)a, (const char*)b, n); }
+inline int64 bytesncmp(const_bytes_t a, const_bytes_t b, int n) { 
+    // return strncmp((const char*)a, (const char*)b, n); 
+    for (int i = 0; i < n; i++, a++, b++) {
+        if (*a != *b) return *a - *b;
+    }
+    return 0;
+}
 
 enum class key_kind_t {
     BYTES,  // 可以对数据直接按照字节比较的类型

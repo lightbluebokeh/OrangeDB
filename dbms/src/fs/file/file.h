@@ -73,11 +73,13 @@ public:
             bps.write_bytes(bytes, tot);
         } else {
             bps.write_bytes(bytes, bps.rest());
+            bytes += rest;
             tot -= rest;
             page_id++;
             while (tot >= PAGE_SIZE) {
                 bps = BufpageStream(Bufpage(id, page_id));
                 bps.write_bytes(bytes, PAGE_SIZE);
+                bytes += PAGE_SIZE;
                 tot -= PAGE_SIZE;
                 page_id++;
             }
@@ -119,11 +121,13 @@ public:
             bps.read_bytes(bytes, tot);
         } else {
             bps.read_bytes(bytes, bps.rest());
+            bytes += rest;
             tot -= rest;
             page_id++;
             while (tot >= PAGE_SIZE) {
                 bps = BufpageStream(Bufpage(id, page_id));
                 bps.read_bytes(bytes, PAGE_SIZE);
+                bytes += PAGE_SIZE;
                 tot -= PAGE_SIZE;
                 page_id++;
             }

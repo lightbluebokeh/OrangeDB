@@ -67,9 +67,11 @@ TEST_CASE("test fs io", "[fs]") {
 
 template<typename T>
 static byte_arr_t to_bytes(const T& t) {
-    byte_arr_t ret(sizeof(T) + 1);
+    byte_arr_t ret(1);
     ret[0] = 1;
-    *(T*)(ret.data() + 1) = t;
+    for (unsigned i = 1; i <= sizeof(T); i++) {
+        ret.push_back(*((byte_t*)&t + (sizeof(T) - i)));
+    }
     return ret;
 }
 
@@ -81,30 +83,35 @@ TEST_CASE("table", "[table]") {
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {col_t("test", "INT", 0, 0, 1, {0, 1, 2, 3, 4}, {})}, {}, {});
+    Table::create("test", {col_t("test", "INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = Table::get("test");
 
     std::mt19937 rng(time(0));
-    constexpr int lim = 10000;
+    constexpr int lim = 5000;
     static int a[lim];
     std::unordered_multiset<int> all, rm;
     for (int i = 0; i < lim; i++) {
-        a[i] = rng();
+        a[i] = rng() % 5000;
         all.insert(a[i]);
-        if (i & 1) rm.insert(a[i]);
+        if (rng() & 1) rm.insert(a[i]);
     }
+    std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
         table->insert({{"test", to_bytes(a[i])}});
     }
+
+    std::cerr << "testing remove" << std::endl;
+    int i = 0;
     for (int x: rm) {
-        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, 100);
-        cerr << x << endl;
+        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
-        
         all.erase(all.find(x));
         table->remove({pos.front()});
+        i++;
+        std::cerr << '\r' << i << '/' << rm.size();
     }
+    std::cerr << endl;
 
     Orange::unuse();
 
