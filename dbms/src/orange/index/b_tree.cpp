@@ -146,6 +146,7 @@ void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, ri
     query(y, pred, ret, lim);
     while (lim && i < x->key_num() && index->test_pred_hi(index->convert(x->key(i)), pred)) {
         ret.push_back(x->val(i));
+        lim--;
         if (lim) {
             y = read_node(x->ch(i + 1));
             query(y, pred, ret, lim);
