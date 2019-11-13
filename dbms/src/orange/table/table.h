@@ -21,7 +21,6 @@ struct table_t {
 // 数据库中的表
 class Table {
     int id;
-    // tbl_name_t name;
     String name;
     IdPool<rid_t> rid_pool;
 
@@ -232,6 +231,18 @@ public:
             ensure(col.test(new_val), "update failed: new value fails constraint");
             idx.update(new_val, rid);
         }
+    }
+
+    void create_index(const String& col_name) {
+        auto it = find_col(col_name);
+        ensure(it != cols.end(), "create index failed: unknown column name");
+        indices[it - cols.begin()].turn_on();
+    }
+
+    void drop_index(const String& col_name) {
+        auto it = find_col(col_name);
+        ensure(it != cols.end(), "drop index failed: unknown column name");
+        indices[it - cols.begin()].turn_off();
     }
 
     friend class Index;

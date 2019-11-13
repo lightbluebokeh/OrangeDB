@@ -12,7 +12,7 @@ class Table;
 // 希望设计的时候索引模块不需要关注完整性约束，而交给其它模块
 class Index {
 private:
-    Table &table;
+    Table& table;
 
     key_kind_t kind;
     size_t size;
@@ -21,7 +21,7 @@ private:
     bool on;
 
     File* f_data;
-    BTree *tree;
+    BTree* tree;
 
     String data_name() { return prefix + ".data"; }
     String meta_name() { return prefix + ".meta"; }
@@ -85,16 +85,19 @@ private:
 
     // 返回 table 中的最大编号，f**k c++
     rid_t get_tot();
+
 public:
-    Index(Table &table, key_kind_t kind, size_t size, const String& prefix, bool on) : table(table), kind(kind), size(size), prefix(prefix), on(on) {
+    Index(Table& table, key_kind_t kind, size_t size, const String& prefix, bool on) :
+        table(table), kind(kind), size(size), prefix(prefix), on(on) {
         if (!fs::exists(data_name())) File::create(data_name());
         f_data = File::open(data_name());
     }
-    Index(Index&& index) : table(index.table), kind(index.kind), size(index.size), prefix(index.prefix), 
-        on(index.on),
+    Index(Index&& index) :
+        table(index.table), kind(index.kind), size(index.size), prefix(index.prefix), on(index.on),
         f_data(index.f_data), tree(index.tree) {
+        tree->index = this;
         index.f_data = nullptr;
-        index.on = 0; 
+        index.on = 0;
     }
     ~Index() {
         if (on) turn_off();
@@ -103,7 +106,7 @@ public:
 
     void load() {
         if (on) {
-            tree = new BTree(kind, size, prefix);
+            tree = new BTree(this, kind, size, prefix);
             tree->load();
         }
     }
@@ -111,7 +114,7 @@ public:
     void turn_on() {
         if (!on) {
             on = 1;
-            tree = new BTree(kind, size, prefix);
+            tree = new BTree(this, kind, size, prefix);
             tree->init(f_data);
         }
     }
@@ -167,7 +170,8 @@ public:
 
     // lo_eq 为真表示允许等于
     std::vector<rid_t> get_rid(const pred_t& pred, rid_t lim) {
-        if (on) return tree->query(pred, lim);
+        if (on)
+            return tree->query(pred, lim);
         else {
             std::vector<rid_t> ret;
             bytes_t bytes = new byte_t[size];

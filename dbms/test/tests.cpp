@@ -65,6 +65,7 @@ TEST_CASE("test fs io", "[fs]") {
     cerr << "save your disk!" << endl;
 }
 
+// temp: 大端序，比较用
 template<typename T>
 static byte_arr_t to_bytes(const T& t) {
     byte_arr_t ret(1);
@@ -111,6 +112,9 @@ TEST_CASE("table", "[table]") {
         i++;
         std::cerr << '\r' << i << '/' << rm.size();
     }
+
+
+    table->drop_index("test");
     std::cerr << endl;
 
     Orange::unuse();
@@ -118,4 +122,53 @@ TEST_CASE("table", "[table]") {
     fs::current_path("..");
     REQUIRE(fs::exists("db"));
     fs::remove_all("db");
+}
+
+using namespace std;
+
+TEST_CASE("btree", "[btree]") {
+    fs::remove_all("db");
+    fs::create_directory("db");
+    fs::current_path("db");
+
+    Orange::create("test");
+    Orange::use("test");
+
+    Table::create("test", {col_t("test", "INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    cerr << "create table test" << endl;
+    auto table = Table::get("test");
+    table->create_index("test");
+
+    std::mt19937 rng(time(0));
+    constexpr int lim = 5000;
+    static int a[lim];
+    std::unordered_multiset<int> all, rm;
+    for (int i = 0; i < lim; i++) {
+        a[i] = rng() % 5000;
+        all.insert(a[i]);
+        if (rng() & 1) rm.insert(a[i]);
+    }
+    std::cerr << "test insert" << std::endl;
+    for (int i = 0; i < lim; i++) {
+        // cerr << i << endl;
+        table->insert({{"test", to_bytes(a[i])}});
+    }
+
+    std::cerr << "testing remove" << std::endl;
+    int i = 0;
+    for (int x: rm) {
+        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
+        REQUIRE(pos.size() == all.count(x));
+        all.erase(all.find(x));
+        table->remove({pos.front()});
+        i++;
+        std::cerr << '\r' << i << '/' << rm.size();
+    }
+    std::cerr << endl;
+
+    Orange::unuse();
+
+    fs::current_path("..");
+    REQUIRE(fs::exists("db"));
+    fs::remove_all("db");    
 }

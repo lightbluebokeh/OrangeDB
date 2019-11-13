@@ -34,11 +34,11 @@ private:
         int& key_num() { return *(int*)data; }
         const int& key_num() const { return *(int*)data; }
         bid_t& ch(int i) {
-            return *((bid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
+            return *(bid_t*)(data + sizeof(std::remove_reference_t<decltype(key_num())>)
                                     + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t)));
         }
         const bid_t& ch(int i) const {
-            return *((bid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
+            return *(bid_t*)(data + sizeof(std::remove_reference_t<decltype(key_num())>)
                                     + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t)));
         }
         bytes_t key(int i) {
@@ -53,12 +53,12 @@ private:
         }
         void set_key(int i, const_bytes_t key) { memcpy(this->key(i), key, tree.key_size); }
         rid_t& val(int i) {
-            return *((rid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
+            return *(rid_t*)(data + sizeof(std::remove_reference_t<decltype(key_num())>)
                                     + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
                                     + sizeof(bid_t) + tree.key_size);
         }
         const rid_t& val(int i) const {
-            return *((rid_t*)data + sizeof(std::remove_reference_t<decltype(key_num())>)
+            return *(const rid_t*)(data + sizeof(std::remove_reference_t<decltype(key_num())>)
                                     + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
                                     + sizeof(bid_t) + tree.key_size);
         }
@@ -115,7 +115,7 @@ private:
             x->ch(j + 1) = x->ch(j);
         }
         x->ch(i + 1) = z->id;
-        for (int j = x->key_num() - 1; j >= i; i--) {
+        for (int j = x->key_num() - 1; j >= i; j--) {
             x->set_key(j + 1, x->key(j));
             x->val(j + 1) = x->val(j);
         }
@@ -159,7 +159,7 @@ private:
     void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v);
     void query(node_ptr_t &x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim);
 public:
-    BTree(key_kind_t kind, size_t key_size, const String& prefix) : prefix(prefix), kind(kind), 
+    BTree(Index *index, key_kind_t kind, size_t key_size, const String& prefix) : index(index), prefix(prefix), kind(kind),
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { ensure(t >= 2, "fanout too few"); }
     ~BTree() {
         write_root();
@@ -192,4 +192,6 @@ public:
         query(root, pred, ret, lim);
         return ret;
     }
+
+    friend Index;
 };

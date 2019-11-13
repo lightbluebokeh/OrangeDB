@@ -106,12 +106,13 @@ void BTree::remove(const_bytes_t k_raw, rid_t v) {
 
 int BTree::upper_bound(node_ptr_t &x, const byte_arr_t& k, rid_t v) {
     int i = 0;
-    int l = 0, r = x->key_num() - 1;
-    while (l <= r) {
-        int m = (l + r) >> 1;
-        if (index->cmp(k, v, index->convert(x->key(m)), x->val(m)) > 0) i = m, l = m + 1;
-        else r = m - 1;
-    }
+    while (i < x->key_num() && index->cmp(k, v, index->convert(x->key(i)), x->val(i)) < 0) i++;
+    // int l = 0, r = x->key_num() - 1;
+    // while (l <= r) {
+    //     int m = (l + r) >> 1;
+    //     if (index->cmp(k, v, index->convert(x->key(m)), x->val(m)) < 0) i = m, l = m + 1;
+    //     else r = m - 1;
+    // }
     return i;
 }
 
@@ -119,7 +120,7 @@ void BTree::insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t&
     int i = upper_bound(x, k, v);
     ensure(!i || index->cmp(k, v, index->convert(x->key(i - 1)), x->val(i - 1)) != 0, "try to insert something already exists");
     if (x->leaf()) {
-        for (int j = x->key_num() - 1; j >= i; i--) {
+        for (int j = x->key_num() - 1; j >= i; j--) {
             x->set_key(j + 1, x->key(j));
             x->val(j + 1) = x->val(j);
         }
@@ -141,13 +142,17 @@ void BTree::insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t&
 
 void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
     int i = 0;
-    while (i < x->key_num() && !index->test_pred_lo(index->convert(x->key(i)), pred)) i++;
-    auto y = read_node(x->ch(i));
-    query(y, pred, ret, lim);
+    while (i < x->key_num() && !index->test_pred_lo(index->convert(x->key(i)), pred)) 
+        i++;
+    node_ptr_t y;
+    if (!x->leaf()) {
+        y = read_node(x->ch(i));
+        query(y, pred, ret, lim);
+    }
     while (lim && i < x->key_num() && index->test_pred_hi(index->convert(x->key(i)), pred)) {
         ret.push_back(x->val(i));
         lim--;
-        if (lim) {
+        if (lim && !x->leaf()) {
             y = read_node(x->ch(i + 1));
             query(y, pred, ret, lim);
         }
