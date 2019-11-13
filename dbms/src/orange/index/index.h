@@ -47,7 +47,7 @@ private:
             case ORANGE_DATE:
             case ORANGE_CHAR: return bytesncmp(k1.data(), k2.data(), size);
             case ORANGE_INT:
-                if (k1.front() != k2.front()) return k1.front() - k2.front();
+                if (k1.front() != k2.front()) return int(k1.front()) - int(k2.front());
                 return *(int*)(k1.data() + 1) - *(int*)(k2.data() + 1);
             default: UNIMPLEMENTED
         }
@@ -86,8 +86,6 @@ private:
 
     bool test_pred(const byte_arr_t& k, const pred_t& pred) {
         if (test_pred_lo(k, pred) && test_pred_hi(k, pred)) {
-            // test_pred_lo(k, pred);
-            // test_pred_hi(k, pred);
             return 1;
         } else {
             return 0;
@@ -101,6 +99,7 @@ private:
         f_data->seek_pos(rid * size)->read_bytes(bytes, size);
         auto ret = byte_arr_t(bytes, bytes + size);
         delete bytes;
+        return ret;
     }
 public:
     Index(Table& table, data_kind_t kind, size_t size, const String& prefix, bool on) :
@@ -111,12 +110,12 @@ public:
     Index(Index&& index) :
         table(index.table), kind(index.kind), size(index.size), prefix(index.prefix), on(index.on),
         f_data(index.f_data), tree(index.tree) {
-        tree->index = this;
+        if (on) tree->index = this;
         index.f_data = nullptr;
         index.on = 0;
     }
     ~Index() {
-        if (on) turn_off();
+        if (on) delete tree;
         if (f_data) f_data->close();
     }
 
@@ -150,33 +149,16 @@ public:
 
     // 调用合适应该不会有问题8
     void remove(rid_t rid) {
-
-        // if (on) {
-        //     bytes_t bytes = new byte_t[size];
-        //     f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-        //     tree->remove(bytes, rid);
-        //     delete[] bytes;
-        // }
-        // if (kind == key_kind_t::BYTES) {
-        //     f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
-        // } else {
-        //     UNIMPLEMENTED
-        // }
+        if (on) {
+            auto raw = get_raw(rid);
+            tree->remove(raw.data(), rid);
+        }
+        f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
     }
 
     void update(const byte_arr_t& val, rid_t rid) {
-
-        // auto raw = store(val);
-        // remove(rid)
-        // // if (on) {
-        // //     remove(rid);
-        // //     insert(val, rid);
-        // // }
-        // // if (kind == key_kind_t::BYTES) {
-        // //     f_data->seek_pos(rid * size)->write_bytes(val.data(), size);
-        // // } else {
-        // //     UNIMPLEMENTED
-        // // }
+        remove(rid);
+        insert(val, rid);
     }
 
     // lo_eq 为真表示允许等于

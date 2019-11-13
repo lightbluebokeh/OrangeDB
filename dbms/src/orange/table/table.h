@@ -144,7 +144,7 @@ public:
         // table->close_files();
         table->close();
         free_table(table);
-        return fs::remove(name);
+        return fs::remove_all(name);
     }
 
     // 一般是换数据库的时候调用这个
@@ -234,13 +234,15 @@ public:
     void create_index(const String& col_name) {
         auto it = find_col(col_name);
         ensure(it != cols.end(), "create index failed: unknown column name");
-        indices[it - cols.begin()].turn_on();
+        auto col_id = it - cols.begin();
+        indices[col_id].turn_on();
     }
 
     void drop_index(const String& col_name) {
         auto it = find_col(col_name);
         ensure(it != cols.end(), "drop index failed: unknown column name");
-        indices[it - cols.begin()].turn_off();
+        auto col_id = it - cols.begin();
+        indices[col_id].turn_off();
     }
 
     friend class Index;

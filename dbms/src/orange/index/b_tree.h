@@ -62,9 +62,14 @@ private:
                                     + i * (sizeof(bid_t) + tree.key_size + sizeof(rid_t))
                                     + sizeof(bid_t) + tree.key_size);
         }
-        bool leaf() const { return !ch(0) && !ch(1); }
+        bool leaf() const { 
+            return !ch(0) && !ch(1); 
+        }
         bool full() const { return key_num() == tree.t * 2 - 1; }
         bool least() const { return key_num() == tree.t - 1; }
+#ifdef DEBUG
+        void check_order();
+#endif
     };
 
     using node_ptr_t = std::unique_ptr<node_t>;
@@ -89,6 +94,7 @@ private:
     void write_root() {
         std::ofstream os(prefix + ".root");
         os << root->id;
+        root.release();
     }
 
     int fanout(int key_size) {
@@ -125,12 +131,12 @@ private:
     }
 
     void merge(node_ptr_t& x, node_ptr_t& y, int i, node_ptr_t z) {
-        y->set_key(t, x->key(i));
-        y->val(t) = x->val(i);
+        y->set_key(t - 1, x->key(i));
+        y->val(t - 1) = x->val(i);
         for (int j = 0; j < t - 1; j++) {
             y->ch(j + t) = z->ch(j);
-            y->set_key(j + t + 1, z->key(j));
-            y->val(j + t + 1) = z->val(j);
+            y->set_key(j + t, z->key(j));
+            y->val(j + t) = z->val(j);
         }
         y->ch(2 * t - 1) = z->ch(t - 1);
         y->key_num() = 2 * t - 1;
@@ -158,6 +164,7 @@ private:
     void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v);
     void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v);
     void query(node_ptr_t &x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim);
+    void check_order(node_ptr_t& x);
 public:
     BTree(Index *index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { ensure(t >= 2, "fanout too few"); }

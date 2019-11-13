@@ -165,3 +165,7 @@ inline int bytesncmp(const_bytes_t a, const_bytes_t b, int n) {
 // };
 
 using numeric_t = long double;
+
+#ifndef NDEBUG
+#define DEBUG
+#endif

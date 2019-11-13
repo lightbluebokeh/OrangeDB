@@ -22,21 +22,21 @@ private:
         // 保证以 0 结尾 233
         static datatype_t parse(const String& raw_type) {
             int size, p, s;
-            if (raw_type == "ORANGE_INT") {
+            if (raw_type == "INT") {
                 return {ORANGE_INT, 4};
-            } else if (sscanf(raw_type.data(), "ORANGE_VARCHAR(%d)", &size) == 1) {
+            } else if (sscanf(raw_type.data(), "VARCHAR(%d)", &size) == 1) {
                 ensure(size <= MAX_CHAR_LEN, "varchar limit too long");
                 return {ORANGE_VARCHAR, size + 1};
-            } else if (sscanf(raw_type.data(), "ORANGE_CHAR(%d)", &size) == 0) {
+            } else if (sscanf(raw_type.data(), "CHAR(%d)", &size) == 0) {
                 ensure(size <= MAX_CHAR_LEN, "char limit too long");
                 return {ORANGE_CHAR, size + 1};
-            } else if (strcmp(raw_type.data(), "ORANGE_DATE") == 0) {
+            } else if (strcmp(raw_type.data(), "DATE") == 0) {
                 return {ORANGE_DATE, 2};
-            } else if (strcmp(raw_type.data(), "ORANGE_NUMERIC") == 0) {
+            } else if (strcmp(raw_type.data(), "NUMERIC") == 0) {
                 return {ORANGE_NUMERIC, 17};
-            } else if (sscanf(raw_type.data(), "ORANGE_NUMERIC(%d)", &p) == 1) {
+            } else if (sscanf(raw_type.data(), "NUMERIC(%d)", &p) == 1) {
                 return {ORANGE_NUMERIC, 17, p};
-            } else if (sscanf(raw_type.data(), "ORANGE_NUMERIC(%d,%d)", &p, &s) == 2) {
+            } else if (sscanf(raw_type.data(), "NUMERIC(%d,%d)", &p, &s) == 2) {
                 return {ORANGE_NUMERIC, 17, p, s};
             } else {
                 throw "ni zhe shi shen me dong xi";

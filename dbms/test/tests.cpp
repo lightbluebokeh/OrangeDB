@@ -9,6 +9,13 @@
 
 using namespace std;
 
+byte_arr_t int_to_bytes(int x) {
+    byte_arr_t ret(5);
+    ret[0] = 1;
+    *(int*)(ret.data() + 1) = x;
+    return ret;
+}
+
 TEST_CASE("test fs io", "[fs]") {
     constexpr int TEST_PAGE_NUM = 100000;
     fs::create_directory("test_dir");
@@ -65,26 +72,13 @@ TEST_CASE("test fs io", "[fs]") {
     cerr << "save your disk!" << endl;
 }
 
-// // temp: 大端序，比较用
-// template<typename T>
-// static byte_arr_t to_bytes(const T& t) {
-//     byte_arr_t ret(1);
-//     ret[0] = 1;
-//     for (unsigned i = 1; i <= sizeof(T); i++) {
-//         ret.push_back(*((byte_t*)&t + (sizeof(T) - i)));
-//     }
-//     return ret;
-// }
-
 TEST_CASE("table", "[table]") {
-    fs::remove_all("db");
-    fs::create_directory("db");
-    fs::current_path("db");
+    Orange::setup();
 
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {Column("test", "ORANGE_INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    Table::create("test", {Column("test", "INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = Table::get("test");
 
@@ -99,13 +93,13 @@ TEST_CASE("table", "[table]") {
     }
     std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
-        table->insert({{"test", to_bytes(a[i])}});
+        table->insert({{"test", int_to_bytes(a[i])}});
     }
 
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x: rm) {
-        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
+        auto pos = table->where("test", pred_t{int_to_bytes(x), 1, int_to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
         all.erase(all.find(x));
         table->remove({pos.front()});
@@ -118,46 +112,47 @@ TEST_CASE("table", "[table]") {
     std::cerr << endl;
 
     Orange::unuse();
-
-    fs::current_path("..");
-    REQUIRE(fs::exists("db"));
-    fs::remove_all("db");
+    Orange::drop("test");
+    
+    Orange::paolu();
 }
 
 using namespace std;
 
 TEST_CASE("btree", "[btree]") {
-    fs::remove_all("db");
-    fs::create_directory("db");
-    fs::current_path("db");
+    Orange::setup();
 
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {Column("test", "ORANGE_INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    Table::create("test", {Column("test", "INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = Table::get("test");
     table->create_index("test");
 
     std::mt19937 rng(time(0));
-    constexpr int lim = 5000;
+    constexpr int lim = 50000;
     static int a[lim];
     std::unordered_multiset<int> all, rm;
+
+    std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
         a[i] = rng() % 5000;
         all.insert(a[i]);
-        if (rng() & 1) rm.insert(a[i]);
+        int x = a[i];
+        table->insert({{"test", int_to_bytes(a[i])}});
+        auto pos = table->where("test", pred_t{int_to_bytes(x), 1, int_to_bytes(x), 1}, lim);
+        REQUIRE(pos.size() == all.count(x));
+        if (rng() & 1) 
+        rm.insert(a[i]);
+        std::cerr << '\r' << i + 1 << '/' << lim;
     }
-    std::cerr << "test insert" << std::endl;
-    for (int i = 0; i < lim; i++) {
-        // cerr << i << endl;
-        table->insert({{"test", to_bytes(a[i])}});
-    }
+    cerr << endl;
 
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x: rm) {
-        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
+        auto pos = table->where("test", pred_t{int_to_bytes(x), 1, int_to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
         all.erase(all.find(x));
         table->remove({pos.front()});
@@ -167,8 +162,7 @@ TEST_CASE("btree", "[btree]") {
     std::cerr << endl;
 
     Orange::unuse();
+    Orange::drop("test");
 
-    fs::current_path("..");
-    REQUIRE(fs::exists("db"));
-    fs::remove_all("db");    
+    Orange::paolu();
 }

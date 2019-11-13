@@ -23,9 +23,11 @@ namespace Orange {
             unuse();
             fs::current_path("..");
             cur = "";
-            return fs::remove(name);
+            return fs::remove_all(name);
+        } else if (using_db()) {
+            return fs::remove_all("../" + name);
         } else {
-            return fs::remove("../" + name);
+            return fs::remove_all(name);
         }
     }
 
@@ -61,4 +63,15 @@ namespace Orange {
     }
 
     String get_cur() { return cur; }
+
+    void setup() {
+        if (!fs::exists("db")) fs::create_directory("db");
+        fs::current_path("db");        
+    }
+
+    void paolu() {
+        if (using_db()) fs::current_path("..");
+        fs::current_path("..");
+        fs::remove_all("db");
+    }
 }  // namespace Orange
