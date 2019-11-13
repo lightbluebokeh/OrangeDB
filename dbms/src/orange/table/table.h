@@ -14,7 +14,7 @@
 
 // 大概是运算的结果的表？
 struct table_t {
-    std::vector<col_t> cols;
+    std::vector<Column> cols;
     std::vector<byte_arr_t> recs;
 };
 
@@ -29,7 +29,7 @@ class Table {
 
     // metadata
     rid_t rec_cnt;
-    std::vector<col_t> cols;
+    std::vector<Column> cols;
     std::vector<String> p_key;
     std::vector<f_key_t> f_keys;
 
@@ -47,7 +47,7 @@ class Table {
     void read_metadata() {
         File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
         for (auto &col: cols) {
-            indices.emplace_back(Index(*this, col.key_kind(), col.get_size(), col_prefix(col.get_name()), col.has_index()));
+            indices.emplace_back(Index(*this, col.get_data_kind(), col.get_size(), col_prefix(col.get_name()), col.has_index()));
             indices.back().load();
         }
     }
@@ -82,7 +82,7 @@ class Table {
         delete table;
     }
 
-    void on_create(const std::vector<col_t>& cols, const std::vector<String>& p_key, const std::vector<f_key_t>& f_keys) {
+    void on_create(const std::vector<Column>& cols, const std::vector<String>& p_key, const std::vector<f_key_t>& f_keys) {
         this->cols = cols;
         this->p_key = p_key;
         this->f_keys = f_keys;
@@ -92,9 +92,7 @@ class Table {
         rid_pool.init();
         fs::create_directory(data_root());
         for (auto col: this->cols) {
-            // auto index = new Index(col.key_kind(), col.get_size(), data_root() + name, col.has_index());
-            // indices.emplace_back(*index);
-            indices.emplace_back(Index(*this, col.key_kind(), col.get_size(), data_root() + name, col.has_index()));
+            indices.emplace_back(Index(*this, col.get_data_kind(), col.get_size(), data_root() + name, col.has_index()));
         }
     }
 
@@ -107,7 +105,7 @@ class Table {
 
     static String get_root(const String& name) { return name + "/"; }
 public:
-    static bool create(const String& name, const std::vector<col_t>& cols, const std::vector<String>& p_key,
+    static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_keys) {
         check_db();
         ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);

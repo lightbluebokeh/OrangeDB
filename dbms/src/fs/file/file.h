@@ -12,7 +12,7 @@
 #include <fs/bufpage/bufpage_stream.h>
 #include <fs/file/file_manage.h>
 
-class col_t;
+class Column;
 
 // 打开的文件
 class File {
@@ -102,7 +102,7 @@ public:
             } else if constexpr (is_pair_v<arg_t>) {
                 write(arg.first);
                 write(arg.second);
-            } else if constexpr (std::is_same_v<arg_t, col_t>) {
+            } else if constexpr (std::is_same_v<arg_t, Column>) {
                 arg.write(this);
             } else {
                 write_bytes((bytes_t)&arg, sizeof(arg_t));
@@ -150,7 +150,7 @@ public:
         } else if constexpr (is_pair_v<T>) {
             read(t.first);
             read(t.second);
-        } else if constexpr (std::is_same_v<T, col_t>) {
+        } else if constexpr (std::is_same_v<T, Column>) {
             t.read(this);
         } else {
             read_bytes((bytes_t)&t, sizeof(T));
@@ -175,7 +175,7 @@ public:
         return this;
     }
     
-    // 这两个函数效率可能比较慢，而且没有考虑缓存，慎用
-    size_t size() { return fs::file_size(name); }
-    void resize(size_t size) { fs::resize_file(name, size); }
+    // // 这两个函数效率可能比较慢，而且没有考虑缓存，慎用
+    // size_t size() { return fs::file_size(name); }
+    // void resize(size_t size) { fs::resize_file(name, size); }
 };

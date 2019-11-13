@@ -5,45 +5,45 @@
 
 class File;
 
-class col_t {
+enum data_kind_t {
+    ORANGE_INT,
+    ORANGE_CHAR,
+    ORANGE_VARCHAR,
+    ORANGE_NUMERIC,
+    ORANGE_DATE,
+};
+class Column {
 private:
     struct datatype_t {
-        enum kind_t {
-            INT,
-            CHAR,
-            VARCHAR,
-            NUMERIC,
-            DATE,
-        };
-        kind_t kind;
+        data_kind_t kind;
         int size;
-        int p = 18, s = 0;  // kind == NUMERIC 才有效
+        int p = 18, s = 0;  // kind == ORANGE_NUMERIC 才有效
 
         // 保证以 0 结尾 233
         static datatype_t parse(const String& raw_type) {
             int size, p, s;
-            if (raw_type == "INT") {
-                return {INT, 4};
-            } else if (sscanf(raw_type.data(), "VARCHAR(%d)", &size) == 1) {
+            if (raw_type == "ORANGE_INT") {
+                return {ORANGE_INT, 4};
+            } else if (sscanf(raw_type.data(), "ORANGE_VARCHAR(%d)", &size) == 1) {
                 ensure(size <= MAX_CHAR_LEN, "varchar limit too long");
-                return {VARCHAR, size + 1};
-            } else if (sscanf(raw_type.data(), "CHAR(%d)", &size) == 0) {
+                return {ORANGE_VARCHAR, size + 1};
+            } else if (sscanf(raw_type.data(), "ORANGE_CHAR(%d)", &size) == 0) {
                 ensure(size <= MAX_CHAR_LEN, "char limit too long");
-                return {CHAR, size + 1};
-            } else if (strcmp(raw_type.data(), "DATE") == 0) {
-                return {DATE, 2};
-            } else if (strcmp(raw_type.data(), "NUMERIC") == 0) {
-                return {NUMERIC, 17};
-            } else if (sscanf(raw_type.data(), "NUMERIC(%d)", &p) == 1) {
-                return {NUMERIC, 17, p};
-            } else if (sscanf(raw_type.data(), "NUMERIC(%d,%d)", &p, &s) == 2) {
-                return {NUMERIC, 17, p, s};
+                return {ORANGE_CHAR, size + 1};
+            } else if (strcmp(raw_type.data(), "ORANGE_DATE") == 0) {
+                return {ORANGE_DATE, 2};
+            } else if (strcmp(raw_type.data(), "ORANGE_NUMERIC") == 0) {
+                return {ORANGE_NUMERIC, 17};
+            } else if (sscanf(raw_type.data(), "ORANGE_NUMERIC(%d)", &p) == 1) {
+                return {ORANGE_NUMERIC, 17, p};
+            } else if (sscanf(raw_type.data(), "ORANGE_NUMERIC(%d,%d)", &p, &s) == 2) {
+                return {ORANGE_NUMERIC, 17, p, s};
             } else {
                 throw "ni zhe shi shen me dong xi";
             }
         }
 
-        bool is_string() const { return kind == CHAR || kind == VARCHAR; }
+        bool is_string() const { return kind == ORANGE_CHAR || kind == ORANGE_VARCHAR; }
     };
     // col_name_t name;
     String name;
@@ -57,13 +57,13 @@ private:
         if (val.size() > size) return 0;
         if (val.size() < size) {
             if (!datatype.is_string()) return 0;
-            if (datatype.kind == datatype_t::CHAR) val.resize(size);
+            if (datatype.kind == ORANGE_CHAR) val.resize(size);
         }
         return 1;
     }
 public:
-    col_t() {}
-    col_t(const String& name, const String& raw_type, bool unique, bool index, bool nullable, byte_arr_t dft, 
+    Column() {}
+    Column(const String& name, const String& raw_type, bool unique, bool index, bool nullable, byte_arr_t dft, 
         std::vector<std::pair<byte_arr_t, byte_arr_t>> ranges) 
         : name(name), datatype(datatype_t::parse(raw_type)), 
             unique(unique), nullable(nullable), index(index), 
@@ -98,21 +98,10 @@ public:
 
     bool has_index() { return index; }
     bool is_unique() { return unique; }
-    key_kind_t key_kind() {
-        switch (datatype.kind) {
-            case datatype_t::NUMERIC: return key_kind_t::NUMERIC;
-            case datatype_t::VARCHAR: return key_kind_t::VARCHAR;
-            default: return key_kind_t::BYTES;
-        }
-    }
+    data_kind_t get_data_kind() { return datatype.kind; }
 
-    void write(File* file) const {
-        file->seek_pos(0)->write(name, datatype, unique, nullable, index, dft, ranges);
-    }
-
-    void read(File* file) {
-        file->seek_pos(0)->read(name, datatype, unique, nullable, index, dft, ranges);
-    }
+    void write(File* file) const { file->seek_pos(0)->write(name, datatype, unique, nullable, index, dft, ranges); }
+    void read(File* file) { file->seek_pos(0)->read(name, datatype, unique, nullable, index, dft, ranges); }
 };
 
-constexpr auto col_size = sizeof(col_t);
+constexpr auto col_size = sizeof(Column);

@@ -65,16 +65,16 @@ TEST_CASE("test fs io", "[fs]") {
     cerr << "save your disk!" << endl;
 }
 
-// temp: 大端序，比较用
-template<typename T>
-static byte_arr_t to_bytes(const T& t) {
-    byte_arr_t ret(1);
-    ret[0] = 1;
-    for (unsigned i = 1; i <= sizeof(T); i++) {
-        ret.push_back(*((byte_t*)&t + (sizeof(T) - i)));
-    }
-    return ret;
-}
+// // temp: 大端序，比较用
+// template<typename T>
+// static byte_arr_t to_bytes(const T& t) {
+//     byte_arr_t ret(1);
+//     ret[0] = 1;
+//     for (unsigned i = 1; i <= sizeof(T); i++) {
+//         ret.push_back(*((byte_t*)&t + (sizeof(T) - i)));
+//     }
+//     return ret;
+// }
 
 TEST_CASE("table", "[table]") {
     fs::remove_all("db");
@@ -84,7 +84,7 @@ TEST_CASE("table", "[table]") {
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {col_t("test", "INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    Table::create("test", {Column("test", "ORANGE_INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = Table::get("test");
 
@@ -134,7 +134,7 @@ TEST_CASE("btree", "[btree]") {
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {col_t("test", "INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    Table::create("test", {Column("test", "ORANGE_INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = Table::get("test");
     table->create_index("test");

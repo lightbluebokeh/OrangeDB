@@ -14,7 +14,7 @@ class Index {
 private:
     Table& table;
 
-    key_kind_t kind;
+    data_kind_t kind;
     size_t size;
     String prefix;
 
@@ -26,19 +26,30 @@ private:
     String data_name() { return prefix + ".data"; }
     String meta_name() { return prefix + ".meta"; }
 
-    byte_arr_t convert(const_bytes_t k_raw) {
+    byte_arr_t store(const byte_arr_t &key) {
         switch (kind) {
-            case key_kind_t::BYTES: return byte_arr_t(k_raw, k_raw + size);
-            case key_kind_t::NUMERIC: UNIMPLEMENTED
-            case key_kind_t::VARCHAR: UNIMPLEMENTED
+            case ORANGE_VARCHAR: UNIMPLEMENTED
+            default: return key;
+        }
+    }
+    byte_arr_t restore(const_bytes_t k_raw) {
+        switch (kind) {
+            case ORANGE_DATE:
+            case ORANGE_INT:
+            case ORANGE_CHAR: return byte_arr_t(k_raw, k_raw + size);
+            case ORANGE_VARCHAR: UNIMPLEMENTED
+            default: UNIMPLEMENTED
         }
     }
 
     int cmp_key(const byte_arr_t& k1, const byte_arr_t& k2) const {
         switch (kind) {
-            case key_kind_t::BYTES: return bytesncmp(k1.data(), k2.data(), size);
-            case key_kind_t::NUMERIC: UNIMPLEMENTED
-            case key_kind_t::VARCHAR: UNIMPLEMENTED
+            case ORANGE_DATE:
+            case ORANGE_CHAR: return bytesncmp(k1.data(), k2.data(), size);
+            case ORANGE_INT:
+                if (k1.front() != k2.front()) return k1.front() - k2.front();
+                return *(int*)(k1.data() + 1) - *(int*)(k2.data() + 1);
+            default: UNIMPLEMENTED
         }
     }
 
@@ -85,9 +96,14 @@ private:
 
     // 返回 table 中的最大编号，f**k c++
     rid_t get_tot();
-
+    byte_arr_t get_raw(rid_t rid) {
+        auto bytes = new byte_t[size];
+        f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+        auto ret = byte_arr_t(bytes, bytes + size);
+        delete bytes;
+    }
 public:
-    Index(Table& table, key_kind_t kind, size_t size, const String& prefix, bool on) :
+    Index(Table& table, data_kind_t kind, size_t size, const String& prefix, bool on) :
         table(table), kind(kind), size(size), prefix(prefix), on(on) {
         if (!fs::exists(data_name())) File::create(data_name());
         f_data = File::open(data_name());
@@ -106,7 +122,7 @@ public:
 
     void load() {
         if (on) {
-            tree = new BTree(this, kind, size, prefix);
+            tree = new BTree(this, size, prefix);
             tree->load();
         }
     }
@@ -114,7 +130,7 @@ public:
     void turn_on() {
         if (!on) {
             on = 1;
-            tree = new BTree(this, kind, size, prefix);
+            tree = new BTree(this, size, prefix);
             tree->init(f_data);
         }
     }
@@ -127,45 +143,40 @@ public:
     }
 
     void insert(const byte_arr_t& val, rid_t rid) {
-        if (on) {
-            if (kind == key_kind_t::BYTES) {
-                tree->insert(val.data(), rid);
-            } else {
-                UNIMPLEMENTED
-            }
-        }
-        if (kind == key_kind_t::BYTES) {
-            f_data->seek_pos(rid * size)->write_bytes(val.data(), size);
-        } else {
-            UNIMPLEMENTED
-        }
+        auto raw = store(val);
+        if (on) tree->insert(raw.data(), rid, val);
+        f_data->seek_pos(rid * size)->write_bytes(raw.data(), size);
     }
 
     // 调用合适应该不会有问题8
     void remove(rid_t rid) {
-        if (on) {
-            bytes_t bytes = new byte_t[size];
-            f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-            tree->remove(bytes, rid);
-            delete[] bytes;
-        }
-        if (kind == key_kind_t::BYTES) {
-            f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
-        } else {
-            UNIMPLEMENTED
-        }
+
+        // if (on) {
+        //     bytes_t bytes = new byte_t[size];
+        //     f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+        //     tree->remove(bytes, rid);
+        //     delete[] bytes;
+        // }
+        // if (kind == key_kind_t::BYTES) {
+        //     f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
+        // } else {
+        //     UNIMPLEMENTED
+        // }
     }
 
     void update(const byte_arr_t& val, rid_t rid) {
-        if (on) {
-            remove(rid);
-            insert(val, rid);
-        }
-        if (kind == key_kind_t::BYTES) {
-            f_data->seek_pos(rid * size)->write_bytes(val.data(), size);
-        } else {
-            UNIMPLEMENTED
-        }
+
+        // auto raw = store(val);
+        // remove(rid)
+        // // if (on) {
+        // //     remove(rid);
+        // //     insert(val, rid);
+        // // }
+        // // if (kind == key_kind_t::BYTES) {
+        // //     f_data->seek_pos(rid * size)->write_bytes(val.data(), size);
+        // // } else {
+        // //     UNIMPLEMENTED
+        // // }
     }
 
     // lo_eq 为真表示允许等于
@@ -178,7 +189,7 @@ public:
             f_data->seek_pos(0);
             for (rid_t i = 0, tot = get_tot(); i < tot && lim; i++) {
                 f_data->read_bytes(bytes, size);
-                if (*bytes != DATA_INVALID && test_pred(convert(bytes), pred)) {
+                if (*bytes != DATA_INVALID && test_pred(restore(bytes), pred)) {
                     ret.push_back(i);
                     lim--;
                 }
@@ -191,13 +202,9 @@ public:
     byte_arr_t get_val(rid_t rid) {
         auto bytes = new byte_t[size];
         f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-        if (kind == key_kind_t::BYTES) {
-            auto ret = byte_arr_t(bytes, bytes + size);
-            delete[] bytes;
-            return ret;
-        } else {
-            UNIMPLEMENTED
-        }
+        auto ret = restore(bytes);
+        delete[] bytes;
+        return ret;
     }
 
     friend class BTree;

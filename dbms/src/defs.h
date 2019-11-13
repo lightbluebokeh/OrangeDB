@@ -150,18 +150,18 @@ public:
     const char* what() { return msg.c_str(); }
 };
 
-inline int64 bytesncmp(const_bytes_t a, const_bytes_t b, int n) { 
+inline int bytesncmp(const_bytes_t a, const_bytes_t b, int n) { 
     // return strncmp((const char*)a, (const char*)b, n); 
     for (int i = 0; i < n; i++, a++, b++) {
-        if (*a != *b) return *a - *b;
+        if (*a != *b) return int(*a) - int(*b);
     }
     return 0;
 }
 
-enum class key_kind_t {
-    BYTES,  // 可以对数据直接按照字节比较的类型
-    NUMERIC,  // 浮点类型，比较可能要再看看
-    VARCHAR,   // varchar 地址类型
-};
+// enum class key_kind_t {
+//     BYTES,  // 可以对数据直接按照字节比较的类型
+//     ORANGE_NUMERIC,  // 浮点类型，比较可能要再看看
+//     ORANGE_VARCHAR,   // varchar 地址类型
+// };
 
 using numeric_t = long double;

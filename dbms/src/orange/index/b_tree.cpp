@@ -3,7 +3,7 @@
 
 void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
     int i = upper_bound(x, k, v);
-    if (i && index->cmp(k, v, index->convert(x->key(i - 1)), x->val(i - 1)) == 0) {
+    if (i && index->cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) == 0) {
         if (x->leaf()) {
             for (int j = i; j + 1 < x->key_num(); j++) {
                 x->set_key(j, x->key(j + 1));
@@ -16,14 +16,14 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
                 auto [k_raw, v] = min_raw(y);
                 x->set_key(i, k_raw.data());
                 x->val(i) = v;
-                remove_nonleast(y, index->convert(k_raw.data()), v);
+                remove_nonleast(y, index->restore(k_raw.data()), v);
             } else {
                 auto z = read_node(x->ch(i + 1));
                 if (!z->least()) {
                     auto [k_raw, v] = max_raw(z);
                     x->set_key(i, k_raw.data());
                     x->val(i) = v;
-                    remove_nonleast(z, index->convert(k_raw.data()), v);
+                    remove_nonleast(z, index->restore(k_raw.data()), v);
                 } else {
                     merge(x, y, i, std::move(z));
                     remove_nonleast(y, k, v);
@@ -90,35 +90,36 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
     }
 }
 
-void BTree::insert(const_bytes_t k_raw, rid_t v) {
+void BTree::insert(const_bytes_t k_raw, rid_t v, const byte_arr_t& k) {
     if (root->full()) {
         auto s = new_node();
         std::swap(s, root);
         root->ch(0) = s->id;
         split(root, s, 0);
     }
-    insert_nonfull(root, k_raw, index->convert(k_raw), v);
+    insert_nonfull(root, k_raw, k, v);
 }
 
 void BTree::remove(const_bytes_t k_raw, rid_t v) {
-    remove_nonleast(root, index->convert(k_raw), v);
+    remove_nonleast(root, index->restore(k_raw), v);
 }
 
 int BTree::upper_bound(node_ptr_t &x, const byte_arr_t& k, rid_t v) {
-    int i = 0;
-    while (i < x->key_num() && index->cmp(k, v, index->convert(x->key(i)), x->val(i)) < 0) i++;
-    // int l = 0, r = x->key_num() - 1;
-    // while (l <= r) {
-    //     int m = (l + r) >> 1;
-    //     if (index->cmp(k, v, index->convert(x->key(m)), x->val(m)) < 0) i = m, l = m + 1;
-    //     else r = m - 1;
-    // }
+    // int i = 0;
+    // while (i < x->key_num() && index->cmp(k, v, index->restore(x->key(i)), x->val(i)) < 0) i++;
+    int i = x->key_num();
+    int l = 0, r = x->key_num() - 1;
+    while (l <= r) {
+        int m = (l + r) >> 1;
+        if (index->cmp(k, v, index->restore(x->key(m)), x->val(m)) < 0) i = m, l = m + 1;
+        else r = m - 1;
+    }
     return i;
 }
 
 void BTree::insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v) {
     int i = upper_bound(x, k, v);
-    ensure(!i || index->cmp(k, v, index->convert(x->key(i - 1)), x->val(i - 1)) != 0, "try to insert something already exists");
+    ensure(!i || index->cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) != 0, "try to insert something already exists");
     if (x->leaf()) {
         for (int j = x->key_num() - 1; j >= i; j--) {
             x->set_key(j + 1, x->key(j));
@@ -131,7 +132,7 @@ void BTree::insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t&
         auto y = read_node(x->ch(i));
         if (y->full()) {
             split(x, y, i);
-            if (index->cmp(k, v, index->convert(x->key(i)), x->val(i)) > 0) {
+            if (index->cmp(k, v, index->restore(x->key(i)), x->val(i)) > 0) {
                 i++;
                 y = read_node(x->ch(i));
             }
@@ -142,14 +143,14 @@ void BTree::insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t&
 
 void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
     int i = 0;
-    while (i < x->key_num() && !index->test_pred_lo(index->convert(x->key(i)), pred)) 
+    while (i < x->key_num() && !index->test_pred_lo(index->restore(x->key(i)), pred)) 
         i++;
     node_ptr_t y;
     if (!x->leaf()) {
         y = read_node(x->ch(i));
         query(y, pred, ret, lim);
     }
-    while (lim && i < x->key_num() && index->test_pred_hi(index->convert(x->key(i)), pred)) {
+    while (lim && i < x->key_num() && index->test_pred_hi(index->restore(x->key(i)), pred)) {
         ret.push_back(x->val(i));
         lim--;
         if (lim && !x->leaf()) {
@@ -160,3 +161,15 @@ void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, ri
     }
 }
 
+void BTree::init(File* f_data) {
+    f_tree = File::create_open(tree_name());
+    root = new_node();
+    pool.init();
+    bytes_t k_raw = new byte_t[key_size];
+    f_data->seek_pos(0);
+    for (rid_t i = 0, tot = index->get_tot(); i < tot; i++) {
+        f_data->read_bytes(k_raw, key_size);
+        if (*k_raw != DATA_INVALID) insert(k_raw, i, index->restore(k_raw));
+    }
+    delete k_raw;
+}

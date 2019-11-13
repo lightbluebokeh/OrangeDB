@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include <utils/id_pool.h>
+#include <orange/table/column.h>
 
 class Index;
 
@@ -10,7 +11,6 @@ class BTree {
 private:
     Index *index;
     String prefix;
-    key_kind_t kind;
     size_t key_size;
     File *f_tree;
 
@@ -159,32 +159,21 @@ private:
     void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v);
     void query(node_ptr_t &x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim);
 public:
-    BTree(Index *index, key_kind_t kind, size_t key_size, const String& prefix) : index(index), prefix(prefix), kind(kind),
+    BTree(Index *index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { ensure(t >= 2, "fanout too few"); }
     ~BTree() {
         write_root();
         f_tree->close();
     }
 
-    void init(File* f_data) {
-        f_tree = File::create_open(tree_name());
-        root = new_node();
-        pool.init();
-        bytes_t key = new byte_t[key_size];
-        f_data->seek_pos(0);
-        for (rid_t i = 0, tot = f_data->size() / key_size; i < tot; i++) {
-            f_data->read_bytes(key, key_size);
-            if (*key != DATA_INVALID) insert(key, i);
-        }
-        delete key;
-    }
+    void init(File* f_data);
     void load() {
         f_tree = File::open(tree_name());
         read_root();
         pool.load();
     }
 
-    void insert(const_bytes_t k_raw, rid_t v);
+    void insert(const_bytes_t k_raw, rid_t v, const byte_arr_t& k);
     void remove(const_bytes_t k_raw, rid_t v);
 
     std::vector<rid_t> query(const pred_t& pred, rid_t lim) {
