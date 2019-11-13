@@ -1,28 +1,50 @@
 #include <orange/index/index.h>
 #include <orange/index/b_tree.h>
 
+#ifdef DEBUG
+void BTree::node_t::check_order() {
+    for (int i = 0; i + 1 < key_num(); i++) {
+        auto &index = *tree.index;
+        assert(index.cmp(index.convert(key(i)), val(i), index.convert(key(i + 1)), val(i + 1)) < 0);
+    }
+}
+#endif
+
 void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
+#ifdef DEBUG
+    x->check_order();
+#endif
     int i = upper_bound(x, k, v);
     if (i && index->cmp(k, v, index->convert(x->key(i - 1)), x->val(i - 1)) == 0) {
+        i--;
         if (x->leaf()) {
             for (int j = i; j + 1 < x->key_num(); j++) {
                 x->set_key(j, x->key(j + 1));
                 x->val(j) = x->val(j + 1);
             }
             x->key_num()--;
+#ifdef DEBUG
+            x->check_order();
+#endif
         } else {
             auto y = read_node(x->ch(i));
             if (!y->least()) {
-                auto [k_raw, v] = min_raw(y);
+                auto [k_raw, v] = max_raw(y);
                 x->set_key(i, k_raw.data());
                 x->val(i) = v;
+#ifdef DEBUG
+                x->check_order();
+#endif
                 remove_nonleast(y, index->convert(k_raw.data()), v);
             } else {
                 auto z = read_node(x->ch(i + 1));
                 if (!z->least()) {
-                    auto [k_raw, v] = max_raw(z);
+                    auto [k_raw, v] = min_raw(z);
                     x->set_key(i, k_raw.data());
                     x->val(i) = v;
+#ifdef DEBUG
+                    x->check_order();
+#endif
                     remove_nonleast(z, index->convert(k_raw.data()), v);
                 } else {
                     merge(x, y, i, std::move(z));
@@ -54,10 +76,15 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
                 x->set_key(i - 1, l->key(l->key_num() - 1));
                 x->val(i - 1) = l->val(l->key_num() - 1);
                 l->key_num()--;
+#ifdef DEBUG
+                x->check_order();
+                y->check_order();
+                l->check_order();
+#endif
                 return 1;
             };
             auto from_r = [&] {
-                if (i == 0) return 0;
+                if (i == x->key_num()) return 0;
                 r = read_node(x->ch(i + 1));
                 if (r->least()) return 0;
                 y->set_key(y->key_num(), x->key(i));
@@ -73,6 +100,11 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
                 }
                 r->ch(r->key_num() - 1) = r->ch(r->key_num());
                 r->key_num()--;
+#ifdef DEBUG
+                x->check_order();
+                y->check_order();
+                r->check_order();
+#endif                
                 return 1;
             };
 
@@ -88,6 +120,9 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
             }
         }
     }
+#ifdef DEBUG
+    x->check_order();
+#endif
 }
 
 void BTree::insert(const_bytes_t k_raw, rid_t v) {
@@ -105,18 +140,22 @@ void BTree::remove(const_bytes_t k_raw, rid_t v) {
 }
 
 int BTree::upper_bound(node_ptr_t &x, const byte_arr_t& k, rid_t v) {
-    int i = 0;
-    while (i < x->key_num() && index->cmp(k, v, index->convert(x->key(i)), x->val(i)) < 0) i++;
-    // int l = 0, r = x->key_num() - 1;
-    // while (l <= r) {
-    //     int m = (l + r) >> 1;
-    //     if (index->cmp(k, v, index->convert(x->key(m)), x->val(m)) < 0) i = m, l = m + 1;
-    //     else r = m - 1;
-    // }
+    // int i = 0;
+    // while (i < x->key_num() && index->cmp(k, v, index->convert(x->key(i)), x->val(i)) >= 0) i++;
+    int i = x->key_num();
+    int l = 0, r = x->key_num() - 1;
+    while (l <= r) {
+        int m = (l + r) >> 1;
+        if (index->cmp(k, v, index->convert(x->key(m)), x->val(m)) < 0) i = m, r = m - 1;
+        else l = m + 1;
+    }
     return i;
 }
 
 void BTree::insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v) {
+#ifdef DEBUG
+    x->check_order();
+#endif
     int i = upper_bound(x, k, v);
     ensure(!i || index->cmp(k, v, index->convert(x->key(i - 1)), x->val(i - 1)) != 0, "try to insert something already exists");
     if (x->leaf()) {
@@ -138,6 +177,9 @@ void BTree::insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t&
         }
         insert_nonfull(y, k_raw, k, v);
     }
+#ifdef DEBUG
+    x->check_order();
+#endif
 }
 
 void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
@@ -159,4 +201,3 @@ void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, ri
         i++;
     }
 }
-

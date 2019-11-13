@@ -140,19 +140,23 @@ TEST_CASE("btree", "[btree]") {
     table->create_index("test");
 
     std::mt19937 rng(time(0));
-    constexpr int lim = 5000;
+    constexpr int lim = 50000;
     static int a[lim];
     std::unordered_multiset<int> all, rm;
+
+    std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
         a[i] = rng() % 5000;
         all.insert(a[i]);
-        if (rng() & 1) rm.insert(a[i]);
-    }
-    std::cerr << "test insert" << std::endl;
-    for (int i = 0; i < lim; i++) {
-        // cerr << i << endl;
+        int x = a[i];
         table->insert({{"test", to_bytes(a[i])}});
+        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
+        REQUIRE(pos.size() == all.count(x));
+        if (rng() & 1) 
+        rm.insert(a[i]);
+        std::cerr << '\r' << i + 1 << '/' << lim;
     }
+    cerr << endl;
 
     std::cerr << "testing remove" << std::endl;
     int i = 0;

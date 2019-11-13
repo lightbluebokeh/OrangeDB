@@ -92,8 +92,6 @@ class Table {
         rid_pool.init();
         fs::create_directory(data_root());
         for (auto col: this->cols) {
-            // auto index = new Index(col.key_kind(), col.get_size(), data_root() + name, col.has_index());
-            // indices.emplace_back(*index);
             indices.emplace_back(Index(*this, col.key_kind(), col.get_size(), data_root() + name, col.has_index()));
         }
     }

@@ -75,8 +75,6 @@ private:
 
     bool test_pred(const byte_arr_t& k, const pred_t& pred) {
         if (test_pred_lo(k, pred) && test_pred_hi(k, pred)) {
-            // test_pred_lo(k, pred);
-            // test_pred_hi(k, pred);
             return 1;
         } else {
             return 0;
@@ -100,7 +98,7 @@ public:
         index.on = 0;
     }
     ~Index() {
-        if (on) turn_off();
+        if (on) delete tree;
         if (f_data) f_data->close();
     }
 

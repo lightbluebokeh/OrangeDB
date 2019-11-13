@@ -165,3 +165,7 @@ enum class key_kind_t {
 };
 
 using numeric_t = long double;
+
+#ifndef NDEBUG
+#define DEBUG
+#endif
