@@ -31,9 +31,9 @@ TODO
 - 表的元数据文件 `metatdata.tbl`
 - 数据文件夹，`data/`，下有：
   - 各列的的数据，名为 `${colName}.data`；
-  - 各列的索引文件，名为 `${colName}.idx`，用来装 B 树的信息
-  - 各列一个 B 树的编号栈 `${colName}.stk`
-- 记录编号栈 `rid.stk`；
+  - 各列的索引文件，名为 `${colName}.bt`，用来装 B 树的信息
+  - 各列一个 B 树的编号池 `${colName}.pl`
+- 记录编号栈 `rid.pl`；
 
 #### 元数据
 
