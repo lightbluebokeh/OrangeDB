@@ -29,7 +29,7 @@ class FileAllocater {
     void init() {
         lseek(fd, DATA_SEEK, SEEK_SET);
         _Tag tag{0, 1};  // 可视为 header
-        write(fd, &tag, sizeof(tag));
+        ::write(fd, &tag, sizeof(tag));
     }
 
 public:
@@ -43,8 +43,8 @@ public:
         }
     }
 
-    // 返回偏移量
-    size_t alloc(size_t size) {
+    // 返回偏移量, 如果有数据还能顺便写进去
+    size_t alloc(size_t size, void* data = nullptr) {
         assert((int)size > 0);
         lseek(fd, DATA_SEEK + sizeof(_Tag), SEEK_SET);
         _Tag tag[1];
@@ -56,7 +56,7 @@ public:
         }
         // 找到一块空闲的地方, 没用优化分配, 暴力找
         while (true) {
-            if (read(fd, tag, sizeof(tag)) < (int)sizeof(tag)) {
+            if (::read(fd, tag, sizeof(tag)) < (int)sizeof(tag)) {
                 tag[0].size = size;  // 找到文件结尾了
                 break;
             }
@@ -69,29 +69,67 @@ public:
 
         tag[0].af = 1;
         if ((size_t)tag[0].size < size + 2 * sizeof(tag) + ALIGN_SIZE) {
-            write(fd, tag, sizeof(tag));
-            lseek(fd, tag[0].size, SEEK_CUR);
-            write(fd, tag, sizeof(tag));
+            ::write(fd, tag, sizeof(tag));
+            if (data) {
+                int count = ::write(fd, data, size);
+                lseek(fd, tag[0].size - count, SEEK_CUR);
+            } else {
+                lseek(fd, tag[0].size, SEEK_CUR);
+            }
+            ::write(fd, tag, sizeof(tag));
         } else {
             int seg_size = tag[0].size;
             tag[0].size = size;
-            write(fd, tag, sizeof(tag));
-            lseek(fd, size, SEEK_CUR);
-            write(fd, tag, sizeof(tag));
+            ::write(fd, tag, sizeof(tag));
+            if (data) {
+                int count = ::write(fd, data, size);
+                lseek(fd, size - count, SEEK_CUR);
+            } else {
+                lseek(fd, size, SEEK_CUR);
+            }
+            ::write(fd, tag, sizeof(tag));
             tag[0] = {seg_size - (int)size - 2 * (int)sizeof(tag), 0};
-            write(fd, tag, sizeof(tag));
+            ::write(fd, tag, sizeof(tag));
             lseek(fd, tag[0].size, SEEK_CUR);
-            write(fd, tag, sizeof(tag));
+            ::write(fd, tag, sizeof(tag));
         }
 
         return offset;
+    }
+
+    // 读取某个地方的值, 返回具体读了多少
+    int read(size_t offset, void* dst, int max_count) {
+        _Tag tag;
+        lseek(fd, offset - sizeof(tag), SEEK_SET);
+        ::read(fd, &tag, sizeof(tag));
+
+        if (tag.af != 1) {
+            return -1;  // offset是假的?
+        }
+
+        if (tag.size < max_count) max_count = tag.size;
+        return ::read(fd, dst, max_count);
+    }
+
+    // 和上面差不多
+    int write(size_t offset, void* data, int max_count) {
+        _Tag tag;
+        lseek(fd, offset - sizeof(tag), SEEK_SET);
+        ::read(fd, &tag, sizeof(tag));
+
+        if (tag.af != 1) {
+            return -1;
+        }
+
+        if (tag.size < max_count) max_count = tag.size;
+        return ::write(fd, data, max_count);
     }
 
     // 释放某个块, 如果返回 false 说明文件结构被破坏了并且多半是不可修复的
     bool free(size_t offset) {
         _Tag tag[2];  // tag[0]: 上一个块的footer, tag[1]: 当前块
         lseek(fd, offset - 2 * sizeof(_Tag), SEEK_SET);
-        read(fd, tag, 2 * sizeof(_Tag));
+        ::read(fd, tag, 2 * sizeof(_Tag));
 
         if (tag[1].af == 0) {
             return false;  // double free
@@ -103,21 +141,21 @@ public:
         }
 
         lseek(fd, tag[1].size, SEEK_CUR);  // 看看后一块
-        if (read(fd, tag, 2 * sizeof(_Tag)) == 2 * sizeof(_Tag) && tag[1].af == 0) {
+        if (::read(fd, tag, 2 * sizeof(_Tag)) == 2 * sizeof(_Tag) && tag[1].af == 0) {
             // 跟后一块合并
             lseek(fd, -size - 3 * sizeof(_Tag), SEEK_CUR);
             size += tag[1].size + 2 * sizeof(_Tag);
             tag[1].size = size;
-            write(fd, &tag[1], sizeof(tag[1]));
+            ::write(fd, &tag[1], sizeof(tag[1]));
             lseek(fd, size, SEEK_CUR);
-            write(fd, &tag[1], sizeof(tag[1]));
+            ::write(fd, &tag[1], sizeof(tag[1]));
         } else {  // 文件尾或无法合并
             tag[0].size = size;
             tag[0].af = 0;
             lseek(fd, -(int)sizeof(tag[0]), SEEK_CUR);  // 只读了一个tag所以只回退一个
-            write(fd, tag, sizeof(tag[0]));
+            ::write(fd, tag, sizeof(tag[0]));
             lseek(fd, -size - sizeof(_Tag), SEEK_CUR);
-            write(fd, tag, sizeof(_Tag));
+            ::write(fd, tag, sizeof(_Tag));
         }
 
         return true;
