@@ -2,14 +2,16 @@
 #include <defs.h>
 
 // 文件分配器, 线程不安全, 异常也不安全
-// 如果发生越界就会破坏链表结构和覆盖之后的数据, 这将不可修复
-// 会进行数据填充, 但不会根据块大小优化空间
+// 如果发生越界就会破坏链表结构和覆盖之后的数据, 这将不可修复, 因此尽量用接口来读写
+// 只支持一次性读完一个结点中的数据
+// 会进行数据填充, 按8字节对齐, 也就是实际分配的数量是8的倍数
+// 分配完全是暴力的从前往后找, 不会根据块大小优化空间 (要用可加)
 class FileAllocator {
-    // 句柄
+    // 文件句柄
     FILE* fd;
 
-    // 数据起始
-    static const int DATA_SEEK = 1024;
+    // 数据起始偏移量, 前面是预留空间暂时还没使用
+    static const int DATA_OFFSET = 1024;
 
     // 块对齐大小
     static const int ALIGN_SIZE = 8;
@@ -22,6 +24,7 @@ public:
     explicit FileAllocator(const String& name);
     // 随便移动和复制, 反正不要在多线程和异常中使用就行
 
+    // 析构
     ~FileAllocator();
 
     // 返回偏移量, 如果有数据还能顺便写进去
@@ -37,7 +40,7 @@ public:
     // 释放某个块, 如果返回false说明文件结构被破坏了
     bool free(size_t offset);
 
-    // 刷新文件, 我也不知道返回了什么
+    // 刷新文件, 成功时返回0
     int flush();
 
     // 检查数据文件的结构, false说明被破坏了

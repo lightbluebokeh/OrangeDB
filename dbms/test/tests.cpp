@@ -171,8 +171,8 @@ TEST_CASE("btree", "[btree]") {
 TEST_CASE("file allocator", "[fs]") {
     FileAllocator falloc("data.txt");
 
-    int a[500], b[400], c[200];
-    for (int i = 0; i < 500; i++) a[i] = 0xaaaaaaaa;
+    int a[501], b[400], c[200];
+    for (int i = 0; i < 501; i++) a[i] = 0xaaaaaaaa;
     for (int i = 0; i < 400; i++) b[i] = 0xbbbbbbbb;
     for (int i = 0; i < 200; i++) c[i] = 0xcccccccc;
 
@@ -201,7 +201,7 @@ TEST_CASE("file allocator", "[fs]") {
     // 检查数据对不对
     int* buffer = new int[1000];
     falloc.read(a_off, buffer, sizeof(a));
-    for (int i = 0; i < 500; i++) REQUIRE(buffer[i] == a[i]);
+    for (int i = 0; i < 501; i++) REQUIRE(buffer[i] == a[i]);
     falloc.read(c_off, buffer, sizeof(c));
     for (int i = 0; i < 200; i++) REQUIRE(buffer[i] == c[i]);
     delete[] buffer;

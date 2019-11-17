@@ -11,7 +11,7 @@ struct _Tag {
 
 // 初始化
 void FileAllocator::init() {
-    fseek(fd, DATA_SEEK, SEEK_SET);
+    fseek(fd, DATA_OFFSET, SEEK_SET);
     _Tag tag{0, 1};
     fwrite(&tag, 1, sizeof(tag), fd);
 }
@@ -34,7 +34,7 @@ FileAllocator::~FileAllocator() {
 // 分配空间
 size_t FileAllocator::allocate(size_t size, void* data) {
     assert((int)size > 0);
-    fseek(fd, DATA_SEEK + sizeof(_Tag), SEEK_SET);
+    fseek(fd, DATA_OFFSET + sizeof(_Tag), SEEK_SET);
     _Tag tag[1];
 
     // 对齐
@@ -170,7 +170,7 @@ int FileAllocator::flush() {
 
 // 检查
 bool FileAllocator::check() const {
-    fseek(fd, DATA_SEEK, SEEK_SET);
+    fseek(fd, DATA_OFFSET, SEEK_SET);
     _Tag tag_header, tag_footer;
 
     // 检查头部
@@ -196,13 +196,13 @@ bool FileAllocator::check() const {
 
 // 打印
 void FileAllocator::print() const {
-    fseek(fd, DATA_SEEK, SEEK_SET);
+    fseek(fd, DATA_OFFSET, SEEK_SET);
     _Tag tag_header, tag_footer;
     long offset;
 
     // 检查头部
-    fread(&tag_footer, 1, sizeof(tag_footer), fd);
     offset = ftell(fd);
+    fread(&tag_footer, 1, sizeof(tag_footer), fd);
     printf("[0x%08lx]  HEAD ", offset);
     if (tag_footer.af != 1) {
         printf("<error>");
@@ -211,6 +211,7 @@ void FileAllocator::print() const {
     printf("\n");
 
     while (true) {
+        offset = ftell(fd);
         if (int c = fread(&tag_header, 1, sizeof(tag_header), fd); c < (int)sizeof(tag_header)) {
             if (c != 0) {
                 printf("*** file broken: missing header ***\n");
@@ -220,7 +221,6 @@ void FileAllocator::print() const {
         if (tag_header.af == 0 && tag_footer.af == 0) {
             printf("<not merged>\n");
         }
-        offset = ftell(fd);
         printf("[0x%08lx]  allocated: %d, data length: %d\n", offset, tag_header.af,
                tag_header.size);
         fseek(fd, tag_header.size, SEEK_CUR);
