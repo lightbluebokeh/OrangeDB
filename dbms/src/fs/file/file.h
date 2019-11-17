@@ -17,11 +17,11 @@ class Column;
 // 打开的文件
 class File {
 private:
-    int id, fd;
+    int id;
     String name;
     size_t offset;
 
-    File(int id, int fd, const String& name) : id(id), fd(fd), name(name) {}
+    File(int id, const String& name) : id(id), name(name) {}
     File(const File&) = delete;
 
     ~File() {}
@@ -40,7 +40,7 @@ public:
     static File* open(const String& name) {
         int id, fd;
         ensure(FileManage::open_file(name.c_str(), id, fd) == 0, "file open failed");
-        if (files[id] == nullptr) files[id] = new File(id, fd, name);
+        if (files[id] == nullptr) files[id] = new File(id, name);
         return files[id];
     }
 
@@ -146,7 +146,7 @@ public:
             size_t size;
             read(size);
             t.resize(size);
-            for (auto &x: t) read(x);
+            for (auto& x : t) read(x);
         } else if constexpr (is_pair_v<T>) {
             read(t.first);
             read(t.second);
@@ -174,7 +174,7 @@ public:
         offset += off;
         return this;
     }
-    
+
     // // 这两个函数效率可能比较慢，而且没有考虑缓存，慎用
     // size_t size() { return fs::file_size(name); }
     // void resize(size_t size) { fs::resize_file(name, size); }
