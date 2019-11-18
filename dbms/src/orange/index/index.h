@@ -26,7 +26,7 @@ private:
     String data_name() { return prefix + ".data"; }
     String meta_name() { return prefix + ".meta"; }
 
-    byte_arr_t store(const byte_arr_t &key) {
+    byte_arr_t store(const byte_arr_t& key) {
         switch (kind) {
             case ORANGE_VARCHAR: UNIMPLEMENTED
             default: return key;
@@ -98,9 +98,10 @@ private:
         auto bytes = new byte_t[size];
         f_data->seek_pos(rid * size)->read_bytes(bytes, size);
         auto ret = byte_arr_t(bytes, bytes + size);
-        delete bytes;
+        delete[] bytes;
         return ret;
     }
+
 public:
     Index(Table& table, data_kind_t kind, size_t size, const String& prefix, bool on) :
         table(table), kind(kind), size(size), prefix(prefix), on(on) {
@@ -176,7 +177,7 @@ public:
                     lim--;
                 }
             }
-            delete bytes;
+            delete[] bytes;
             return ret;
         }
     }

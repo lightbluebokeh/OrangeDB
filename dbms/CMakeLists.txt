@@ -13,6 +13,7 @@ include_directories(
 set(SRCS 
     "src/defs.cpp"
     "src/orange/orange.cpp"
+    "src/fs/allocator/allocator.cpp"
     "src/fs/file/file_manage.cpp"
     "src/fs/bufpage/bufpage_manage.cpp"
     "src/orange/index/b_tree.cpp"

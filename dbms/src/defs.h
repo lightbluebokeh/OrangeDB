@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
 #include <cstring>
 #include <filesystem>
+#include <string>
 #include <type_traits>
 
 static_assert(sizeof(std::size_t) == 8, "x64 only");
@@ -73,7 +73,7 @@ const int COL_NAME_LIM = 32;
 struct col_name_t {
     char data[COL_NAME_LIM + 1];
     inline String get() const { return String(data); }
-    void set(const String& name) { 
+    void set(const String& name) {
         memcpy(data, name.data(), name.length());
         data[name.length()] = 0;
     }
@@ -112,7 +112,8 @@ struct is_basic_string : std::false_type {};
 template <typename T>
 struct is_basic_string<std::basic_string<T>> : std::true_type {};
 template <typename T>
-constexpr bool is_basic_string_v = is_basic_string<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+constexpr bool is_basic_string_v =
+    is_basic_string<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
 template <typename>
 struct is_pair : std::false_type {};
@@ -145,13 +146,14 @@ struct pred_t {
 class OrangeException : public std::exception {
 private:
     String msg;
+
 public:
     OrangeException(const String& msg) : msg(msg) {}
-    const char* what() { return msg.c_str(); }
+    const char* what() const override { return msg.c_str(); }
 };
 
-inline int bytesncmp(const_bytes_t a, const_bytes_t b, int n) { 
-    // return strncmp((const char*)a, (const char*)b, n); 
+inline int bytesncmp(const_bytes_t a, const_bytes_t b, int n) {
+    // return strncmp((const char*)a, (const char*)b, n);
     for (int i = 0; i < n; i++, a++, b++) {
         if (*a != *b) return int(*a) - int(*b);
     }
