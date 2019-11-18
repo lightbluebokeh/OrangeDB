@@ -72,6 +72,7 @@ namespace Orange {
 
     void paolu() {
         unuse();
+        for (auto db: all()) drop(db);
         fs::current_path("..");
         fs::remove_all("db");
         // std::cerr << e << std::endl;

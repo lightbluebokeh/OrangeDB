@@ -65,7 +65,7 @@ TEST_CASE("test fs io", "[fs]") {
     cerr << "save your disk!" << endl;
 }
 
-TEST_CASE("table", "[index]") {
+TEST_CASE("table", "[fs]") {
     Orange::paolu();
     Orange::setup();
 
@@ -105,7 +105,6 @@ TEST_CASE("table", "[index]") {
     std::cerr << endl;
 
     Orange::unuse();
-    // Orange::drop("test");
 
     Orange::paolu();
 }
