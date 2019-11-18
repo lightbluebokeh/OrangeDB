@@ -16,5 +16,4 @@ namespace Orange {
     String get_cur();
     std::vector<String> all();
     std::vector<String> all_tables();
-
 };  // namespace Orange

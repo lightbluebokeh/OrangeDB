@@ -161,7 +161,6 @@ TEST_CASE("btree", "[btree]") {
     }
     std::cerr << endl;
 
-    Orange::unuse();
     Orange::drop("test");
 
     Orange::paolu();
