@@ -9,13 +9,6 @@
 
 using namespace std;
 
-byte_arr_t int_to_bytes(int x) {
-    byte_arr_t ret(5);
-    ret[0] = 1;
-    *(int*)(ret.data() + 1) = x;
-    return ret;
-}
-
 TEST_CASE("test fs io", "[fs]") {
     constexpr int TEST_PAGE_NUM = 100000;
     fs::create_directory("test_dir");
@@ -73,6 +66,7 @@ TEST_CASE("test fs io", "[fs]") {
 }
 
 TEST_CASE("table", "[table]") {
+    Orange::paolu();
     Orange::setup();
 
     Orange::create("test");
@@ -93,20 +87,19 @@ TEST_CASE("table", "[table]") {
     }
     std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
-        table->insert({{"test", int_to_bytes(a[i])}});
+        table->insert({{"test", to_bytes(a[i])}});
     }
 
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        auto pos = table->where("test", pred_t{int_to_bytes(x), 1, int_to_bytes(x), 1}, lim);
+        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
         all.erase(all.find(x));
         table->remove({pos.front()});
         i++;
         std::cerr << '\r' << i << '/' << rm.size();
     }
-
 
     table->drop_index("test");
     std::cerr << endl;
@@ -120,6 +113,7 @@ TEST_CASE("table", "[table]") {
 using namespace std;
 
 TEST_CASE("btree", "[btree]") {
+    Orange::paolu();
     Orange::setup();
 
     Orange::create("test");
@@ -140,8 +134,8 @@ TEST_CASE("btree", "[btree]") {
         a[i] = rng() % 5000;
         all.insert(a[i]);
         int x = a[i];
-        table->insert({{"test", int_to_bytes(a[i])}});
-        auto pos = table->where("test", pred_t{int_to_bytes(x), 1, int_to_bytes(x), 1}, lim);
+        table->insert({{"test", to_bytes(a[i])}});
+        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
         if (rng() & 1) rm.insert(a[i]);
         std::cerr << '\r' << i + 1 << '/' << lim;
@@ -151,7 +145,7 @@ TEST_CASE("btree", "[btree]") {
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        auto pos = table->where("test", pred_t{int_to_bytes(x), 1, int_to_bytes(x), 1}, lim);
+        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
         all.erase(all.find(x));
         table->remove({pos.front()});

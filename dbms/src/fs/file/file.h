@@ -99,11 +99,10 @@ public:
             if constexpr (is_std_vector_v<arg_t> || is_basic_string_v<arg_t>) {
                 write(arg.size());
                 for (auto x : arg) write(x);
-            } else if constexpr (is_pair_v<arg_t>) {
-                write(arg.first);
-                write(arg.second);
+            } else if constexpr (std::is_same_v<arg_t, pred_t>) {
+                write(arg.lo, arg.lo_eq, arg.hi, arg.hi_eq);
             } else if constexpr (std::is_same_v<arg_t, Column>) {
-                arg.write(this);
+                write(arg.name, arg.kind, arg.maxsize, arg.p, arg.s, arg.unique, arg.nullable, arg.index, arg.dft, arg.ranges);
             } else {
                 write_bytes((bytes_t)&arg, sizeof(arg_t));
             }
@@ -147,11 +146,10 @@ public:
             read(size);
             t.resize(size);
             for (auto& x : t) read(x);
-        } else if constexpr (is_pair_v<T>) {
-            read(t.first);
-            read(t.second);
+        } else if constexpr (std::is_same_v<T, pred_t>) {
+            read(t.lo, t.lo_eq, t.hi, t.hi_eq);
         } else if constexpr (std::is_same_v<T, Column>) {
-            t.read(this);
+            read(t.name, t.kind, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
         } else {
             read_bytes((bytes_t)&t, sizeof(T));
         }

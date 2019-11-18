@@ -122,7 +122,8 @@ struct is_pair<std::pair<T, U>> : std::true_type {};
 template <typename T>
 constexpr bool is_pair_v = is_pair<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
-constexpr int MAX_CHAR_LEN = 256;
+constexpr int MAX_CHAR_LEN = 255;
+constexpr int MAX_VARCHAR_LEN = 65535;
 
 #define DATA_NULL 0x0
 #define DATA_NORMAL 0x1
@@ -136,11 +137,53 @@ int expand(Fn&& func, Args&&... args) {
     return sizeof(arr) / sizeof(int);
 }
 
+enum datatype_t {
+    ORANGE_INT,
+    ORANGE_CHAR,
+    ORANGE_VARCHAR,
+    ORANGE_NUMERIC,
+    ORANGE_DATE,
+};
+
+namespace Orange {
+    inline int cmp(const byte_arr_t& k1, const byte_arr_t& k2, datatype_t kind) {
+        if (k1.front() != k2.front()) return int(k1.front()) - int(k2.front());
+        switch (kind) {
+            case ORANGE_INT: return *(int*)(k1.data() + 1) - *(int*)(k2.data() + 1);
+            case ORANGE_CHAR: 
+                for (int i = 1; i < int(k1.size()); i++) {
+                    if (k1[i] != k2[i]) return int(k1[i]) - int(k2[i]);
+                }
+                return 0;
+            case ORANGE_VARCHAR: 
+                for (int i = 1; i < int(std::min(k1.size(), k2.size())); i++) {
+                    if (k1[i] != k2[i]) return int(k1[i]) - int(k2[i]);
+                }
+                if (k1.size() == k2.size()) return 0;
+                return k1.size() < k2.size() ? -int(k2[k1.size()]) : k1[k2.size()];
+            default: UNIMPLEMENTED
+        }
+    }
+}
+
+
 struct pred_t {
     byte_arr_t lo;
-    bool lo_eq;
+    bool lo_eq; // 是否允许取等
     byte_arr_t hi;
     bool hi_eq;
+
+    bool test_lo(const byte_arr_t& k, datatype_t kind) const {
+        auto code = Orange::cmp(lo, k, kind);
+        return code < 0 || code == 0 && lo_eq;
+    }
+
+    bool test_hi(const byte_arr_t& k, datatype_t kind) const {
+        auto code = Orange::cmp(k, hi, kind);
+        return code < 0 || code == 0 && hi_eq;
+    }
+
+    bool test(const byte_arr_t& k, datatype_t kind) const { return test_lo(k, kind) && test_hi(k, kind); }
 };
 
 class OrangeException : public std::exception {
@@ -152,22 +195,16 @@ public:
     const char* what() const noexcept override { return msg.c_str(); }
 };
 
-inline int bytesncmp(const_bytes_t a, const_bytes_t b, int n) {
-    // return strncmp((const char*)a, (const char*)b, n);
-    for (int i = 0; i < n; i++, a++, b++) {
-        if (*a != *b) return int(*a) - int(*b);
-    }
-    return 0;
-}
-
-// enum class key_kind_t {
-//     BYTES,  // 可以对数据直接按照字节比较的类型
-//     ORANGE_NUMERIC,  // 浮点类型，比较可能要再看看
-//     ORANGE_VARCHAR,   // varchar 地址类型
-// };
-
 using numeric_t = long double;
 
 #ifndef NDEBUG
 #define DEBUG
 #endif
+
+template<typename T>
+auto to_bytes(const T& t) {
+    byte_arr_t ret(sizeof(T) + 1);
+    ret[0] = DATA_NORMAL;
+    mempcpy(ret.data() + 1, (bytes_t)&t, sizeof(T));
+    return ret;
+}

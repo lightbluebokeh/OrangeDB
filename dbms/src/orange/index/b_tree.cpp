@@ -189,13 +189,13 @@ void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const byte_arr_t&
 
 void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
     int i = 0;
-    while (i < x->key_num() && !index->test_pred_lo(index->restore(x->key(i)), pred)) i++;
+    while (i < x->key_num() && !pred.test_lo(index->restore(x->key(i)), index->kind)) i++;
     node_ptr_t y;
     if (!x->leaf()) {
         y = read_node(x->ch(i));
         query(y, pred, ret, lim);
     }
-    while (lim && i < x->key_num() && index->test_pred_hi(index->restore(x->key(i)), pred)) {
+    while (lim && i < x->key_num() && pred.test_hi(index->restore(x->key(i)), index->kind)) {
         ret.push_back(x->val(i));
         lim--;
         if (lim && !x->leaf()) {

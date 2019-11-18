@@ -47,7 +47,7 @@ class Table {
     void read_metadata() {
         File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
         for (auto &col: cols) {
-            indices.emplace_back(Index(*this, col.get_data_kind(), col.get_size(), col_prefix(col.get_name()), col.has_index()));
+            indices.emplace_back(Index(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index()));
             indices.back().load();
         }
     }
@@ -92,7 +92,7 @@ class Table {
         rid_pool.init();
         fs::create_directory(data_root());
         for (auto col: this->cols) {
-            indices.emplace_back(Index(*this, col.get_data_kind(), col.get_size(), data_root() + name, col.has_index()));
+            indices.emplace_back(Index(*this, col.get_datatype(), col.key_size(), data_root() + name, col.has_index()));
         }
     }
 

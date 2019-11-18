@@ -1,3 +1,4 @@
+#pragma once
 
 #include <defs.h>
 
@@ -52,4 +53,24 @@ public:
     // 删除末尾未使用的区域, 返回值是删了多少
     // 不会移动中间的空闲区域, 这样会改变指针; 连续的空闲段理论上不会存在
     int shrink();
+
+    // 返回长度+数据的字节数组
+    byte_arr_t allocate_byte_arr(const byte_arr_t& arr) {
+        ensure(arr.size() <= std::numeric_limits<uint16_t>::max(), "toooo long varchar");
+        auto size = sizeof(uint16_t) + arr.size();
+        auto bytes = new byte_t[size];
+        *(uint16_t*)bytes = arr.size();
+        memcpy(bytes + sizeof(uint16_t), arr.data(), arr.size());
+        auto offset = allocate(size, bytes);
+        delete[] bytes;
+        return to_bytes(offset);
+    }
+
+    auto read_byte_arr(size_t offset) {
+        uint16_t size;
+        read(offset, &size, 2);
+        byte_arr_t ret(size);
+        read(offset + 2, ret.data(), size);
+        return ret;
+    }
 };

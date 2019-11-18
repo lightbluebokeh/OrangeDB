@@ -13,11 +13,11 @@ include_directories(
 set(SRCS 
     "src/defs.cpp"
     "src/orange/orange.cpp"
-    "src/fs/allocator/allocator.cpp"
     "src/fs/file/file_manage.cpp"
     "src/fs/bufpage/bufpage_manage.cpp"
     "src/orange/index/b_tree.cpp"
     "src/orange/index/index.cpp"
+    "src/fs/allocator/allocator.cpp"
 )
  
 # 设置编译方式
@@ -32,9 +32,9 @@ if(UNIX)
     # set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
     # set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
     link_libraries(-lstdc++fs)
-    add_compile_options(-g)
     # link_libraries(-lgmp)
     # link_libraries(-lmpfr)
+    add_compile_options("-Wno-parentheses")
     add_compile_options("-Wall")
     add_compile_options("-Wextra")
 elseif(MSVC)
