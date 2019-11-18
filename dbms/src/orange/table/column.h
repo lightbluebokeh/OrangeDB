@@ -13,14 +13,13 @@ private:
     int p = 18, s = 0;  // kind == ORANGE_NUMERIC 才有效
     bool unique, nullable, index;
     byte_arr_t dft;
-    // std::vector<std::pair<byte_arr_t, byte_arr_t>> ranges;
     std::vector<pred_t> ranges;
     bool is_string() const { return kind == ORANGE_CHAR || kind == ORANGE_VARCHAR; }
 
     bool test_size(byte_arr_t& val) {
         if (int(val.size()) > maxsize) return 0;
         if (int(val.size()) < maxsize) {
-            if (is_string()) return 0;
+            if (!is_string()) return 0;
             if (kind == ORANGE_CHAR) val.resize(maxsize);
         }
         return 1;
@@ -29,30 +28,30 @@ public:
     Column() {}
     Column(const String& name, const String& raw_type, bool unique, bool index, bool nullable, byte_arr_t dft, 
         std::vector<pred_t> ranges) : name(name), unique(unique), nullable(nullable), index(index), dft(dft), ranges(ranges) {
-        if (raw_type == "INT") {
+        if (raw_type == "int") {
             kind = ORANGE_INT;
             maxsize = 4 + 1;
-        } else if (sscanf(raw_type.data(), "VARCHAR(%d)", &maxsize) == 1) {
+        } else if (sscanf(raw_type.data(), "varchar(%d)", &maxsize) == 1) {
             ensure(maxsize <= MAX_VARCHAR_LEN, "varchar limit too long");
             kind = ORANGE_VARCHAR;
-            maxsize += 2;   // 开头 null，末尾 \0
-        } else if (sscanf(raw_type.data(), "CHAR(%d)", &maxsize) == 1) {
+            maxsize ++;
+        } else if (sscanf(raw_type.data(), "char(%d)", &maxsize) == 1) {
             ensure(maxsize <= MAX_CHAR_LEN, "char limit too long");
             kind = ORANGE_CHAR;
-            maxsize += 2;
-        } else if (strcmp(raw_type.data(), "DATE") == 0) {
+            maxsize++;
+        } else if (strcmp(raw_type.data(), "date") == 0) {
             kind = ORANGE_DATE;
             maxsize = 2 + 1;    // 待定
-        } else if (strcmp(raw_type.data(), "NUMERIC") == 0) {
+        } else if (strcmp(raw_type.data(), "numeric") == 0) {
             kind = ORANGE_NUMERIC;
             maxsize = 17 + 1;
             p = 18;
             s = 0;
-        } else if (sscanf(raw_type.data(), "NUMERIC(%d)", &p) == 1) {
+        } else if (sscanf(raw_type.data(), "numeric(%d)", &p) == 1) {
             kind = ORANGE_NUMERIC;
             maxsize = 17 + 1;
             s = 0;
-        } else if (sscanf(raw_type.data(), "NUMERIC(%d,%d)", &p, &s) == 2) {
+        } else if (sscanf(raw_type.data(), "numeric(%d,%d)", &p, &s) == 2) {
             kind = ORANGE_NUMERIC;
             maxsize = 17 + 1;
         } else {

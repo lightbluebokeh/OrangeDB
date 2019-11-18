@@ -69,15 +69,16 @@ public:
     }
     Index(Index&& index) :
         table(index.table), kind(index.kind), size(index.size), prefix(index.prefix), on(index.on),
-        f_data(index.f_data), tree(index.tree) {
+        f_data(index.f_data), tree(index.tree), allocator(index.allocator) {
         if (on) tree->index = this;
         index.f_data = nullptr;
+        index.allocator = nullptr;
         index.on = 0;
-        allocator = index.allocator;
     }
     ~Index() {
         if (on) delete tree;
         if (f_data) f_data->close();
+        delete allocator;
     }
 
     void load() {

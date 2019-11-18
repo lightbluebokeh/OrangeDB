@@ -65,14 +65,14 @@ TEST_CASE("test fs io", "[fs]") {
     cerr << "save your disk!" << endl;
 }
 
-TEST_CASE("table", "[table]") {
+TEST_CASE("table", "[index]") {
     Orange::paolu();
     Orange::setup();
 
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {Column("test", "INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    Table::create("test", {Column("test", "int", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = Table::get("test");
 
@@ -85,6 +85,7 @@ TEST_CASE("table", "[table]") {
         all.insert(a[i]);
         if (rng() & 1) rm.insert(a[i]);
     }
+    table->drop_index("test");
     std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
         table->insert({{"test", to_bytes(a[i])}});
@@ -101,30 +102,29 @@ TEST_CASE("table", "[table]") {
         std::cerr << '\r' << i << '/' << rm.size();
     }
 
-    table->drop_index("test");
     std::cerr << endl;
 
     Orange::unuse();
-    Orange::drop("test");
+    // Orange::drop("test");
 
     Orange::paolu();
 }
 
 using namespace std;
+static std::mt19937 rng(time(0));
 
-TEST_CASE("btree", "[btree]") {
+TEST_CASE("btree", "[index]") {
     Orange::paolu();
     Orange::setup();
 
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {Column("test", "INT", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    Table::create("test", {Column("test", "int", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = Table::get("test");
     table->create_index("test");
 
-    std::mt19937 rng(time(0));
     constexpr int lim = 50000;
     static int a[lim];
     std::unordered_multiset<int> all, rm;
@@ -156,6 +156,38 @@ TEST_CASE("btree", "[btree]") {
 
     Orange::drop("test");
 
+    Orange::paolu();
+}
+
+static String rand_str(int l, int r) {
+    int len = l + rng() % (r - l + 1);
+    String ret;
+    for (int i = 0; i < len; i++) {
+        ret.push_back(rng());
+    }
+    return ret;
+}
+
+TEST_CASE("varchar", "[index]") {
+    Orange::paolu();
+    Orange::setup();
+    
+    Orange::create("test");
+    Orange::use("test");
+    Table::create("varchar", {Column("test", "varchar(2333)", 0, 0, 0, to_bytes("233"), {})}, {}, {});
+    auto table = Table::get("varchar");
+    int lim = 1000;
+    for (int i = 0; i < lim; i++) {
+        table->insert({{"test", to_bytes(rand_str(3, 2333))}});
+        std::cerr << '\r' << i << '/' << lim;
+    }
+    cerr << endl;
+    table->create_index("test");
+    for (int i = 0; i < lim; i++) {
+        table->insert({{"test", to_bytes(rand_str(3, 2333))}});
+        std::cerr << '\r' << i << '/' << lim;
+    }
+    cerr << endl;
     Orange::paolu();
 }
 

@@ -92,7 +92,7 @@ class Table {
         rid_pool.init();
         fs::create_directory(data_root());
         for (auto col: this->cols) {
-            indices.emplace_back(Index(*this, col.get_datatype(), col.key_size(), data_root() + name, col.has_index()));
+            indices.emplace_back(Index(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index()));
         }
     }
 

@@ -213,9 +213,18 @@ void BTree::init(File* f_data) {
     root = new_node();
     bytes_t k_raw = new byte_t[key_size];
     f_data->seek_pos(0);
+#ifdef DEBUG
+    std::cerr << "B-tree init:" << std::endl;
+#endif
     for (rid_t i = 0, tot = index->get_tot(); i < tot; i++) {
         f_data->read_bytes(k_raw, key_size);
         if (*k_raw != DATA_INVALID) insert(k_raw, i, index->restore(k_raw));
+#ifdef DEBUG
+    std::cerr << '\r' << i << "/" << tot;
+#endif
     }
+#ifdef DEBUG
+    std::cerr << std::endl;
+#endif
     delete[] k_raw;
 }

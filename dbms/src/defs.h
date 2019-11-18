@@ -208,3 +208,19 @@ auto to_bytes(const T& t) {
     mempcpy(ret.data() + 1, (bytes_t)&t, sizeof(T));
     return ret;
 }
+
+template<>
+inline auto to_bytes(const String& str) {
+    byte_arr_t ret(str.size() + 1);
+    ret[0] = DATA_NORMAL;
+    memcpy(ret.data() + 1, str.data(), str.size());
+    return ret;
+}
+
+// inline String to_lowercase(const String& s) {
+//     auto ret = s;
+//     for (auto &c: ret) {
+//         if ('A' <= c && c <= 'Z') c += 'a' - 'A';
+//     }
+//     return ret;
+// }
