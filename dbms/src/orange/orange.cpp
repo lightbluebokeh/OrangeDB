@@ -21,8 +21,6 @@ namespace Orange {
         names.erase(name);
         if (name == cur) {
             unuse();
-            fs::current_path("..");
-            cur = "";
             return fs::remove_all(name);
         } else if (using_db()) {
             return fs::remove_all("../" + name);

@@ -149,7 +149,7 @@ private:
 
 public:
     OrangeException(const String& msg) : msg(msg) {}
-    const char* what() const override { return msg.c_str(); }
+    const char* what() const noexcept override { return msg.c_str(); }
 };
 
 inline int bytesncmp(const_bytes_t a, const_bytes_t b, int n) {

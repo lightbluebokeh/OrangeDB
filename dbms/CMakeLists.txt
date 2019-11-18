@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 project(OrangeDBMS)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -45,4 +45,4 @@ endif()
 
     
 add_library(dbms SHARED src/dbms.cpp ${SRCS})
-add_executable(test test/tests.cpp test/main.cpp ${SRCS})
+add_executable(test unittest/tests.cpp unittest/main.cpp ${SRCS})
