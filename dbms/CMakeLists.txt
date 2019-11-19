@@ -5,12 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
 
+find_package(Boost REQUIRED)
+
 include_directories(
     "src"
     "thirdparty"
 )
 
-set(SRCS 
+set(SRCS
     "src/defs.cpp"
     "src/orange/orange.cpp"
     "src/fs/file/file_manage.cpp"
@@ -19,7 +21,7 @@ set(SRCS
     "src/orange/index/index.cpp"
     "src/fs/allocator/allocator.cpp"
 )
- 
+
 # 设置编译方式
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "No build type selected, set CMAKE_BUILD_TYPE to Release")
@@ -43,6 +45,5 @@ elseif(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
-    
 add_library(dbms SHARED src/dbms.cpp ${SRCS})
 add_executable(test unittest/tests.cpp unittest/main.cpp ${SRCS})
