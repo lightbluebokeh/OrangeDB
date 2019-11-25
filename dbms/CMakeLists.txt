@@ -10,6 +10,7 @@ find_package(Boost REQUIRED)
 include_directories(
     "src"
     "thirdparty"
+    ${Boost_INCLUDE_DIR}
 )
 
 set(SRCS
@@ -20,6 +21,7 @@ set(SRCS
     "src/orange/index/b_tree.cpp"
     "src/orange/index/index.cpp"
     "src/fs/allocator/allocator.cpp"
+    "src/orange/parser/parser.cpp"
 )
 
 # 设置编译方式
