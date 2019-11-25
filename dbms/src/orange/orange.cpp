@@ -65,14 +65,15 @@ namespace Orange {
     void setup() {
         if (!fs::exists("db")) fs::create_directory("db");
         fs::current_path("db");
-        for (auto entry: fs::directory_iterator(".")) if (entry.is_directory()) {
-            names.insert(entry.path().filename());
-        }
+        for (auto entry : fs::directory_iterator("."))
+            if (entry.is_directory()) {
+                names.insert(entry.path().filename().string());
+            }
     }
 
     void paolu() {
         unuse();
-        for (auto db: all()) drop(db);
+        for (auto db : all()) drop(db);
         fs::current_path("..");
         fs::remove_all("db");
         // std::cerr << e << std::endl;

@@ -150,12 +150,12 @@ namespace Orange {
         if (k1.front() != k2.front()) return int(k1.front()) - int(k2.front());
         switch (kind) {
             case ORANGE_INT: return *(int*)(k1.data() + 1) - *(int*)(k2.data() + 1);
-            case ORANGE_CHAR: 
+            case ORANGE_CHAR:
                 for (int i = 1; i < int(k1.size()); i++) {
                     if (k1[i] != k2[i]) return int(k1[i]) - int(k2[i]);
                 }
                 return 0;
-            case ORANGE_VARCHAR: 
+            case ORANGE_VARCHAR:
                 for (int i = 1; i < int(std::min(k1.size(), k2.size())); i++) {
                     if (k1[i] != k2[i]) return int(k1[i]) - int(k2[i]);
                 }
@@ -164,26 +164,28 @@ namespace Orange {
             default: UNIMPLEMENTED
         }
     }
-}
+}  // namespace Orange
 
 
 struct pred_t {
     byte_arr_t lo;
-    bool lo_eq; // 是否允许取等
+    bool lo_eq;  // 是否允许取等
     byte_arr_t hi;
     bool hi_eq;
 
     bool test_lo(const byte_arr_t& k, datatype_t kind) const {
         auto code = Orange::cmp(lo, k, kind);
-        return code < 0 || code == 0 && lo_eq;
+        return code < 0 || (code == 0 && lo_eq);
     }
 
     bool test_hi(const byte_arr_t& k, datatype_t kind) const {
         auto code = Orange::cmp(k, hi, kind);
-        return code < 0 || code == 0 && hi_eq;
+        return code < 0 || (code == 0 && hi_eq);
     }
 
-    bool test(const byte_arr_t& k, datatype_t kind) const { return test_lo(k, kind) && test_hi(k, kind); }
+    bool test(const byte_arr_t& k, datatype_t kind) const {
+        return test_lo(k, kind) && test_hi(k, kind);
+    }
 };
 
 class OrangeException : public std::exception {
@@ -201,15 +203,15 @@ using numeric_t = long double;
 #define DEBUG
 #endif
 
-template<typename T>
+template <typename T>
 auto to_bytes(const T& t) {
     byte_arr_t ret(sizeof(T) + 1);
     ret[0] = DATA_NORMAL;
-    mempcpy(ret.data() + 1, (bytes_t)&t, sizeof(T));
+    memcpy(ret.data() + 1, (bytes_t)&t, sizeof(T));
     return ret;
 }
 
-template<>
+template <>
 inline auto to_bytes(const String& str) {
     byte_arr_t ret(str.size() + 1);
     ret[0] = DATA_NORMAL;

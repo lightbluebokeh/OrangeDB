@@ -193,6 +193,8 @@ TEST_CASE("varchar", "[index]") {
 #include <fs/allocator/allocator.h>
 
 TEST_CASE("file allocator", "[fs]") {
+    fs::create_directory("test_alloc");
+    fs::current_path("test_alloc");
     FileAllocator falloc("data.txt");
 
     int a[501], b[400], c[200];
@@ -253,4 +255,6 @@ TEST_CASE("file allocator", "[fs]") {
 
     // 检查文件
     REQUIRE(falloc.check());
+    fs::current_path("..");
+    fs::remove("test_alloc");
 }
