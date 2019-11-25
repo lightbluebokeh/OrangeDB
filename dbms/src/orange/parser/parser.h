@@ -8,10 +8,10 @@
 namespace Orange {
     namespace parser {
         // 使用 boost::spirit 写的 parser
-        class SqlParser {
+        class sql_parser {
         public:
             // 解析sql，语法错误抛异常
-            SqlAst parse(const String& sql);
+            sql_ast parse(const String& sql);
         };
 
         struct ParseException : public std::exception {

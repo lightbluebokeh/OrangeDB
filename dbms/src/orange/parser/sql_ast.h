@@ -1,8 +1,8 @@
 #pragma once
 
+#include <boost/optional.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/spirit/include/qi.hpp>
-#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -11,139 +11,113 @@ namespace Orange {
     namespace parser {
         /** column */
         struct column {
-            std::optional<std::string> table_name;
+            boost::optional<std::string> table_name;
             std::string col_name;
         };
 
-        using column_list = std::vector<std::string>;  // list不能带table_name
+        using column_list = std::vector<std::string>;  // 注意里面不是column
 
         /** selector: empty时代表 '*' */
-        using selector = std::vector<column>;
+        using selector = std::vector<column>;  // 注意里面是column
 
         using table_list = std::vector<std::string>;
 
         /** op: '=', '<>', '<=', '>=', '<', '>' */
-        enum class op { None = -1, Eq, Neq, Le, Ge, Ls, Gt };
+        enum class op { Eq, Neq, Le, Ge, Ls, Gt };
 
         /** type */
+        enum class DataTypeKind { Int, VarChar, Date, Float };
         struct data_type {
-            enum { Int, VarChar, Date, Float };
+            DataTypeKind type;
             int value;
         };
 
         /** value */
-        using value = std::variant<int, std::string, float>;
-
-        using value_list = std::vector<value>;
-
-        using value_lists = std::vector<value_list>;
+        using data_value = boost::variant<int, std::string>; // 暂时决定当variant为empty时代表null(出问题再说
+        using data_value_list = std::vector<data_value>;
+        using data_value_lists = std::vector<data_value_list>;
 
         /** expr */
-        using expr = std::variant<value, column>;
+        using expr = boost::variant<data_value, column>;
 
         /** field */
-        enum class FieldKind { None = -1, Def, PrimaryKey, ForeignKey };
-        struct field {
-            FieldKind kind;
-            field() : kind(FieldKind::None) {}
-            field(FieldKind kind) : kind(kind) {}
-        };
+        enum class FieldKind { Def, PrimaryKey, ForeignKey };
 
-        struct field_def : field {
+        struct field_def {
             std::string col_name;
             data_type type;
             bool is_null;
-            std::optional<value> default_value;
-
-            field_def() : field(FieldKind::Def), col_name(), type(), is_null(), default_value() {}
+            boost::optional<data_value> default_value;
         };
 
-        struct field_primary_key : field {
+        struct field_primary_key {
             column_list col_list;
-            field_primary_key() : field(FieldKind::PrimaryKey), col_list() {}
         };
 
-        struct field_foreign_key : field {
+        struct field_foreign_key {
             std::string col;
             std::string ref_table_name;
             std::string ref_col_name;
-            field_foreign_key() :
-                field(FieldKind::ForeignKey), col(), ref_table_name(), ref_col_name() {}
         };
 
-        using field_list = std::vector<field>;
+        using single_field = boost::variant<field_def, field_primary_key, field_foreign_key>;
+        using field_list = std::vector<single_field>;
 
         /** where clause */
-        struct where_clause {
+        struct single_where_op {
             std::string col_name;
-            std::variant<std::pair<op, expr>, bool> cond;
+            op operator_;
+            expr expression;
         };
 
-        using where_clause_list = std::vector<where_clause>;
+        struct single_where_null {
+            std::string col_name;
+            bool is_null;
+        };
+
+        using single_where = boost::variant<single_where_op, single_where_null>;
+
+        using where_clause = std::vector<single_where>;
 
         /** set clause */
-        struct set_clause {
+        struct single_set {
             std::string col_name;
+            data_value val;
         };
+
+        using set_clause = std::vector<single_set>;
 
         /** sql statement */
-        enum class StmtKind { None = -1, Sys, Db, Tb, Idx, Alter };
-        struct sql_stmt {
-            StmtKind stmt_kind;
-            sql_stmt() : stmt_kind(StmtKind::None) {}
-            sql_stmt(StmtKind kind) : stmt_kind(kind) {}
-        };
-
-        using sql_stmt_list = std::vector<sql_stmt>;
+        enum class StmtKind { Sys, Db, Tb, Idx, Alter };
 
         /** system statement */
-        enum class SysStmtKind { None = -1, ShowDb };
-        struct sys_stmt : sql_stmt {
-            SysStmtKind sys_stmt_kind;
-            sys_stmt() = default;
-            sys_stmt(SysStmtKind kind) : sql_stmt(StmtKind::Sys), sys_stmt_kind(kind) {}
-        };
+        enum class SysStmtKind { ShowDb };
 
-        struct show_db_stmt : sys_stmt {
-            show_db_stmt() : sys_stmt(SysStmtKind::ShowDb) {}
-        };
+        struct show_db_stmt {};
+
+        using sys_stmt = boost::variant<show_db_stmt>;
 
         /** database statement */
-        enum class DbStmtKind { None = -1, Show, Create, Drop, Use };
-        struct db_stmt : sql_stmt {
-            DbStmtKind db_stmt_kind;
-            db_stmt() : sql_stmt(StmtKind::Db), db_stmt_kind(DbStmtKind::None) {}
-            db_stmt(DbStmtKind kind) : sql_stmt(StmtKind::Db), db_stmt_kind(kind) {}
-        };
+        enum class DbStmtKind { Show, Create, Drop, Use };
 
-        struct show_tb_stmt : db_stmt {
-            show_tb_stmt() : db_stmt(DbStmtKind::Show) {}
-        };
+        struct show_tb_stmt {};
 
-        struct create_db_stmt : db_stmt {
+        struct create_db_stmt {
             std::string name;
-            create_db_stmt() = default;
-            explicit create_db_stmt(std::string&& name) :
-                db_stmt(DbStmtKind::Create), name(std::move(name)) {}
         };
 
-        struct drop_db_stmt : db_stmt {
+        struct drop_db_stmt {
             std::string name;
-            drop_db_stmt() = default;
-            explicit drop_db_stmt(std::string&& name) :
-                db_stmt(DbStmtKind::Drop), name(std::move(name)) {}
         };
 
-        struct use_db_stmt : db_stmt {
+        struct use_db_stmt {
             std::string name;
-            use_db_stmt() = default;
-            use_db_stmt(const std::string& name) :
-                db_stmt(DbStmtKind::Use), name(std::move(name)) {}
         };
+
+        using db_stmt = boost::variant<show_tb_stmt, create_db_stmt, drop_db_stmt, use_db_stmt>;
 
         /** table statement */
         enum class TbStmtKind {
-            None = -1,
             Create,
             Drop,
             Desc,
@@ -152,95 +126,73 @@ namespace Orange {
             Update,
             Select
         };
-        struct tb_stmt : sql_stmt {
-            TbStmtKind tb_stmt_kind;
-            tb_stmt() = default;
-            tb_stmt(TbStmtKind kind) : sql_stmt(StmtKind::Tb), tb_stmt_kind(kind) {}
-        };
 
-        struct create_tb_stmt : tb_stmt {
+        struct create_tb_stmt {
             std::string name;
             field_list fields;
-            create_tb_stmt() : tb_stmt(TbStmtKind::Create), name(), fields() {}
         };
 
-        struct drop_tb_stmt : tb_stmt {
+        struct drop_tb_stmt {
             std::string name;
-            drop_tb_stmt() = default;
-            drop_tb_stmt(std::string&& name) : tb_stmt(TbStmtKind::Drop), name(std::move(name)) {}
         };
 
-        struct desc_tb_stmt : tb_stmt {
+        struct desc_tb_stmt {
             std::string name;
-            desc_tb_stmt() = default;
-            desc_tb_stmt(std::string&& name) : tb_stmt(TbStmtKind::Desc), name(std::move(name)) {}
         };
 
-        struct insert_into_tb_stmt : tb_stmt {
+        struct insert_into_tb_stmt {
             std::string name;
-            value_lists values;
-            insert_into_tb_stmt() : tb_stmt(TbStmtKind::InsertInto), name(), values() {}
+            data_value_lists values;
         };
 
-        struct delete_from_tb_stmt : tb_stmt {
+        struct delete_from_tb_stmt {
             std::string name;
-            where_clause_list where_clause;
-            delete_from_tb_stmt() : tb_stmt(TbStmtKind::DeleteFrom), name(), where_clause() {}
+            where_clause where_clause;
         };
 
-        struct update_tb_stmt : tb_stmt {
+        struct update_tb_stmt {
             std::string name;
             set_clause set;
             where_clause where;
-            update_tb_stmt() : tb_stmt(TbStmtKind::Update), name(), set(), where() {}
         };
 
-        struct select_tb_stmt : tb_stmt {
+        struct select_tb_stmt {
             selector select;
             table_list tables;
             where_clause where;
-            select_tb_stmt() : tb_stmt(TbStmtKind::Select), select(), tables(), where() {}
         };
+
+        using tb_stmt = boost::variant<create_tb_stmt, drop_tb_stmt, desc_tb_stmt, insert_into_tb_stmt, delete_from_tb_stmt, update_tb_stmt, select_tb_stmt>;
 
         /** index statement */
         enum class IdxStmtKind { None = -1, Create, Drop, AlterAdd, AlterDrop };
-        struct idx_stmt : sql_stmt {
-            IdxStmtKind idx_stmt_kind;
-            idx_stmt() = default;
-            idx_stmt(IdxStmtKind kind) : sql_stmt(StmtKind::Idx), idx_stmt_kind(kind) {}
-        };
 
-        struct create_idx_stmt : idx_stmt {
+        struct create_idx_stmt {
             std::string idx_name;
             std::string tb_name;
             column_list col_list;
-            create_idx_stmt() : idx_stmt(IdxStmtKind::Create), idx_name(), tb_name(), col_list() {}
         };
 
-        struct drop_idx_stmt : idx_stmt {
+        struct drop_idx_stmt {
             std::string name;
-            drop_idx_stmt() = default;
-            drop_idx_stmt(std::string&& name) :
-                idx_stmt(IdxStmtKind::Drop), name(std::move(name)) {}
         };
 
-        struct alter_add_idx_stmt : idx_stmt {
+        struct alter_add_idx_stmt {
             std::string tb_name;
             std::string idx_name;
             column_list col_list;
-            alter_add_idx_stmt() :
-                idx_stmt(IdxStmtKind::AlterAdd), tb_name(), idx_name(), col_list() {}
         };
 
-        struct alter_drop_idx_stmt : idx_stmt {
+        struct alter_drop_idx_stmt {
             std::string tb_name;
             std::string idx_name;
-            alter_drop_idx_stmt() : idx_stmt(IdxStmtKind::AlterDrop), tb_name(), idx_name() {}
         };
+
+        using idx_stmt = boost::variant<create_idx_stmt, drop_idx_stmt, alter_add_idx_stmt,
+                                             alter_drop_idx_stmt>;
 
         /** alter statement */
         enum class AlterStmtKind {
-            None = -1,
             AddField,
             DropCol,
             ChangeCol,
@@ -252,73 +204,69 @@ namespace Orange {
             DropForeignKey
         };
 
-        // 可能要特殊处理
-        struct alter_stmt : sql_stmt {
-            std::string tb_name;
-            AlterStmtKind alter_stmt_kind;
-            alter_stmt() = default;
-            alter_stmt(AlterStmtKind kind) :
-                sql_stmt(StmtKind::Alter), tb_name(), alter_stmt_kind(kind) {}
+        struct add_field_stmt {
+            std::string table_name;
+            single_field new_field;
         };
 
-        struct add_field_stmt : alter_stmt {
-            field new_field;
-            add_field_stmt() : alter_stmt(AlterStmtKind::AddField) {}
-        };
-
-        struct drop_col_stmt : alter_stmt {
+        struct drop_col_stmt {
+            std::string table_name;
             std::string col_name;
-            drop_col_stmt() : alter_stmt(AlterStmtKind::DropCol) {}
         };
 
-        struct change_col_stmt : alter_stmt {
+        struct change_col_stmt {
+            std::string table_name;
             std::string col_name;
-            field new_field;
-            change_col_stmt() : alter_stmt(AlterStmtKind::ChangeCol) {}
+            single_field new_field;
         };
 
-        struct rename_tb_stmt : alter_stmt {
+        struct rename_tb_stmt {
+            std::string table_name;
             std::string new_tb_name;
-            rename_tb_stmt() : alter_stmt(AlterStmtKind::RenameTb) {}
         };
 
-        struct add_primary_key_stmt : alter_stmt {
+        struct add_primary_key_stmt {
+            std::string table_name;
             column_list col_list;
-            add_primary_key_stmt() : alter_stmt(AlterStmtKind::AddPrimaryKey) {}
         };
 
-        struct add_constraint_primary_key_stmt : alter_stmt {
+        struct add_constraint_primary_key_stmt {
+            std::string table_name;
             std::string pk_name;
             column_list col_list;
-            add_constraint_primary_key_stmt() :
-                alter_stmt(AlterStmtKind::AddConstraintPrimaryKey) {}
         };
 
-        struct drop_primary_key_stmt : alter_stmt {
-            std::optional<std::string> pk_name;
-            drop_primary_key_stmt() : alter_stmt(AlterStmtKind::DropPrimaryKey) {}
+        struct drop_primary_key_stmt {
+            std::string table_name;
+            boost::optional<std::string> pk_name;
         };
 
-        struct add_constraint_foreign_key_stmt : alter_stmt {
+        struct add_constraint_foreign_key_stmt {
+            std::string table_name;
             std::string fk_name;
             column_list col_list;
             std::string ref_tb_name;
-            std::string ref_col_list;
-            add_constraint_foreign_key_stmt() :
-                alter_stmt(AlterStmtKind::AddConstraintForeignKey) {}
+            column_list ref_col_list;
         };
 
-        struct drop_foreign_key_stmt : alter_stmt {
+        struct drop_foreign_key_stmt {
+            std::string table_name;
             std::string fk_name;
-            drop_foreign_key_stmt() : alter_stmt(AlterStmtKind::DropForeignKey) {}
         };
 
-        /** sql */
-        struct SqlAst {
+        using alter_stmt = boost::variant<add_field_stmt, drop_col_stmt, change_col_stmt,
+                                          rename_tb_stmt, add_primary_key_stmt,
+                                          add_constraint_primary_key_stmt, drop_primary_key_stmt,
+                                          add_constraint_foreign_key_stmt, drop_foreign_key_stmt>;
+
+        /** sql statmemet */
+        using sql_stmt = boost::variant<sys_stmt, db_stmt, tb_stmt, idx_stmt, alter_stmt>;
+
+        using sql_stmt_list = std::vector<sql_stmt>;
+
+        /** ast */
+        struct sql_ast {
             sql_stmt_list stmt;
-            SqlAst() = default;
-            explicit SqlAst(sql_stmt_list&& stmt) : stmt(std::move(stmt)) {}
         };
-
     }  // namespace parser
 }  // namespace Orange
