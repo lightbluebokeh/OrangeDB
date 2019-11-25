@@ -7,6 +7,8 @@
 
 static_assert(sizeof(std::size_t) == 8, "x64 only");
 
+#pragma warning(disable: 26812)  // enum class
+
 namespace fs = std::filesystem;
 
 using rid_t = uint64_t;

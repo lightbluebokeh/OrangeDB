@@ -6,16 +6,18 @@
 #include <exception>
 
 namespace Orange {
-    // 使用 boost::spirit 写的 parser，必须分离cpp不然编译实在是太慢了
-    class SqlParser {
-    public:
-        // 解析sql，语法错误抛异常
-        SQL parse(const String& sql);
-    };
+    namespace parser {
+        // 使用 boost::spirit 写的 parser
+        class SqlParser {
+        public:
+            // 解析sql，语法错误抛异常
+            SqlAst parse(const String& sql);
+        };
 
-    struct ParseException : public std::exception {
-        int pos;
-        
-        explicit ParseException(int pos) : std::exception("Parse Error"), pos(pos) {}
-    };
+        struct ParseException : public std::exception {
+            int pos;
+
+            explicit ParseException(int pos) : std::exception("Parse Error"), pos(pos) {}
+        };
+    }  // namespace parser
 }  // namespace Orange
