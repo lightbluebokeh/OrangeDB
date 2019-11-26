@@ -10,8 +10,8 @@
 using namespace std;
 
 TEST_CASE("test fs io", "[fs]") {
-    constexpr int TEST_PAGE_NUM = 100000;
-    fs::create_directory("test_dir");
+    constexpr int TEST_PAGE_NUM = 50000;
+    fs::create_directories("test_dir");
     fs::current_path("test_dir");
 
     String name1 = "testfile1.txt", name2 = "testfile2.txt";
@@ -60,8 +60,6 @@ TEST_CASE("test fs io", "[fs]") {
     ensure(f2->close(), "close failed");
     ensure(File::remove(name2), "remove failed");
 
-    fs::current_path("..");
-    fs::remove("test_dir");
     cerr << "save your disk!" << endl;
 }
 
@@ -170,10 +168,11 @@ static String rand_str(int l, int r) {
 TEST_CASE("varchar", "[index]") {
     Orange::paolu();
     Orange::setup();
-    
+
     Orange::create("test");
     Orange::use("test");
-    Table::create("varchar", {Column("test", "varchar(2333)", 0, 0, 0, to_bytes("233"), {})}, {}, {});
+    Table::create("varchar", {Column("test", "varchar(2333)", 0, 0, 0, to_bytes("233"), {})}, {},
+                  {});
     auto table = Table::get("varchar");
     int lim = 1000;
     for (int i = 0; i < lim; i++) {
@@ -188,73 +187,4 @@ TEST_CASE("varchar", "[index]") {
     }
     cerr << endl;
     Orange::paolu();
-}
-
-#include <fs/allocator/allocator.h>
-
-TEST_CASE("file allocator", "[fs]") {
-    fs::create_directory("test_alloc");
-    fs::current_path("test_alloc");
-    FileAllocator falloc("data.txt");
-
-    int a[501], b[400], c[200];
-    for (int i = 0; i < 501; i++) a[i] = 0xaaaaaaaa;
-    for (int i = 0; i < 400; i++) b[i] = 0xbbbbbbbb;
-    for (int i = 0; i < 200; i++) c[i] = 0xcccccccc;
-
-    // 检查分配
-    size_t a_off = falloc.allocate(sizeof(a), a);
-    size_t b_off = falloc.allocate(sizeof(b), b);
-    size_t a2_off = falloc.allocate(sizeof(a), a);
-    size_t b2_off = falloc.allocate(sizeof(b));
-    falloc.write(b2_off, b, sizeof(b));
-    printf("after some allocation:\n");
-    falloc.print();
-
-    // 检查释放
-    REQUIRE(falloc.free(b_off));
-    REQUIRE(falloc.free(a2_off));
-    printf("after some deallocation:\n");
-    falloc.print();
-
-    // 检查释放后再分配
-    size_t c_off = falloc.allocate(sizeof(c));
-    falloc.write(c_off, c, sizeof(c));
-    b_off = falloc.allocate(sizeof(b), b);
-    printf("allocate something again:\n");
-    falloc.print();
-
-    // 检查数据对不对
-    int* buffer = new int[1000];
-    falloc.read(a_off, buffer, sizeof(a));
-    for (int i = 0; i < 501; i++) REQUIRE(buffer[i] == a[i]);
-    falloc.read(c_off, buffer, sizeof(c));
-    for (int i = 0; i < 200; i++) REQUIRE(buffer[i] == c[i]);
-    delete[] buffer;
-
-    // 检查空闲块的合并
-    REQUIRE(falloc.free(b2_off));
-    REQUIRE(falloc.free(a_off));
-    REQUIRE(falloc.free(c_off));
-    REQUIRE(falloc.free(b_off));
-    printf("deallocate everything:\n");
-    falloc.print();
-
-    // 检查double free
-    REQUIRE_FALSE(falloc.free(a_off));
-    c_off = falloc.allocate(sizeof(c), c);
-    a_off = falloc.allocate(sizeof(a), a);
-    printf("allocate something again:\n");
-    falloc.print();
-
-    // 再清空一次
-    falloc.free(a_off);
-    falloc.free(c_off);
-    printf("deallocate everything:\n");
-    falloc.print();
-
-    // 检查文件
-    REQUIRE(falloc.check());
-    fs::current_path("..");
-    fs::remove("test_alloc");
 }

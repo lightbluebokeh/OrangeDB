@@ -14,14 +14,14 @@ include_directories(
 )
 
 set(SRCS
-    "src/defs.cpp"
-    "src/orange/orange.cpp"
-    "src/fs/file/file_manage.cpp"
-    "src/fs/bufpage/bufpage_manage.cpp"
-    "src/orange/index/b_tree.cpp"
-    "src/orange/index/index.cpp"
-    "src/fs/allocator/allocator.cpp"
-    "src/orange/parser/parser.cpp"
+    ${PROJECT_SOURCE_DIR}/src/defs.cpp
+    ${PROJECT_SOURCE_DIR}/src/orange/orange.cpp
+    ${PROJECT_SOURCE_DIR}/src/fs/file/file_manage.cpp
+    ${PROJECT_SOURCE_DIR}/src/fs/bufpage/bufpage_manage.cpp
+    ${PROJECT_SOURCE_DIR}/src/orange/index/b_tree.cpp
+    ${PROJECT_SOURCE_DIR}/src/orange/index/index.cpp
+    ${PROJECT_SOURCE_DIR}/src/fs/allocator/allocator.cpp
+    ${PROJECT_SOURCE_DIR}/src/orange/parser/parser.cpp
 )
 
 # 设置编译方式
@@ -49,4 +49,4 @@ elseif(MSVC)
 endif()
 
 add_library(dbms SHARED src/dbms.cpp ${SRCS})
-add_executable(test unittest/tests.cpp unittest/main.cpp ${SRCS})
+add_subdirectory(unittest)

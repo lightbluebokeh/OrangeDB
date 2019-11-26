@@ -1,3 +1,5 @@
+// parser
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4828)
@@ -5,22 +7,13 @@
 #pragma warning(disable : 26495)
 #endif
 
-#include <boost/foreach.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/phoenix.hpp>
-#include <boost/spirit/include/phoenix_core.hpp>
-#include <boost/spirit/include/phoenix_fusion.hpp>
-#include <boost/spirit/include/phoenix_operator.hpp>
-#include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/variant/recursive_variant.hpp>
 
 #ifdef _MSC_VER
 #pragma warning(pop)
-#endif
-
-#ifndef NDEBUG
-#define BOOST_SPIRIT_DEBUG
 #endif
 
 #include <defs.h>
@@ -61,7 +54,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::add_constraint_foreign_key_stmt, table
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_foreign_key_stmt, table_name, fk_name)
 
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::column, table_name, col_name)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_type, value)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_type, type, value)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_def, col_name, type, is_null, default_value)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_primary_key, col_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_foreign_key, col, ref_table_name, ref_col_name)
@@ -160,16 +153,18 @@ namespace Orange {
             rule<field_foreign_key()> foreign_key_field;
             rule<field_list()> fields;
 
-
-            // 大型语法解析现场
             sql_grammer() : sql_grammer::base_type(program) {
                 using namespace qi;
+                using phoenix::at_c;
+                using phoenix::bind;
+                using phoenix::construct;
+                using phoenix::val;
 
                 // <program> := <stmt>*
-                program %= eps >> skip(space)[*stmt];
+                program %= *stmt >> eps;
 
                 // <stmt> := (<sys_stmt> | <db_stmt> | <tb_stmt> | <idx_stmt> | <alter_stmt>) ';'
-                stmt %= (sys | db | tb | idx | alter) >> omit[';'];
+                stmt %= (sys | db | tb | idx | alter) > ';';
 
                 // <sys_stmt> := <show_db>
                 sys %= show_db >> eps;
@@ -177,114 +172,110 @@ namespace Orange {
                 show_db = no_case["SHOW"] >> no_case["DATABASES"];
 
                 // <db_stmt> := <show_tb> | <create_db> | <drop_db> | <use_db>
-                db %= (show_tb | create_db | drop_db | use_db) >> eps;
+                db %= show_tb | create_db | drop_db | use_db;
                 // <show_tb> := 'SHOW' 'TABLES'
-                show_tb = no_case["SHOW"] >> no_case["TABLES"];
+                show_tb = no_case["CREATE"] >> no_case["TABLES"];
                 // <create_db> := 'CREATE' 'DATABASE' [db_name]
-                create_db %= omit[no_case["SHOW"]] >> omit[no_case["DATABASE"]] >> identifier;
+                create_db %= no_case["CREATE"] >> no_case["DATABASE"] > identifier;
                 // <drop_db> := 'DROP' 'DATABASE' [db_name]
-                drop_db %= omit[no_case["DROP"]] >> omit[no_case["DATABASE"]] >> identifier;
+                drop_db %= no_case["DROP"] >> no_case["DATABASE"] > identifier;
                 // <use_db> := 'USE' [db_name]
-                use_db %= omit[no_case["USE"]] >> identifier;
+                use_db %= no_case["USE"] > identifier;
 
                 // <tb_stmt> := <create_tb> | <drop_tb> | <desc_tb> | <insert_into_tb> |
                 //              <delete_from_tb> | <update_tb> | <select_tb>
-                tb %= (create_tb | drop_tb | desc_tb | insert_into_tb | delete_from_tb | update_tb |
-                       select_tb);
+                tb %= create_tb | drop_tb | desc_tb | insert_into_tb | delete_from_tb | update_tb |
+                      select_tb;
                 // <create_tb> := 'CREATE' 'TABLE' [tb_name] '(' <field_list> ')'
-                create_tb %= omit[no_case["CREATE"]] >> omit[no_case["TABLE"]] >> identifier >>
-                             omit['('] >> fields >> omit[')'];
+                create_tb %=
+                    no_case["CREATE"] >> no_case["TABLE"] > identifier > '(' > fields > ')';
                 // <drop_tb> := 'DROP' 'TABLE' [tb_name]
-                drop_tb %= omit[no_case["DROP"]] >> omit[no_case["TABLE"]] >> identifier;
+                drop_tb %= no_case["DROP"] >> no_case["TABLE"] > identifier;
                 // <desc_tb> := 'DESC' [tb_name]
-                desc_tb %= omit[no_case["DESC"]] >> identifier;
+                desc_tb %= no_case["DESC"] > identifier;
                 // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] 'VALUES' <value_lists>
-                insert_into_tb %= omit[no_case["INSERT"]] >> omit[no_case["INTO"]] >> identifier >>
-                                  omit[no_case["VALUES"]] >> value_lists;
+                insert_into_tb %= no_case["INSERT"] > no_case["INTO"] > identifier >
+                                  no_case["VALUES"] > value_lists;
                 // <delete_from_tb> := 'DELETE' 'FROM' [tb_name] 'WHERE' <where_clause>
-                delete_from_tb %= omit[no_case["DELETE"]] >> omit[no_case["FROM"]] >> identifier >>
-                                  omit[no_case["WHERE"]] >> where_list;
+                delete_from_tb %= no_case["DELETE"] > no_case["FROM"] > identifier >
+                                  no_case["WHERE"] > where_list;
                 // <update_tb> := 'UPDATE' [tb_name] 'SET' <set_clause> 'WHERE' <where_clause>
-                update_tb %= omit[no_case["UPDATE"]] >> identifier >> omit[no_case["SET"]] >>
-                             set_list >> omit[no_case["WHERE"]] >> where_list;
+                update_tb %= no_case["UPDATE"] > identifier > no_case["SET"] > set_list >
+                             no_case["WHERE"] > where_list;
                 // <select_tb> := 'SELECT' <selector> 'FROM' <table_list> 'WHERE' <where_clause>
-                select_tb %= omit[no_case["SELECT"]] >> selectors >> omit[no_case["FROM"]] >>
-                             tables >> omit[no_case["WHERE"]] >> where_list;
+                select_tb %= no_case["SELECT"] > selectors > no_case["FROM"] > tables >
+                             no_case["WHERE"] > where_list;
 
                 // <idx_stmt> := <create_idx> | <drop_idx> | <alter_add_idx> | <alter_drop_idx>
-                idx %= (create_idx | drop_idx | alter_add_idx | alter_drop_idx) >> eps;
+                idx %= create_idx | drop_idx | alter_add_idx | alter_drop_idx;
                 // <create_idx> := 'CREATE' 'INDEX' [idx_name] 'ON' [tb_name] '(' <column_list> ')'
-                create_idx %= omit[no_case["CREATE"]] >> omit[no_case["INDEX"]] >> identifier >>
-                              omit[no_case["ON"]] >> identifier >> omit['('] >> columns >>
-                              omit[')'];
+                create_idx %= no_case["CREATE"] >> no_case["INDEX"] > identifier > no_case["ON"] >
+                              identifier > '(' > columns > ')';
                 // <drop_idx> := 'DROP' 'INDEX' [idx_name]
-                drop_idx %= omit[no_case["DROP"]] >> omit[no_case["INDEX"]] >> identifier;
+                drop_idx %= no_case["DROP"] >> no_case["INDEX"] > identifier;
                 // <alter_add_idx> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'INDEX' [idx_name]
                 //                    '(' column_list ')'
-                alter_add_idx %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >> identifier >>
-                                 omit[no_case["ADD"]] >> omit[no_case["INDEX"]] >> identifier >>
-                                 omit['('] >> columns >> omit[')'];
+                alter_add_idx %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
+                                 no_case["ADD"] >> no_case["INDEX"] > identifier > '(' > columns >
+                                 ')';
                 // <alter_drop_idx> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'INDEX' [idx_name]
-                alter_drop_idx %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >> identifier >>
-                                  omit[no_case["DROP"]] >> omit[no_case["INDEX"]] >> identifier;
+                alter_drop_idx %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
+                                  no_case["DROP"] >> no_case["INDEX"] > identifier;
 
                 // <alter_stmt> := <add_field> | <drop_col> | <change_col> | <rename_tb> |
                 //                 <add_primary_key> | <add_constraint_primary_key> |
                 //                 <drop_primary_key> | <add_constraint_foreign_key> |
                 //                 <drop_foreign_key>
-                alter %= eps >> (add_field | drop_col | change_col | rename_tb | add_primary_key |
-                                 add_constraint_primary_key | drop_primary_key |
-                                 add_constraint_foreign_key | drop_foreign_key);
+                alter %= add_field | drop_col | change_col | rename_tb | add_primary_key |
+                         add_constraint_primary_key | drop_primary_key |
+                         add_constraint_foreign_key | drop_foreign_key;
                 // <add_field> := 'ALTER' 'TABLE' [tb_name] 'ADD' <field>
-                add_field %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >> identifier >>
-                             omit[no_case["ADD"]] >> field;
+                add_field %=
+                    no_case["ALTER"] > no_case["TABLE"] > identifier >> no_case["ADD"] >> field;
                 // <drop_col> := 'ALTER' 'TABLE' [tb_name] 'DROP' [col_name]
-                drop_col %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >> identifier >>
-                            omit[no_case["DROP"]] >> identifier;
+                drop_col %= no_case["ALTER"] > no_case["TABLE"] > identifier >> no_case["DROP"] >>
+                            identifier;
                 // <change_col> := 'ALTER' 'TABLE' [tb_name] 'CHANGE' [col_name] <field>
-                change_col %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >> identifier >>
-                              omit[no_case["CHANGE"]] >> identifier >> field;
+                change_col %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
+                              no_case["CHANGE"] > identifier > field;
                 // <rename_tb> := 'ALTER' 'TABLE' [tb_name] 'RENAME' 'TO' [new_tb_name]
-                change_col %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >> identifier >>
-                              omit[no_case["RENAME"]] >> omit[no_case["TO"]] >> identifier;
+                change_col %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
+                              no_case["RENAME"] > no_case["TO"] > identifier;
                 // <add_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'PRIMARY' 'KEY'
                 //                      '(' <column_list> ')'
-                add_primary_key %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >> identifier >>
-                                   omit[no_case["ADD"]] >> omit[no_case["PRIMARY"]] >>
-                                   omit[no_case["KEY"]] >> omit['('] >> columns >> omit[')'];
+                add_primary_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
+                                   no_case["ADD"] >> no_case["PRIMARY"] > no_case["KEY"] > '(' >
+                                   columns > ')';
                 // <add_constraint_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [pk_name] 'PRIMARY' 'KEY' '(' <column_list> ')'
-                add_constraint_primary_key %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >>
-                                              identifier >> omit[no_case["ADD"]] >>
-                                              omit[no_case["CONSTRAINT"]] >> identifier >>
-                                              omit[no_case["PRIMARY"]] >> omit[no_case["KEY"]] >>
-                                              omit['('] >> columns >> omit[')'];
+                add_constraint_primary_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
+                                              no_case["ADD"] >> no_case["CONSTRAINT"] >
+                                              identifier >> no_case["PRIMARY"] > no_case["KEY"] >
+                                              '(' > columns > ')';
                 // <drop_primary_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'PRIMARY' 'KEY' [pk_name]?
-                drop_primary_key %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >>
-                                    identifier >> omit[no_case["DROP"]] >>
-                                    omit[no_case["PRIMARY"]] >> omit[no_case["KEY"]] >>
+                drop_primary_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
+                                    no_case["DROP"] >> no_case["PRIMARY"] > no_case["KEY"] >
                                     -(identifier);
                 // <add_constraint_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [fk_name] 'FOREIGN' 'KEY' '(' <column_list> ')'
                 //                                 'REFERENCES' [ref_tb_name] '(' <column_list> ')'
                 add_constraint_foreign_key %=
-                    omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >> identifier >>
-                    omit[no_case["ADD"]] >> omit[no_case["CONSTRAINT"]] >> identifier >>
-                    omit[no_case["FOREIGN"]] >> omit[no_case["KEY"]] >> '(' >> columns >> ')' >>
-                    omit[no_case["REFERENCES"]] >> identifier >> '(' >> columns >> ')';
+                    no_case["ALTER"] > no_case["TABLE"] > identifier >> no_case["ADD"] >>
+                    no_case["CONSTRAINT"] > identifier >> no_case["FOREIGN"] > no_case["KEY"] >
+                    '(' > columns > ')' > no_case["REFERENCES"] > identifier > '(' > columns > ')';
                 // <drop_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'FOREIGN' 'KEY' [fk_name]
-                drop_foreign_key %= omit[no_case["ALTER"]] >> omit[no_case["TABLE"]] >>
-                                    identifier >> omit[no_case["DROP"]] >>
-                                    omit[no_case["FOREIGN"]] >> omit[no_case["KEY"]] >> identifier;
+                drop_foreign_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
+                                    no_case["DROP"] >> no_case["FOREIGN"] > no_case["KEY"] >
+                                    identifier;
 
                 // <identifier> := [A-Za-z][_0-9A-Za-z]*
-                identifier %= lexeme[char_("A-Za-z") >> *char_("_0-9A-Za-z")];
+                identifier %= lexeme[char_("A-Za-z") > *char_("_0-9A-Za-z")];
 
                 // <string> := "'" [^']* "'"
-                value_string %= '\'' >> *((char_ - '\'') | "\\'") >> '\'';
+                value_string %= '\'' > lexeme[*((char_ - '\'') | "\\'")] > '\'';
 
                 // <column> := ([tb_name] '.')? [col_name]
-                col %= -(identifier >> '.') >> identifier;
+                col %= -(identifier >> '.') > identifier;
 
                 // <column_list> := [col_name] (',' [col_name])*
                 columns %= identifier % ',';
@@ -301,26 +292,21 @@ namespace Orange {
                             char_("<")[_val = op::Ls] | char_(">")[_val = op::Gt];
 
                 // <type> := ('INT' '(' <int> ')') | ('VARCHAR' '(' <int> ')') | 'DATE' | 'FLOAT'
-                type =
-                    (no_case["INT"] >> '(' >>
-                     int_[phoenix::bind(&data_type::type, _val) = DataTypeKind::Int,
-                          phoenix::bind(&data_type::value, _val) = _1] >>
-                     ')') |
-                    (no_case["VARCHAR"] >> '(' >>
-                     int_[phoenix::bind(&data_type::type, _val) = DataTypeKind::VarChar,
-                          phoenix::bind(&data_type::value, _val) = _1] >>
-                     ')') |
-                    no_case["DATE"][phoenix::bind(&data_type::type, _val) = DataTypeKind::Date] |
-                    no_case["FLOAT"][phoenix::bind(&data_type::type, _val) = DataTypeKind::Float];
+                type = (no_case["INT"] > '(' >
+                        int_[at_c<0>(_val) = DataTypeKind::Int, at_c<1>(_val) = _1] > ')') |
+                       (no_case["VARCHAR"] > '(' >
+                        int_[at_c<0>(_val) = DataTypeKind::VarChar, at_c<1>(_val) = _1] > ')') |
+                       no_case["DATE"][at_c<0>(_val) = DataTypeKind::Date] |
+                       no_case["FLOAT"][at_c<0>(_val) = DataTypeKind::Float];
 
                 // <value> := <int> | <string> | 'NULL'
-                value %= int_ | value_string | omit[no_case["NULL"]];
+                value %= int_ | value_string | no_case["NULL"];
 
                 // <value_list> := <value> (',' <value>)*
                 value_list %= value % ',';
 
                 // <value_lists> := '(' <value_list> ')' (',' '(' <value_list> ')')*
-                value_lists %= ('(' >> value_list >> ')') % ',';
+                value_lists %= ('(' > value_list > ')') % ',';
 
                 // <expr> := <value> | <col>
                 expression %= value | col;
@@ -328,40 +314,71 @@ namespace Orange {
                 // <where> := <where_op> | <where_null>
                 where %= where_op | where_null;
                 // <where_op> := <col> <op> <expr>
-                where_op %= identifier >> operator_ >> expression;
+                where_op %= identifier > operator_ > expression;
                 // <where_null> := <col> 'IS' 'NOT'? 'NULL'
-                where_null =
-                    identifier[phoenix::at_c<0>(_val) = _1] >> no_case["IS"] >>
-                    -raw[no_case["NOT"]][phoenix::at_c<1>(_val) = _1] >>
-                    no_case["NULL"];
+                where_null %=
+                    identifier > no_case["IS"] > matches[!no_case["NOT"]] > no_case["NULL"];
 
                 // <where_clause> := <where> ('AND' <where>)*
                 where_list %= where % ',';
 
                 // <set> := [col_name] '=' <value>
-                set %= identifier >> '=' >> value;
+                set %= identifier > '=' > value;
 
                 // <set_clause> := <set> (',' <set>)*
                 set_list %= set % ',';
 
-                // <field> := ([col_name] <type> ('NOT' 'NULL')? ('DEFAULT' <value>)?) |
-                //     'PRIMARY' 'KEY' '(' <column_list> ')' |
-                //     'FOREIGN' 'KEY' '(' [col_name] ')' 'REFERENCES' [tb_name] '(' [col_name] ')'
-                
+                // <field> := field_def | field_primary_key | field_foreign_key
+                field %= definition_field | primary_key_field | foreign_key_field;
+                // <field_def> := [col_name] <type> ('NOT' 'NULL')? ('DEFAULT' <value>)?
+                definition_field %= identifier > type > matches[no_case["NOT"] > no_case["NULL"]] >
+                                    -(no_case["DEFAULT"] > value);
+                // <field_primary_key> := 'PRIMARY' 'KEY' '(' <column_list> ')'
+                primary_key_field %= no_case["PRIMARY"] > no_case["KEY"] > '(' > columns > ')';
+                // <field_foreign_key> := 'FOREIGN' 'KEY' '(' [col_name] ')' 'REFERENCES' [tb_name]
+                //                        '(' [col_name] ')'
+                foreign_key_field %= no_case["PRIMARY"] > no_case["KEY"] > '(' > identifier > ')' >
+                                     no_case["REFERENCES"] > identifier > '(' > identifier > ')';
+
+                BOOST_SPIRIT_DEBUG_NODES((program)(stmt));
+                BOOST_SPIRIT_DEBUG_NODES((sys)(show_db));
+                BOOST_SPIRIT_DEBUG_NODES((db)(show_tb)(create_db)(drop_db)(use_db));
+                BOOST_SPIRIT_DEBUG_NODES((tb)(create_tb)(drop_tb)(desc_tb)(insert_into_tb)(
+                    delete_from_tb)(update_tb)(select_tb));
+                BOOST_SPIRIT_DEBUG_NODES(
+                    (idx)(create_idx)(drop_idx)(alter_add_idx)(alter_drop_idx));
+                BOOST_SPIRIT_DEBUG_NODES((alter)(add_field)(drop_col)(change_col)(rename_tb)(
+                    add_primary_key)(add_constraint_primary_key)(drop_primary_key)(
+                    add_constraint_foreign_key)(drop_foreign_key));
+                BOOST_SPIRIT_DEBUG_NODES((identifier)(value_string));
+                BOOST_SPIRIT_DEBUG_NODES((col)(columns)(tables)(selectors));
+                BOOST_SPIRIT_DEBUG_NODES((operator_)(type)(value)(value_list)(value_lists)(expression));
+                BOOST_SPIRIT_DEBUG_NODES((where)(where_op)(where_null)(where_list));
+                BOOST_SPIRIT_DEBUG_NODES((set)(set_list));
+                BOOST_SPIRIT_DEBUG_NODES(
+                    (field)(definition_field)(primary_key_field)(foreign_key_field)(fields));
             }
         };
 
-        sql_ast sql_parser::parse(const String& program) {
-            auto iter = program.begin();
-            auto end = program.end();
+        sql_ast sql_parser::parse(const String& sql) {
+            auto iter = sql.begin();
+            auto end = sql.end();
             auto parser = sql_grammer<String::const_iterator>();
             sql_ast ast;
 
-            bool success = qi::phrase_parse(iter, end, parser, qi::space, ast);
-            if (success) {
+            bool success;
+            try {
+                success = qi::phrase_parse(iter, end, parser, qi::space, ast);
+            }
+            catch (const qi::expectation_failure<String::const_iterator>& e) {
+                throw parse_error("parse error", std::distance(sql.begin(), e.first),
+                                  std::distance(sql.begin(), e.last), e.what_.tag);
+            }
+            if (success && iter == end) {
                 return ast;
             } else {
-                throw new ParseException(std::distance(iter, program.begin()));
+                throw parse_error("unexpected statement", std::distance(sql.begin(), iter),
+                                  std::distance(sql.begin(), iter), "");
             }
         }
     }  // namespace parser

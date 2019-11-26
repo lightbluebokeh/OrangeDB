@@ -1,9 +1,9 @@
 #pragma once
 
-// 不用sql.h是因为某个系统库也叫sql.h，然后只会include那个而不是本地的
 #include "sql_ast.h"
 #include <defs.h>
 #include <exception>
+
 
 namespace Orange {
     namespace parser {
@@ -14,10 +14,14 @@ namespace Orange {
             sql_ast parse(const String& sql);
         };
 
-        struct ParseException : public std::exception {
-            int pos;
+        struct parse_error : public std::runtime_error {
+            int first, last;
+            std::string expected;
 
-            explicit ParseException(int pos) : std::exception("Parse Error"), pos(pos) {}
+            explicit parse_error(const char* msg, int first, int last,
+                                 const std::string& expected) :
+                std::runtime_error(msg),
+                first(first), last(last), expected(expected) {}
         };
     }  // namespace parser
 }  // namespace Orange

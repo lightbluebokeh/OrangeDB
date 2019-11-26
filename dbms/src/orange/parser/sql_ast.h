@@ -1,14 +1,26 @@
 #pragma once
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4828)
+#endif
+
 #include <boost/optional.hpp>
+#include <boost/variant.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/spirit/include/qi.hpp>
-#include <string>
-#include <variant>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 #include <vector>
 
 namespace Orange {
     namespace parser {
+        // 这些都是ast结点
+        // 使用boost::optional和boost::variant, 因为它们不能转成std的
+
         /** column */
         struct column {
             boost::optional<std::string> table_name;
@@ -33,7 +45,7 @@ namespace Orange {
         };
 
         /** value */
-        using data_value = boost::variant<int, std::string>; // 暂时决定当variant为empty时代表null(出问题再说
+        using data_value = boost::variant<int, std::string>;  // empty时表示NULL
         using data_value_list = std::vector<data_value>;
         using data_value_lists = std::vector<data_value_list>;
 
@@ -259,7 +271,7 @@ namespace Orange {
                                           add_constraint_primary_key_stmt, drop_primary_key_stmt,
                                           add_constraint_foreign_key_stmt, drop_foreign_key_stmt>;
 
-        /** sql statmemet */
+        /** sql statement */
         using sql_stmt = boost::variant<sys_stmt, db_stmt, tb_stmt, idx_stmt, alter_stmt>;
 
         using sql_stmt_list = std::vector<sql_stmt>;
