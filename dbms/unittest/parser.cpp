@@ -51,7 +51,10 @@ TEST_CASE("test sys_stmt", "[parser]") {
 
     /* sys_stmt */
 
+    parse_sql("showdatabases;", false);
     parse_sql("show datebases;", false);
+    parse_sql("show\ndatabases;", true);
+
     ast = parse_sql("show databases;", true);
     REQUIRE(ast.value().stmt.size() == 1);
     // show databases

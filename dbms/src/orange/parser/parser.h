@@ -11,7 +11,7 @@ namespace Orange {
         class sql_parser {
         public:
             // 解析sql，语法错误抛异常
-            sql_ast parse(const String& sql);
+            sql_ast parse(const std::string& sql);
         };
 
         struct parse_error : public std::runtime_error {

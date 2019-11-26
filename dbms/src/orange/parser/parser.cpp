@@ -1,5 +1,6 @@
 // parser
 
+#define DEBUG_PARSER
 #if !defined(NDEBUG) && defined(DEBUG_PARSER)
 #define BOOST_SPIRIT_DEBUG
 #endif
@@ -13,6 +14,8 @@
 
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/phoenix.hpp>
+#include <boost/spirit/include/lex.hpp>
+#include <boost/spirit/include/lex_lexertl.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/variant/recursive_variant.hpp>
 
@@ -73,13 +76,84 @@ namespace Orange {
     namespace parser {
         // namespace
         namespace qi = boost::spirit::qi;
-        namespace ascii = boost::spirit::ascii;
+        namespace lex = boost::spirit::lex;
         namespace phoenix = boost::phoenix;
 
-        template <class Iterator>
-        struct sql_grammer : qi::grammar<Iterator, sql_ast(), qi::space_type> {
+        enum token_ids { IDANY };
+
+        template <class BaseLexer>
+        struct sql_tokens : lex::lexer<BaseLexer> {
+            using keyword = lex::token_def<lex::omit>;
+            using string_lit = lex::token_def<std::string>;
+            using int_lit = lex::token_def<int>;
+
+            sql_tokens() {
+                //self.add_pattern("DB", "(?i:database)")("DBS", "(?i:databases)")(
+                //    "TB", "(?i:table)")("TBS", "(?i:tables");
+                //self.add_pattern("SHOW", "(?i:show)")("CREATE", "(?i:create)")("DROP", "(?i:drop)");
+
+                //kw_database = "{DB}";
+                //kw_databases = "{DBS}";
+                //kw_table = "{TB}";
+                //kw_tables = "{TBS}";
+
+                //kw_show = "{SHOW}";
+                //kw_create = "{CREATE}";
+                //kw_drop = "{DROP}";
+
+                //self.add(kw_database)(kw_databases)(kw_table)(kw_tables);
+                //self.add(kw_show)(kw_create)(kw_drop);
+                self.add('.', IDANY);
+            }
+
+            keyword kw_database;
+            keyword kw_databases;
+            keyword kw_table;
+            keyword kw_tables;
+
+            keyword kw_show;
+            keyword kw_create;
+            keyword kw_drop;
+            keyword kw_use;
+            keyword kw_insert;
+            keyword kw_into;
+            keyword kw_delete;
+            keyword kw_from;
+            keyword kw_update;
+            keyword kw_set;
+            keyword kw_select;
+            keyword kw_change;
+            keyword kw_alter;
+            keyword kw_add;
+            keyword kw_rename;
+            keyword kw_desc;
+
+            keyword kw_index;
+            keyword kw_primary;
+            keyword kw_key;
+            keyword kw_not;
+            keyword kw_null;
+            keyword kw_constraint;
+            keyword kw_foreign;
+            keyword kw_references;
+
+            keyword kw_values;
+            keyword kw_where;
+            keyword kw_default;
+
+            keyword kw_is;
+            keyword kw_and;
+
+            keyword kw_int;
+            keyword kw_varchar;
+            keyword kw_date;
+            keyword kw_float;
+        };
+
+        template <class TokenDef, class Iterator = typename TokenDef::iterator_type>
+        struct sql_grammer : qi::grammar<Iterator, sql_ast()> {
             template <class T>
-            using rule = qi::rule<Iterator, T, qi::space_type>;
+            using rule = qi::rule<Iterator, T>;
 
             // program
             rule<sql_ast()> program;
@@ -157,7 +231,7 @@ namespace Orange {
             rule<field_foreign_key()> foreign_key_field;
             rule<field_list()> fields;
 
-            sql_grammer() : sql_grammer::base_type(program) {
+            sql_grammer(const TokenDef& tok) : sql_grammer::base_type(program) {
                 using namespace qi;
                 using phoenix::at_c;
                 using phoenix::bind;
@@ -165,24 +239,24 @@ namespace Orange {
                 using phoenix::val;
 
                 // <program> := <stmt>*
-                program %= *stmt >> eps;
+                program %= *stmt > eoi;
 
                 // <stmt> := (<sys_stmt> | <db_stmt> | <tb_stmt> | <idx_stmt> | <alter_stmt>) ';'
                 stmt %= (sys | db | tb | idx | alter) > ';';
 
                 // <sys_stmt> := <show_db>
-                sys %= show_db >> eps;
+                sys %= eps >> show_db;
                 // <show_db> := 'SHOW' 'DATABASES'
-                show_db = no_case["SHOW"] >> no_case["DATABASES"];
+                show_db = eps >> tok.kw_show >> tok.kw_databases;
 
                 // <db_stmt> := <show_tb> | <create_db> | <drop_db> | <use_db>
                 db %= show_tb | create_db | drop_db | use_db;
                 // <show_tb> := 'SHOW' 'TABLES'
-                show_tb = no_case["CREATE"] >> no_case["TABLES"];
+                show_tb = eps >> tok.kw_show >> tok.kw_tables;
                 // <create_db> := 'CREATE' 'DATABASE' [db_name]
-                create_db %= no_case["CREATE"] >> no_case["DATABASE"] > identifier;
+                create_db %= tok.kw_create >> tok.kw_database > identifier;
                 // <drop_db> := 'DROP' 'DATABASE' [db_name]
-                drop_db %= no_case["DROP"] >> no_case["DATABASE"] > identifier;
+                drop_db %= no_case["DROP"] >> !graph >> no_case["DATABASE"] > identifier;
                 // <use_db> := 'USE' [db_name]
                 use_db %= no_case["USE"] > identifier;
 
@@ -243,8 +317,8 @@ namespace Orange {
                 change_col %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
                               no_case["CHANGE"] > identifier > field;
                 // <rename_tb> := 'ALTER' 'TABLE' [tb_name] 'RENAME' 'TO' [new_tb_name]
-                change_col %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
-                              no_case["RENAME"] > no_case["TO"] > identifier;
+                rename_tb %= no_case["ALTER"] > no_case["TABLE"] > identifier >> no_case["RENAME"] >
+                             no_case["TO"] > identifier;
                 // <add_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'PRIMARY' 'KEY'
                 //                      '(' <column_list> ')'
                 add_primary_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
@@ -291,9 +365,9 @@ namespace Orange {
                 selectors %= '*' | (col % ',');
 
                 // <op> := '=' | '<>' | '<=' | '>=' | '<' | '>'
-                operator_ = char_("=")[_val = op::Eq] | char_("<>")[_val = op::Neq] |
-                            char_("<=")[_val = op::Le] | char_(">=")[_val = op::Ge] |
-                            char_("<")[_val = op::Ls] | char_(">")[_val = op::Gt];
+                //operator_ = char_("=")[_val = op::Eq] | char_("<>")[_val = op::Neq] |
+                //            char_("<=")[_val = op::Le] | char_(">=")[_val = op::Ge] |
+                //            char_("<")[_val = op::Ls] | char_(">")[_val = op::Gt];
 
                 // <type> := ('INT' '(' <int> ')') | ('VARCHAR' '(' <int> ')') | 'DATE' | 'FLOAT'
                 type = (no_case["INT"] > '(' >
@@ -343,6 +417,8 @@ namespace Orange {
                 //                        '(' [col_name] ')'
                 foreign_key_field %= no_case["PRIMARY"] > no_case["KEY"] > '(' > identifier > ')' >
                                      no_case["REFERENCES"] > identifier > '(' > identifier > ')';
+                // <fields> := <field> (',' <field>)*
+                fields %= field % ',';
 
                 BOOST_SPIRIT_DEBUG_NODES((program)(stmt));
                 BOOST_SPIRIT_DEBUG_NODES((sys)(show_db));
@@ -365,26 +441,50 @@ namespace Orange {
             }
         };
 
-        sql_ast sql_parser::parse(const String& sql) {
-            auto iter = sql.begin();
-            auto end = sql.end();
-            auto parser = sql_grammer<String::const_iterator>();
-            sql_ast ast;
+        sql_ast sql_parser::parse(const std::string& sql) {
+            using token_type = lex::lexertl::token<std::string::const_iterator,
+                                                   boost::mpl::vector<lex::omit>>;
+            using lexer_type = lex::lexertl::lexer<token_type>;
+            auto lexer = sql_tokens<lexer_type>();
+            auto parser = sql_grammer<sql_tokens<lexer_type>>(lexer);
 
-            bool success;
+            auto iter = sql.begin(), end = sql.end();
+            sql_ast ast;
             try {
-                success = qi::phrase_parse(iter, end, parser, qi::space, ast);
+                lex::tokenize_and_parse(iter, end, lexer, parser, ast);
             }
-            catch (const qi::expectation_failure<String::const_iterator>& e) {
+            catch (const qi::expectation_failure<std::string::const_iterator>& e) {
                 throw parse_error("parse error", std::distance(sql.begin(), e.first),
                                   std::distance(sql.begin(), e.last), e.what_.tag);
             }
-            if (success && iter == end) {
-                return ast;
-            } else {
-                throw parse_error("unexpected statement", std::distance(sql.begin(), iter),
-                                  std::distance(sql.begin(), iter), "");
+            return ast;
+        }
+
+        std::ostream& operator<<(std::ostream& os, const op& oper) {
+            switch (oper) {
+                case op::Eq: os << "="; break;
+                case op::Neq: os << "<>"; break;
+                case op::Le: os << "<="; break;
+                case op::Ge: os << ">="; break;
+                case op::Ls: os << "<"; break;
+                case op::Gt: os << ">"; break;
             }
+            return os;
+        }
+        std::ostream& operator<<(std::ostream& os, const show_tb_stmt& stmt) {
+            return os << "<show_tb_stmt>";
+        }
+        std::ostream& operator<<(std::ostream& os, const show_db_stmt& stmt) {
+            return os << "<show_db_stmt>";
+        }
+        std::ostream& operator<<(std::ostream& os, const DataTypeKind& kind) {
+            switch (kind) {
+                case DataTypeKind::Int: os << "INT"; break;
+                case DataTypeKind::VarChar: os << "VARCHAR"; break;
+                case DataTypeKind::Date: os << "DATE"; break;
+                case DataTypeKind::Float: os << "FLOAT"; break;
+            }
+            return os;
         }
     }  // namespace parser
 }  // namespace Orange
