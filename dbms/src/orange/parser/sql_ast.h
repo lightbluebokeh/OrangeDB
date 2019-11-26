@@ -5,10 +5,10 @@
 #pragma warning(disable : 4828)
 #endif
 
-#include <boost/optional.hpp>
-#include <boost/variant.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
+#include <boost/optional.hpp>
 #include <boost/spirit/include/qi.hpp>
+#include <boost/variant.hpp>
 
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -129,15 +129,7 @@ namespace Orange {
         using db_stmt = boost::variant<show_tb_stmt, create_db_stmt, drop_db_stmt, use_db_stmt>;
 
         /** table statement */
-        enum class TbStmtKind {
-            Create,
-            Drop,
-            Desc,
-            InsertInto,
-            DeleteFrom,
-            Update,
-            Select
-        };
+        enum class TbStmtKind { Create, Drop, Desc, InsertInto, DeleteFrom, Update, Select };
 
         struct create_tb_stmt {
             std::string name;
@@ -174,7 +166,9 @@ namespace Orange {
             where_clause where;
         };
 
-        using tb_stmt = boost::variant<create_tb_stmt, drop_tb_stmt, desc_tb_stmt, insert_into_tb_stmt, delete_from_tb_stmt, update_tb_stmt, select_tb_stmt>;
+        using tb_stmt =
+            boost::variant<create_tb_stmt, drop_tb_stmt, desc_tb_stmt, insert_into_tb_stmt,
+                           delete_from_tb_stmt, update_tb_stmt, select_tb_stmt>;
 
         /** index statement */
         enum class IdxStmtKind { None = -1, Create, Drop, AlterAdd, AlterDrop };
@@ -200,8 +194,8 @@ namespace Orange {
             std::string idx_name;
         };
 
-        using idx_stmt = boost::variant<create_idx_stmt, drop_idx_stmt, alter_add_idx_stmt,
-                                             alter_drop_idx_stmt>;
+        using idx_stmt =
+            boost::variant<create_idx_stmt, drop_idx_stmt, alter_add_idx_stmt, alter_drop_idx_stmt>;
 
         /** alter statement */
         enum class AlterStmtKind {

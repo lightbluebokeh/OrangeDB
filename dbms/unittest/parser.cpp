@@ -2,44 +2,83 @@
 #include <iostream>
 #include <optional>
 
-#ifndef NDEBUG
-#define BOOST_SPIRIT_DEBUG
-#endif
-
 #include <defs.h>
 #include <orange/parser/parser.h>
 
 using namespace Orange::parser;
-std::optional<sql_ast> parse_sql(const char* sql) {
+std::optional<sql_ast> parse_sql(const char* sql, bool success) {
     sql_parser parser;
     INFO("parsing '" << sql << "'");
     try {
         sql_ast ast = parser.parse(sql);
+        if (!success) {
+            FAIL("parse error expected\nast stmt length: " << ast.stmt.size());
+        }
         return ast;
     }
     catch (const parse_error& e) {
-        std::cout << "FAILED: " << e.what() << " at " << e.first << '\n';
-        std::cout << "    " << sql << '\n';
-        std::cout << "    ";
-        for (int i = 0; i < e.first; i++) {
-            std::cout << ' ';
+        if (success) {
+            std::stringstream ss;
+            ss << "FAILED: " << e.what() << " at " << e.first << '\n';
+            ss << "    " << sql << '\n';
+            ss << "    ";
+            for (int i = 0; i < e.first; i++) {
+                ss << ' ';
+            }
+            ss << '^';
+            for (int i = e.first + 1; i < e.last; i++) {
+                ss << '~';
+            }
+            ss << '\n';
+            ss << "expected: " << e.expected << '\n';
+            ss << "got: '" << std::string(sql + e.first, sql + e.last) << '\'';
+            FAIL(ss.str());
         }
-        std::cout << '^';
-        for (int i = e.first + 1; i < e.last; i++) {
-            std::cout << '~';
-        }
-        std::cout << '\n';
-        std::cout << "expected: " << e.expected << '\n';
-        std::cout << "got: '" << std::string(sql + e.first, sql + e.last) << '\'' << std::endl;
         return std::nullopt;
     }
 }
 
-TEST_CASE("test parser", "[parser]") {
+TEST_CASE("test sys_stmt", "[parser]") {
     using namespace Orange::parser;
+    using boost::get;
+    std::optional<sql_ast> ast;
 
-    REQUIRE(!parse_sql("SHOW databases").has_value());
-    REQUIRE(parse_sql("show databases;").has_value());
-    REQUIRE(parse_sql("create database test;drop database test;").value().stmt.size() == 2);
-    REQUIRE(parse_sql("create table aaa (col1 float not null, col2 varchar(2));").has_value());
+    /* syntax */
+
+    parse_sql("SHOW databases", false);
+    parse_sql("a b c d", false);
+
+
+    /* sys_stmt */
+
+    parse_sql("show datebases;", false);
+    ast = parse_sql("show databases;", true);
+    REQUIRE(ast.value().stmt.size() == 1);
+    // show databases
+    REQUIRE(ast.value().stmt[0].which() == (int)StmtKind::Sys);
+    REQUIRE(get<sys_stmt>(ast.value().stmt[0]).which() == (int)SysStmtKind::ShowDb);
+
+
+    /* db_stmt */
+
+    ast = parse_sql("create database test1;drop database test2;", true);
+    REQUIRE(ast.value().stmt.size() == 2);
+    // create database
+    REQUIRE(ast.value().stmt[0].which() == (int)StmtKind::Db);
+    REQUIRE(get<db_stmt>(ast.value().stmt[0]).which() == (int)DbStmtKind::Create);
+    REQUIRE(get<create_db_stmt>(get<db_stmt>(ast.value().stmt[0])).name == "test1");
+    // drop database
+    REQUIRE(ast.value().stmt[1].which() == (int)StmtKind::Db);
+    REQUIRE(get<db_stmt>(ast.value().stmt[1]).which() == (int)DbStmtKind::Drop);
+    REQUIRE(get<drop_db_stmt>(get<db_stmt>(ast.value().stmt[1])).name == "test2");
+
+
+    /* tb_stmt */
+
+    ast = parse_sql("create table aaa (col1 float not null, col2 varchar(2));", true);
+    REQUIRE(ast.value().stmt.size() == 1);
+    // create table
+    REQUIRE(ast.value().stmt[0].which() == (int)StmtKind::Tb);
+    REQUIRE(get<tb_stmt>(ast.value().stmt[0]).which() == (int)TbStmtKind::Create);
+    REQUIRE(get<create_tb_stmt>(get<tb_stmt>(ast.value().stmt[0])).name == "aaa");
 }

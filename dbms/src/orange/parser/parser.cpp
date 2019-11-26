@@ -1,5 +1,9 @@
 // parser
 
+#if !defined(NDEBUG) && defined(DEBUG_PARSER)
+#define BOOST_SPIRIT_DEBUG
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4828)
@@ -352,7 +356,8 @@ namespace Orange {
                     add_constraint_foreign_key)(drop_foreign_key));
                 BOOST_SPIRIT_DEBUG_NODES((identifier)(value_string));
                 BOOST_SPIRIT_DEBUG_NODES((col)(columns)(tables)(selectors));
-                BOOST_SPIRIT_DEBUG_NODES((operator_)(type)(value)(value_list)(value_lists)(expression));
+                BOOST_SPIRIT_DEBUG_NODES(
+                    (operator_)(type)(value)(value_list)(value_lists)(expression));
                 BOOST_SPIRIT_DEBUG_NODES((where)(where_op)(where_null)(where_list));
                 BOOST_SPIRIT_DEBUG_NODES((set)(set_list));
                 BOOST_SPIRIT_DEBUG_NODES(
