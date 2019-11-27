@@ -107,7 +107,13 @@ namespace Orange {
 
         struct show_db_stmt {};
 
-        using sys_stmt = boost::variant<show_db_stmt>;
+        struct sys_stmt {
+            boost::variant<show_db_stmt> stmt;
+
+            SysStmtKind kind() const { return (SysStmtKind)stmt.which(); }
+
+            show_db_stmt& show_db() { return boost::get<show_db_stmt>(stmt); }
+        };
 
         /** database statement */
         enum class DbStmtKind { Show, Create, Drop, Use };
@@ -126,7 +132,16 @@ namespace Orange {
             std::string name;
         };
 
-        using db_stmt = boost::variant<show_tb_stmt, create_db_stmt, drop_db_stmt, use_db_stmt>;
+        struct db_stmt {
+            boost::variant<show_tb_stmt, create_db_stmt, drop_db_stmt, use_db_stmt> stmt;
+
+            DbStmtKind kind() const { return (DbStmtKind)stmt.which(); }
+
+            show_tb_stmt& show() { return boost::get<show_tb_stmt>(stmt); }
+            create_db_stmt& create() { return boost::get<create_db_stmt>(stmt); }
+            drop_db_stmt& drop() { return boost::get<drop_db_stmt>(stmt); }
+            use_db_stmt& use() { return boost::get<use_db_stmt>(stmt); }
+        };
 
         /** table statement */
         enum class TbStmtKind { Create, Drop, Desc, InsertInto, DeleteFrom, Update, Select };
@@ -166,9 +181,21 @@ namespace Orange {
             where_clause where;
         };
 
-        using tb_stmt =
+        struct tb_stmt {
             boost::variant<create_tb_stmt, drop_tb_stmt, desc_tb_stmt, insert_into_tb_stmt,
-                           delete_from_tb_stmt, update_tb_stmt, select_tb_stmt>;
+                           delete_from_tb_stmt, update_tb_stmt, select_tb_stmt>
+                stmt;
+
+            TbStmtKind kind() const { return (TbStmtKind)stmt.which(); }
+
+            create_tb_stmt& create() { return boost::get<create_tb_stmt>(stmt); }
+            drop_tb_stmt& drop() { return boost::get<drop_tb_stmt>(stmt); }
+            desc_tb_stmt& desc() { return boost::get<desc_tb_stmt>(stmt); }
+            insert_into_tb_stmt& insert_into() { return boost::get<insert_into_tb_stmt>(stmt); }
+            delete_from_tb_stmt& delete_from() { return boost::get<delete_from_tb_stmt>(stmt); }
+            update_tb_stmt& update() { return boost::get<update_tb_stmt>(stmt); }
+            select_tb_stmt& select() { return boost::get<select_tb_stmt>(stmt); }
+        };
 
         /** index statement */
         enum class IdxStmtKind { None = -1, Create, Drop, AlterAdd, AlterDrop };
@@ -194,8 +221,16 @@ namespace Orange {
             std::string idx_name;
         };
 
-        using idx_stmt =
-            boost::variant<create_idx_stmt, drop_idx_stmt, alter_add_idx_stmt, alter_drop_idx_stmt>;
+        struct idx_stmt {
+            boost::variant<create_idx_stmt, drop_idx_stmt, alter_add_idx_stmt, alter_drop_idx_stmt>
+                stmt;
+
+            IdxStmtKind kind() const { return (IdxStmtKind)stmt.which(); }
+            create_idx_stmt& create() { return boost::get<create_idx_stmt>(stmt); }
+            drop_idx_stmt& drop() { return boost::get<drop_idx_stmt>(stmt); }
+            alter_add_idx_stmt& alter_add() { return boost::get<alter_add_idx_stmt>(stmt); }
+            alter_drop_idx_stmt& alter_drop() { return boost::get<alter_drop_idx_stmt>(stmt); }
+        };
 
         /** alter statement */
         enum class AlterStmtKind {
@@ -260,19 +295,57 @@ namespace Orange {
             std::string fk_name;
         };
 
-        using alter_stmt = boost::variant<add_field_stmt, drop_col_stmt, change_col_stmt,
-                                          rename_tb_stmt, add_primary_key_stmt,
-                                          add_constraint_primary_key_stmt, drop_primary_key_stmt,
-                                          add_constraint_foreign_key_stmt, drop_foreign_key_stmt>;
+        struct alter_stmt {
+            boost::variant<add_field_stmt, drop_col_stmt, change_col_stmt, rename_tb_stmt,
+                           add_primary_key_stmt, add_constraint_primary_key_stmt,
+                           drop_primary_key_stmt, add_constraint_foreign_key_stmt,
+                           drop_foreign_key_stmt>
+                stmt;
+
+            AlterStmtKind kind() const { return (AlterStmtKind)stmt.which(); }
+
+            add_field_stmt& add_field() { return boost::get<add_field_stmt>(stmt); }
+            drop_col_stmt& drop_col() { return boost::get<drop_col_stmt>(stmt); }
+            change_col_stmt& change_col() { return boost::get<change_col_stmt>(stmt); }
+            rename_tb_stmt& rename_tb() { return boost::get<rename_tb_stmt>(stmt); }
+            add_primary_key_stmt& add_primary_key() {
+                return boost::get<add_primary_key_stmt>(stmt);
+            }
+            add_constraint_primary_key_stmt& add_constraint_primary_key() {
+                return boost::get<add_constraint_primary_key_stmt>(stmt);
+            }
+            drop_primary_key_stmt& drop_primary_key() {
+                return boost::get<drop_primary_key_stmt>(stmt);
+            }
+            add_constraint_foreign_key_stmt& add_constraint_foreign_key() {
+                return boost::get<add_constraint_foreign_key_stmt>(stmt);
+            }
+            drop_foreign_key_stmt& drop_foreign_key() {
+                return boost::get<drop_foreign_key_stmt>(stmt);
+            }
+        };
 
         /** sql statement */
-        using sql_stmt = boost::variant<sys_stmt, db_stmt, tb_stmt, idx_stmt, alter_stmt>;
+        struct sql_stmt {
+            boost::variant<sys_stmt, db_stmt, tb_stmt, idx_stmt, alter_stmt> stmt;
+
+            // 包装的语句类型
+            StmtKind kind() const { return (StmtKind)stmt.which(); }
+
+            // 转换成特定的语句，类型不对应时get会抛异常
+            sys_stmt& sys() { return boost::get<sys_stmt>(stmt); }
+            db_stmt& db() { return boost::get<db_stmt>(stmt); }
+            tb_stmt& tb() { return boost::get<tb_stmt>(stmt); }
+            idx_stmt& idx() { return boost::get<idx_stmt>(stmt); }
+            alter_stmt& alter() { return boost::get<alter_stmt>(stmt); }
+        };
 
         using sql_stmt_list = std::vector<sql_stmt>;
 
         /** ast */
         struct sql_ast {
-            sql_stmt_list stmt;
+            // 语句列表
+            sql_stmt_list stmt_list;
         };
     }  // namespace parser
 }  // namespace Orange

@@ -4,8 +4,6 @@
 #define BOOST_SPIRIT_DEBUG
 #endif
 
-#define BOOST_SPIRIT_UNICODE
-
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4828)
@@ -15,7 +13,9 @@
 
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/phoenix.hpp>
+#include <boost/regex/pending/unicode_iterator.hpp>
 #include <boost/spirit/include/qi.hpp>
+#include <boost/spirit/include/support_standard.hpp>
 #include <boost/spirit/include/support_standard_wide.hpp>
 #include <boost/variant/recursive_variant.hpp>
 
@@ -23,18 +23,24 @@
 #pragma warning(pop)
 #endif
 
+#include <clocale>
 #include <defs.h>
 
 #include "parser.h"
 #include "sql_ast.h"
 
 // 以下是变魔术现场
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::sql_ast, stmt)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::sql_ast, stmt_list)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::sql_stmt, stmt)
 
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::sys_stmt, stmt)
+
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::db_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_db_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_db_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::use_db_stmt, name)
 
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::tb_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_tb_stmt, name, fields)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_tb_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::desc_tb_stmt, name)
@@ -43,11 +49,13 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::delete_from_tb_stmt, name, where_claus
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::update_tb_stmt, name, set, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::select_tb_stmt, select, tables, where)
 
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::idx_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_idx_stmt, idx_name, tb_name, col_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_idx_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::alter_add_idx_stmt, tb_name, idx_name, col_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::alter_drop_idx_stmt, tb_name, idx_name)
 
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::alter_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::add_field_stmt, table_name, new_field)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_col_stmt, table_name, col_name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::change_col_stmt, table_name, col_name, new_field)
@@ -74,15 +82,16 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_set, col_name)
 
 namespace Orange {
     namespace parser {
-        // namespace
+        // using some namespace
         namespace qi = boost::spirit::qi;
         namespace phoenix = boost::phoenix;
-        namespace encoding = boost::spirit::standard_wide;
+        // parser encoding
+        namespace encoding = boost::spirit::standard;
 
-        template <class Iterator>
-        struct sql_grammer : qi::grammar<Iterator, sql_ast(), encoding::space_type> {
+        template <class Iterator, class Skipper = encoding::space_type>
+        struct sql_grammer : qi::grammar<Iterator, sql_ast(), Skipper> {
             template <class T>
-            using rule = qi::rule<Iterator, T, encoding::space_type>;
+            using rule = qi::rule<Iterator, T, Skipper>;
 
             // program
             rule<sql_ast()> program;
@@ -270,11 +279,12 @@ namespace Orange {
                 // keyword
                 kw = qi::no_case[qi::lit(qi::_r1)] >> qi::no_skip[&!(encoding::alnum | '_')];
 
-                // <identifier> := [A-Za-z][_0-9A-Za-z]*
-                identifier %= qi::lexeme[encoding::alpha > *(encoding::alnum | '_')];
+                // <identifier> := [a-zA-Z][_0-9a-zA-Z]*
+                identifier %=
+                    qi::lexeme[encoding::char_("a-zA-Z") > *(encoding::char_("_0-9a-zA-Z") | '_')];
 
                 // <string> := "'" [^']* "'"
-                value_string %= '\'' > qi::lexeme[*((encoding::char_ - '\'') | "\\'")] > '\'';
+                value_string %= '\'' > qi::no_skip[*(~encoding::char_('\'') | "\\'")] > '\'';
 
                 // <column> := ([tb_name] '.')? [col_name]
                 col %= -(identifier >> '.') > identifier;
@@ -348,6 +358,7 @@ namespace Orange {
                 // <fields> := <field> (',' <field>)*
                 fields %= field % ',';
 
+#ifndef NDEBUG
                 BOOST_SPIRIT_DEBUG_NODES((program)(stmt));
                 BOOST_SPIRIT_DEBUG_NODES((sys)(show_db));
                 BOOST_SPIRIT_DEBUG_NODES((db)(show_tb)(create_db)(drop_db)(use_db));
@@ -366,19 +377,25 @@ namespace Orange {
                 BOOST_SPIRIT_DEBUG_NODES((set)(set_list));
                 BOOST_SPIRIT_DEBUG_NODES(
                     (field)(definition_field)(primary_key_field)(foreign_key_field)(fields));
+#endif
             }
         };
 
         sql_ast sql_parser::parse(const std::string& sql) {
-            auto iter = sql.begin(), end = sql.end();
-            auto parser = sql_grammer<std::string::const_iterator>();
+            std::setlocale(LC_ALL, "zh_CN.UTF8");
+
+            using iterator = std::string::const_iterator;
+            iterator iter = sql.begin(), end = sql.end();
+            sql_grammer<iterator> parser;
             sql_ast ast;
+
             try {
                 qi::phrase_parse(iter, end, parser, encoding::space, ast);
             }
-            catch (const qi::expectation_failure<std::string::const_iterator>& e) {
-                throw parse_error("parse error", std::distance(sql.begin(), e.first),
-                                  std::distance(sql.begin(), e.last), e.what_.tag);
+            catch (const qi::expectation_failure<iterator>& e) {
+                iterator begin = sql.begin();
+                throw parse_error("parse error", std::distance(begin, e.first),
+                                  std::distance(begin, e.last), e.what_.tag);
             }
             return ast;
         }

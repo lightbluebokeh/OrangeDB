@@ -11,17 +11,14 @@ namespace Orange {
         class sql_parser {
         public:
             sql_ast parse(const std::string& sql);
-            sql_ast parse(const std::wstring& sql);
         };
 
         struct parse_error : public std::runtime_error {
             int first, last;
             std::string expected;
 
-            explicit parse_error(const char* msg, int first, int last,
-                                 const std::string& expected) :
-                std::runtime_error(msg),
-                first(first), last(last), expected(expected) {}
+            parse_error(const char* msg, int first, int last, const std::string& expected) :
+                std::runtime_error(msg), first(first), last(last), expected(expected) {}
         };
     }  // namespace parser
 }  // namespace Orange
