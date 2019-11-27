@@ -6,6 +6,25 @@
 #include <orange/parser/parser.h>
 
 using namespace Orange::parser;
+
+std::string generate_error_message(const parse_error& e) {
+    std::stringstream ss;
+    ss << "FAILED: " << e.what() << " at " << e.first << '\n';
+    ss << "    " << sql << '\n';
+    ss << "    ";
+    for (int i = 0; i < e.first; i++) {
+        ss << ' ';
+    }
+    ss << '^';
+    for (int i = e.first + 1; i < e.last; i++) {
+        ss << '~';
+    }
+    ss << '\n';
+    ss << "expected: " << e.expected << '\n';
+    ss << "got: '" << std::string(sql + e.first, sql + e.last) << '\'';
+    return ss.str();
+}
+
 std::optional<sql_ast> parse_sql(const char* sql, bool success) {
     sql_parser parser;
     INFO("parsing '" << sql << "'");
@@ -18,21 +37,7 @@ std::optional<sql_ast> parse_sql(const char* sql, bool success) {
     }
     catch (const parse_error& e) {
         if (success) {
-            std::stringstream ss;
-            ss << "FAILED: " << e.what() << " at " << e.first << '\n';
-            ss << "    " << sql << '\n';
-            ss << "    ";
-            for (int i = 0; i < e.first; i++) {
-                ss << ' ';
-            }
-            ss << '^';
-            for (int i = e.first + 1; i < e.last; i++) {
-                ss << '~';
-            }
-            ss << '\n';
-            ss << "expected: " << e.expected << '\n';
-            ss << "got: '" << std::string(sql + e.first, sql + e.last) << '\'';
-            FAIL(ss.str());
+            FAIL(generate_error_message(e));
         }
         return std::nullopt;
     }
@@ -52,8 +57,8 @@ TEST_CASE("test sys_stmt", "[parser]") {
     /* sys_stmt */
 
     parse_sql("showdatabases;", false);
-    parse_sql("show datebases;", false);
-    parse_sql("show\ndatabases;", true);
+    ast = parse_sql("show databases ;\n", true);
+    ast = parse_sql("  show\ndatabases;", true);
 
     ast = parse_sql("show databases;", true);
     REQUIRE(ast.value().stmt.size() == 1);

@@ -14,8 +14,6 @@
 
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/phoenix.hpp>
-#include <boost/spirit/include/lex.hpp>
-#include <boost/spirit/include/lex_lexertl.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/variant/recursive_variant.hpp>
 
@@ -76,84 +74,12 @@ namespace Orange {
     namespace parser {
         // namespace
         namespace qi = boost::spirit::qi;
-        namespace lex = boost::spirit::lex;
         namespace phoenix = boost::phoenix;
 
-        enum token_ids { IDANY };
-
-        template <class BaseLexer>
-        struct sql_tokens : lex::lexer<BaseLexer> {
-            using keyword = lex::token_def<lex::omit>;
-            using string_lit = lex::token_def<std::string>;
-            using int_lit = lex::token_def<int>;
-
-            sql_tokens() {
-                //self.add_pattern("DB", "(?i:database)")("DBS", "(?i:databases)")(
-                //    "TB", "(?i:table)")("TBS", "(?i:tables");
-                //self.add_pattern("SHOW", "(?i:show)")("CREATE", "(?i:create)")("DROP", "(?i:drop)");
-
-                //kw_database = "{DB}";
-                //kw_databases = "{DBS}";
-                //kw_table = "{TB}";
-                //kw_tables = "{TBS}";
-
-                //kw_show = "{SHOW}";
-                //kw_create = "{CREATE}";
-                //kw_drop = "{DROP}";
-
-                //self.add(kw_database)(kw_databases)(kw_table)(kw_tables);
-                //self.add(kw_show)(kw_create)(kw_drop);
-                self.add('.', IDANY);
-            }
-
-            keyword kw_database;
-            keyword kw_databases;
-            keyword kw_table;
-            keyword kw_tables;
-
-            keyword kw_show;
-            keyword kw_create;
-            keyword kw_drop;
-            keyword kw_use;
-            keyword kw_insert;
-            keyword kw_into;
-            keyword kw_delete;
-            keyword kw_from;
-            keyword kw_update;
-            keyword kw_set;
-            keyword kw_select;
-            keyword kw_change;
-            keyword kw_alter;
-            keyword kw_add;
-            keyword kw_rename;
-            keyword kw_desc;
-
-            keyword kw_index;
-            keyword kw_primary;
-            keyword kw_key;
-            keyword kw_not;
-            keyword kw_null;
-            keyword kw_constraint;
-            keyword kw_foreign;
-            keyword kw_references;
-
-            keyword kw_values;
-            keyword kw_where;
-            keyword kw_default;
-
-            keyword kw_is;
-            keyword kw_and;
-
-            keyword kw_int;
-            keyword kw_varchar;
-            keyword kw_date;
-            keyword kw_float;
-        };
-
-        template <class TokenDef, class Iterator = typename TokenDef::iterator_type>
-        struct sql_grammer : qi::grammar<Iterator, sql_ast()> {
+        template <class Iterator>
+        struct sql_grammer : qi::grammar<Iterator, sql_ast(), qi::space_type> {
             template <class T>
-            using rule = qi::rule<Iterator, T>;
+            using rule = qi::rule<Iterator, T, qi::space_type>;
 
             // program
             rule<sql_ast()> program;
@@ -197,6 +123,7 @@ namespace Orange {
             rule<drop_foreign_key_stmt()> drop_foreign_key;
 
             // others
+            rule<qi::unused_type(const char*)> kw;
             rule<std::string()> identifier;
             rule<std::string()> value_string;
 
@@ -231,7 +158,7 @@ namespace Orange {
             rule<field_foreign_key()> foreign_key_field;
             rule<field_list()> fields;
 
-            sql_grammer(const TokenDef& tok) : sql_grammer::base_type(program) {
+            explicit sql_grammer() : sql_grammer::base_type(program) {
                 using namespace qi;
                 using phoenix::at_c;
                 using phoenix::bind;
@@ -247,58 +174,56 @@ namespace Orange {
                 // <sys_stmt> := <show_db>
                 sys %= eps >> show_db;
                 // <show_db> := 'SHOW' 'DATABASES'
-                show_db = eps >> tok.kw_show >> tok.kw_databases;
+                show_db = kw(+"SHOW") >> kw(+"DATABASES");
 
                 // <db_stmt> := <show_tb> | <create_db> | <drop_db> | <use_db>
                 db %= show_tb | create_db | drop_db | use_db;
                 // <show_tb> := 'SHOW' 'TABLES'
-                show_tb = eps >> tok.kw_show >> tok.kw_tables;
+                show_tb = kw(+"SHOW") >> kw(+"TABLES");
                 // <create_db> := 'CREATE' 'DATABASE' [db_name]
-                create_db %= tok.kw_create >> tok.kw_database > identifier;
+                create_db %= kw(+"CREATE") >> kw(+"DATABASE") > identifier;
                 // <drop_db> := 'DROP' 'DATABASE' [db_name]
-                drop_db %= no_case["DROP"] >> !graph >> no_case["DATABASE"] > identifier;
+                drop_db %= kw(+"DROP") >> kw(+"DATABASE") > identifier;
                 // <use_db> := 'USE' [db_name]
-                use_db %= no_case["USE"] > identifier;
+                use_db %= kw(+"USE") > identifier;
 
                 // <tb_stmt> := <create_tb> | <drop_tb> | <desc_tb> | <insert_into_tb> |
                 //              <delete_from_tb> | <update_tb> | <select_tb>
                 tb %= create_tb | drop_tb | desc_tb | insert_into_tb | delete_from_tb | update_tb |
                       select_tb;
                 // <create_tb> := 'CREATE' 'TABLE' [tb_name] '(' <field_list> ')'
-                create_tb %=
-                    no_case["CREATE"] >> no_case["TABLE"] > identifier > '(' > fields > ')';
+                create_tb %= kw(+"CREATE") >> kw(+"TABLE") > identifier > '(' > fields > ')';
                 // <drop_tb> := 'DROP' 'TABLE' [tb_name]
-                drop_tb %= no_case["DROP"] >> no_case["TABLE"] > identifier;
+                drop_tb %= kw(+"DROP") >> kw(+"TABLE") > identifier;
                 // <desc_tb> := 'DESC' [tb_name]
-                desc_tb %= no_case["DESC"] > identifier;
+                desc_tb %= kw(+"DESC") > identifier;
                 // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] 'VALUES' <value_lists>
-                insert_into_tb %= no_case["INSERT"] > no_case["INTO"] > identifier >
-                                  no_case["VALUES"] > value_lists;
+                insert_into_tb %=
+                    kw(+"INSERT") > kw(+"INTO") > identifier > kw(+"VALUES") > value_lists;
                 // <delete_from_tb> := 'DELETE' 'FROM' [tb_name] 'WHERE' <where_clause>
-                delete_from_tb %= no_case["DELETE"] > no_case["FROM"] > identifier >
-                                  no_case["WHERE"] > where_list;
+                delete_from_tb %=
+                    kw(+"DELETE") > kw(+"FROM") > identifier > kw(+"WHERE") > where_list;
                 // <update_tb> := 'UPDATE' [tb_name] 'SET' <set_clause> 'WHERE' <where_clause>
-                update_tb %= no_case["UPDATE"] > identifier > no_case["SET"] > set_list >
-                             no_case["WHERE"] > where_list;
+                update_tb %=
+                    kw(+"UPDATE") > identifier > kw(+"SET") > set_list > kw(+"WHERE") > where_list;
                 // <select_tb> := 'SELECT' <selector> 'FROM' <table_list> 'WHERE' <where_clause>
-                select_tb %= no_case["SELECT"] > selectors > no_case["FROM"] > tables >
-                             no_case["WHERE"] > where_list;
+                select_tb %=
+                    kw(+"SELECT") > selectors > kw(+"FROM") > tables > kw(+"WHERE") > where_list;
 
                 // <idx_stmt> := <create_idx> | <drop_idx> | <alter_add_idx> | <alter_drop_idx>
                 idx %= create_idx | drop_idx | alter_add_idx | alter_drop_idx;
                 // <create_idx> := 'CREATE' 'INDEX' [idx_name] 'ON' [tb_name] '(' <column_list> ')'
-                create_idx %= no_case["CREATE"] >> no_case["INDEX"] > identifier > no_case["ON"] >
-                              identifier > '(' > columns > ')';
+                create_idx %= kw(+"CREATE") >> kw(+"INDEX") > identifier > kw(+"ON") > identifier >
+                              '(' > columns > ')';
                 // <drop_idx> := 'DROP' 'INDEX' [idx_name]
-                drop_idx %= no_case["DROP"] >> no_case["INDEX"] > identifier;
+                drop_idx %= kw(+"DROP") >> kw(+"INDEX") > identifier;
                 // <alter_add_idx> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'INDEX' [idx_name]
                 //                    '(' column_list ')'
-                alter_add_idx %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
-                                 no_case["ADD"] >> no_case["INDEX"] > identifier > '(' > columns >
-                                 ')';
+                alter_add_idx %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"ADD") >>
+                                 kw(+"INDEX") > identifier > '(' > columns > ')';
                 // <alter_drop_idx> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'INDEX' [idx_name]
-                alter_drop_idx %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
-                                  no_case["DROP"] >> no_case["INDEX"] > identifier;
+                alter_drop_idx %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"DROP") >>
+                                  kw(+"INDEX") > identifier;
 
                 // <alter_stmt> := <add_field> | <drop_col> | <change_col> | <rename_tb> |
                 //                 <add_primary_key> | <add_constraint_primary_key> |
@@ -308,46 +233,43 @@ namespace Orange {
                          add_constraint_primary_key | drop_primary_key |
                          add_constraint_foreign_key | drop_foreign_key;
                 // <add_field> := 'ALTER' 'TABLE' [tb_name] 'ADD' <field>
-                add_field %=
-                    no_case["ALTER"] > no_case["TABLE"] > identifier >> no_case["ADD"] >> field;
+                add_field %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"ADD") >> field;
                 // <drop_col> := 'ALTER' 'TABLE' [tb_name] 'DROP' [col_name]
-                drop_col %= no_case["ALTER"] > no_case["TABLE"] > identifier >> no_case["DROP"] >>
-                            identifier;
+                drop_col %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"DROP") >> identifier;
                 // <change_col> := 'ALTER' 'TABLE' [tb_name] 'CHANGE' [col_name] <field>
-                change_col %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
-                              no_case["CHANGE"] > identifier > field;
+                change_col %=
+                    kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"CHANGE") > identifier > field;
                 // <rename_tb> := 'ALTER' 'TABLE' [tb_name] 'RENAME' 'TO' [new_tb_name]
-                rename_tb %= no_case["ALTER"] > no_case["TABLE"] > identifier >> no_case["RENAME"] >
-                             no_case["TO"] > identifier;
+                rename_tb %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"RENAME") > kw(+"TO") >
+                             identifier;
                 // <add_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'PRIMARY' 'KEY'
                 //                      '(' <column_list> ')'
-                add_primary_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
-                                   no_case["ADD"] >> no_case["PRIMARY"] > no_case["KEY"] > '(' >
-                                   columns > ')';
+                add_primary_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"ADD") >>
+                                   kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
                 // <add_constraint_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [pk_name] 'PRIMARY' 'KEY' '(' <column_list> ')'
-                add_constraint_primary_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
-                                              no_case["ADD"] >> no_case["CONSTRAINT"] >
-                                              identifier >> no_case["PRIMARY"] > no_case["KEY"] >
-                                              '(' > columns > ')';
+                add_constraint_primary_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >>
+                                              kw(+"ADD") >> kw(+"CONSTRAINT") > identifier >>
+                                              kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
                 // <drop_primary_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'PRIMARY' 'KEY' [pk_name]?
-                drop_primary_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
-                                    no_case["DROP"] >> no_case["PRIMARY"] > no_case["KEY"] >
-                                    -(identifier);
+                drop_primary_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"DROP") >>
+                                    kw(+"PRIMARY") > kw(+"KEY") > -(identifier);
                 // <add_constraint_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [fk_name] 'FOREIGN' 'KEY' '(' <column_list> ')'
                 //                                 'REFERENCES' [ref_tb_name] '(' <column_list> ')'
-                add_constraint_foreign_key %=
-                    no_case["ALTER"] > no_case["TABLE"] > identifier >> no_case["ADD"] >>
-                    no_case["CONSTRAINT"] > identifier >> no_case["FOREIGN"] > no_case["KEY"] >
-                    '(' > columns > ')' > no_case["REFERENCES"] > identifier > '(' > columns > ')';
+                add_constraint_foreign_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >>
+                                              kw(+"ADD") >> kw(+"CONSTRAINT") > identifier >>
+                                              kw(+"FOREIGN") > kw(+"KEY") > '(' > columns > ')' >
+                                              kw(+"REFERENCES") > identifier > '(' > columns > ')';
                 // <drop_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'FOREIGN' 'KEY' [fk_name]
-                drop_foreign_key %= no_case["ALTER"] > no_case["TABLE"] > identifier >>
-                                    no_case["DROP"] >> no_case["FOREIGN"] > no_case["KEY"] >
-                                    identifier;
+                drop_foreign_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"DROP") >>
+                                    kw(+"FOREIGN") > kw(+"KEY") > identifier;
+
+                // keyword
+                kw = no_case[lit(_r1)] >> no_skip[&!(alnum | '_')];
 
                 // <identifier> := [A-Za-z][_0-9A-Za-z]*
-                identifier %= lexeme[char_("A-Za-z") > *char_("_0-9A-Za-z")];
+                identifier %= lexeme[alpha > *(alnum | '_')];
 
                 // <string> := "'" [^']* "'"
                 value_string %= '\'' > lexeme[*((char_ - '\'') | "\\'")] > '\'';
@@ -365,20 +287,20 @@ namespace Orange {
                 selectors %= '*' | (col % ',');
 
                 // <op> := '=' | '<>' | '<=' | '>=' | '<' | '>'
-                //operator_ = char_("=")[_val = op::Eq] | char_("<>")[_val = op::Neq] |
-                //            char_("<=")[_val = op::Le] | char_(">=")[_val = op::Ge] |
-                //            char_("<")[_val = op::Ls] | char_(">")[_val = op::Gt];
+                operator_ = char_("=")[_val = op::Eq] | char_("<>")[_val = op::Neq] |
+                            char_("<=")[_val = op::Le] | char_(">=")[_val = op::Ge] |
+                            char_("<")[_val = op::Ls] | char_(">")[_val = op::Gt];
 
                 // <type> := ('INT' '(' <int> ')') | ('VARCHAR' '(' <int> ')') | 'DATE' | 'FLOAT'
-                type = (no_case["INT"] > '(' >
+                type = (kw(+"INT") > '(' >
                         int_[at_c<0>(_val) = DataTypeKind::Int, at_c<1>(_val) = _1] > ')') |
-                       (no_case["VARCHAR"] > '(' >
+                       (kw(+"VARCHAR") > '(' >
                         int_[at_c<0>(_val) = DataTypeKind::VarChar, at_c<1>(_val) = _1] > ')') |
-                       no_case["DATE"][at_c<0>(_val) = DataTypeKind::Date] |
-                       no_case["FLOAT"][at_c<0>(_val) = DataTypeKind::Float];
+                       kw(+"DATE")[at_c<0>(_val) = DataTypeKind::Date] |
+                       kw(+"FLOAT")[at_c<0>(_val) = DataTypeKind::Float];
 
                 // <value> := <int> | <string> | 'NULL'
-                value %= int_ | value_string | no_case["NULL"];
+                value %= int_ | value_string | kw(+"NULL");
 
                 // <value_list> := <value> (',' <value>)*
                 value_list %= value % ',';
@@ -394,8 +316,7 @@ namespace Orange {
                 // <where_op> := <col> <op> <expr>
                 where_op %= identifier > operator_ > expression;
                 // <where_null> := <col> 'IS' 'NOT'? 'NULL'
-                where_null %=
-                    identifier > no_case["IS"] > matches[!no_case["NOT"]] > no_case["NULL"];
+                where_null %= identifier > kw(+"IS") > matches[!kw(+"NOT")] > kw(+"NULL");
 
                 // <where_clause> := <where> ('AND' <where>)*
                 where_list %= where % ',';
@@ -409,14 +330,14 @@ namespace Orange {
                 // <field> := field_def | field_primary_key | field_foreign_key
                 field %= definition_field | primary_key_field | foreign_key_field;
                 // <field_def> := [col_name] <type> ('NOT' 'NULL')? ('DEFAULT' <value>)?
-                definition_field %= identifier > type > matches[no_case["NOT"] > no_case["NULL"]] >
-                                    -(no_case["DEFAULT"] > value);
+                definition_field %= identifier > type > matches[kw(+"NOT") > kw(+"NULL")] >
+                                    -(kw(+"DEFAULT") > value);
                 // <field_primary_key> := 'PRIMARY' 'KEY' '(' <column_list> ')'
-                primary_key_field %= no_case["PRIMARY"] > no_case["KEY"] > '(' > columns > ')';
+                primary_key_field %= kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
                 // <field_foreign_key> := 'FOREIGN' 'KEY' '(' [col_name] ')' 'REFERENCES' [tb_name]
                 //                        '(' [col_name] ')'
-                foreign_key_field %= no_case["PRIMARY"] > no_case["KEY"] > '(' > identifier > ')' >
-                                     no_case["REFERENCES"] > identifier > '(' > identifier > ')';
+                foreign_key_field %= kw(+"PRIMARY") > kw(+"KEY") > '(' > identifier > ')' >
+                                     kw(+"REFERENCES") > identifier > '(' > identifier > ')';
                 // <fields> := <field> (',' <field>)*
                 fields %= field % ',';
 
@@ -430,7 +351,7 @@ namespace Orange {
                 BOOST_SPIRIT_DEBUG_NODES((alter)(add_field)(drop_col)(change_col)(rename_tb)(
                     add_primary_key)(add_constraint_primary_key)(drop_primary_key)(
                     add_constraint_foreign_key)(drop_foreign_key));
-                BOOST_SPIRIT_DEBUG_NODES((identifier)(value_string));
+                BOOST_SPIRIT_DEBUG_NODES((kw)(identifier)(value_string));
                 BOOST_SPIRIT_DEBUG_NODES((col)(columns)(tables)(selectors));
                 BOOST_SPIRIT_DEBUG_NODES(
                     (operator_)(type)(value)(value_list)(value_lists)(expression));
@@ -442,16 +363,11 @@ namespace Orange {
         };
 
         sql_ast sql_parser::parse(const std::string& sql) {
-            using token_type = lex::lexertl::token<std::string::const_iterator,
-                                                   boost::mpl::vector<lex::omit>>;
-            using lexer_type = lex::lexertl::lexer<token_type>;
-            auto lexer = sql_tokens<lexer_type>();
-            auto parser = sql_grammer<sql_tokens<lexer_type>>(lexer);
-
             auto iter = sql.begin(), end = sql.end();
+            auto parser = sql_grammer<std::string::const_iterator>();
             sql_ast ast;
             try {
-                lex::tokenize_and_parse(iter, end, lexer, parser, ast);
+                qi::phrase_parse(iter, end, parser, qi::space, ast);
             }
             catch (const qi::expectation_failure<std::string::const_iterator>& e) {
                 throw parse_error("parse error", std::distance(sql.begin(), e.first),

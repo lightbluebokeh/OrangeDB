@@ -40,3 +40,4 @@ bin/
 testfile*.txt
 test_dir/
 db/
+Testing/
