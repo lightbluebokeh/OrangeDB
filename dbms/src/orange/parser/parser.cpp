@@ -1,9 +1,10 @@
 // parser
 
-#define DEBUG_PARSER
 #if !defined(NDEBUG) && defined(DEBUG_PARSER)
 #define BOOST_SPIRIT_DEBUG
 #endif
+
+#define BOOST_SPIRIT_UNICODE
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -15,6 +16,7 @@
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/phoenix.hpp>
 #include <boost/spirit/include/qi.hpp>
+#include <boost/spirit/include/support_standard_wide.hpp>
 #include <boost/variant/recursive_variant.hpp>
 
 #ifdef _MSC_VER
@@ -75,11 +77,12 @@ namespace Orange {
         // namespace
         namespace qi = boost::spirit::qi;
         namespace phoenix = boost::phoenix;
+        namespace encoding = boost::spirit::standard_wide;
 
         template <class Iterator>
-        struct sql_grammer : qi::grammar<Iterator, sql_ast(), qi::space_type> {
+        struct sql_grammer : qi::grammar<Iterator, sql_ast(), encoding::space_type> {
             template <class T>
-            using rule = qi::rule<Iterator, T, qi::space_type>;
+            using rule = qi::rule<Iterator, T, encoding::space_type>;
 
             // program
             rule<sql_ast()> program;
@@ -159,20 +162,19 @@ namespace Orange {
             rule<field_list()> fields;
 
             explicit sql_grammer() : sql_grammer::base_type(program) {
-                using namespace qi;
                 using phoenix::at_c;
                 using phoenix::bind;
                 using phoenix::construct;
                 using phoenix::val;
 
                 // <program> := <stmt>*
-                program %= *stmt > eoi;
+                program %= *stmt > qi::eoi;
 
                 // <stmt> := (<sys_stmt> | <db_stmt> | <tb_stmt> | <idx_stmt> | <alter_stmt>) ';'
                 stmt %= (sys | db | tb | idx | alter) > ';';
 
                 // <sys_stmt> := <show_db>
-                sys %= eps >> show_db;
+                sys %= qi::eps >> show_db;
                 // <show_db> := 'SHOW' 'DATABASES'
                 show_db = kw(+"SHOW") >> kw(+"DATABASES");
 
@@ -266,13 +268,13 @@ namespace Orange {
                                     kw(+"FOREIGN") > kw(+"KEY") > identifier;
 
                 // keyword
-                kw = no_case[lit(_r1)] >> no_skip[&!(alnum | '_')];
+                kw = qi::no_case[qi::lit(qi::_r1)] >> qi::no_skip[&!(encoding::alnum | '_')];
 
                 // <identifier> := [A-Za-z][_0-9A-Za-z]*
-                identifier %= lexeme[alpha > *(alnum | '_')];
+                identifier %= qi::lexeme[encoding::alpha > *(encoding::alnum | '_')];
 
                 // <string> := "'" [^']* "'"
-                value_string %= '\'' > lexeme[*((char_ - '\'') | "\\'")] > '\'';
+                value_string %= '\'' > qi::lexeme[*((encoding::char_ - '\'') | "\\'")] > '\'';
 
                 // <column> := ([tb_name] '.')? [col_name]
                 col %= -(identifier >> '.') > identifier;
@@ -287,20 +289,25 @@ namespace Orange {
                 selectors %= '*' | (col % ',');
 
                 // <op> := '=' | '<>' | '<=' | '>=' | '<' | '>'
-                operator_ = char_("=")[_val = op::Eq] | char_("<>")[_val = op::Neq] |
-                            char_("<=")[_val = op::Le] | char_(">=")[_val = op::Ge] |
-                            char_("<")[_val = op::Ls] | char_(">")[_val = op::Gt];
+                operator_ = encoding::char_("=")[qi::_val = op::Eq] |
+                            encoding::char_("<>")[qi::_val = op::Neq] |
+                            encoding::char_("<=")[qi::_val = op::Le] |
+                            encoding::char_(">=")[qi::_val = op::Ge] |
+                            encoding::char_("<")[qi::_val = op::Ls] |
+                            encoding::char_(">")[qi::_val = op::Gt];
 
                 // <type> := ('INT' '(' <int> ')') | ('VARCHAR' '(' <int> ')') | 'DATE' | 'FLOAT'
-                type = (kw(+"INT") > '(' >
-                        int_[at_c<0>(_val) = DataTypeKind::Int, at_c<1>(_val) = _1] > ')') |
-                       (kw(+"VARCHAR") > '(' >
-                        int_[at_c<0>(_val) = DataTypeKind::VarChar, at_c<1>(_val) = _1] > ')') |
-                       kw(+"DATE")[at_c<0>(_val) = DataTypeKind::Date] |
-                       kw(+"FLOAT")[at_c<0>(_val) = DataTypeKind::Float];
+                type =
+                    (kw(+"INT") > '(' >
+                     qi::int_[at_c<0>(qi::_val) = DataTypeKind::Int, at_c<1>(qi::_val) = qi::_1] >
+                     ')') |
+                    (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = DataTypeKind::VarChar,
+                                                     at_c<1>(qi::_val) = qi::_1] > ')') |
+                    kw(+"DATE")[at_c<0>(qi::_val) = DataTypeKind::Date] |
+                    kw(+"FLOAT")[at_c<0>(qi::_val) = DataTypeKind::Float];
 
                 // <value> := <int> | <string> | 'NULL'
-                value %= int_ | value_string | kw(+"NULL");
+                value %= qi::int_ | value_string | kw(+"NULL");
 
                 // <value_list> := <value> (',' <value>)*
                 value_list %= value % ',';
@@ -316,7 +323,7 @@ namespace Orange {
                 // <where_op> := <col> <op> <expr>
                 where_op %= identifier > operator_ > expression;
                 // <where_null> := <col> 'IS' 'NOT'? 'NULL'
-                where_null %= identifier > kw(+"IS") > matches[!kw(+"NOT")] > kw(+"NULL");
+                where_null %= identifier > kw(+"IS") > qi::matches[!kw(+"NOT")] > kw(+"NULL");
 
                 // <where_clause> := <where> ('AND' <where>)*
                 where_list %= where % ',';
@@ -330,7 +337,7 @@ namespace Orange {
                 // <field> := field_def | field_primary_key | field_foreign_key
                 field %= definition_field | primary_key_field | foreign_key_field;
                 // <field_def> := [col_name] <type> ('NOT' 'NULL')? ('DEFAULT' <value>)?
-                definition_field %= identifier > type > matches[kw(+"NOT") > kw(+"NULL")] >
+                definition_field %= identifier > type > qi::matches[kw(+"NOT") > kw(+"NULL")] >
                                     -(kw(+"DEFAULT") > value);
                 // <field_primary_key> := 'PRIMARY' 'KEY' '(' <column_list> ')'
                 primary_key_field %= kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
@@ -367,7 +374,7 @@ namespace Orange {
             auto parser = sql_grammer<std::string::const_iterator>();
             sql_ast ast;
             try {
-                qi::phrase_parse(iter, end, parser, qi::space, ast);
+                qi::phrase_parse(iter, end, parser, encoding::space, ast);
             }
             catch (const qi::expectation_failure<std::string::const_iterator>& e) {
                 throw parse_error("parse error", std::distance(sql.begin(), e.first),
@@ -376,6 +383,8 @@ namespace Orange {
             return ast;
         }
 
+#ifdef BOOST_SPIRIT_DEBUG
+        // 这些是输出语法树用的
         std::ostream& operator<<(std::ostream& os, const op& oper) {
             switch (oper) {
                 case op::Eq: os << "="; break;
@@ -402,5 +411,7 @@ namespace Orange {
             }
             return os;
         }
+#endif  // BOOST_SPIRIT_DEBUG
+
     }  // namespace parser
 }  // namespace Orange
