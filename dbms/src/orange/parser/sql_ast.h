@@ -40,17 +40,39 @@ namespace Orange {
         /** type */
         enum class DataTypeKind { Int, VarChar, Date, Float };
         struct data_type {
-            DataTypeKind type;
+            DataTypeKind kind;
             int value;
         };
 
         /** value */
-        using data_value = boost::variant<int, std::string>;  // empty时表示NULL
+        struct data_value {
+            boost::variant<int, std::string> value;
+
+            bool is_int() const { return value.which() == 0; }
+            bool is_string() const { return value.which() == 1; }
+            bool is_null() const { return value.empty(); }
+
+            int& to_int() { return boost::get<int>(value); }
+            int to_int() const { return boost::get<int>(value); }
+            std::string& to_string() { return boost::get<std::string>(value); }
+            const std::string& to_string() const { return boost::get<std::string>(value); }
+
+            // 一个奇怪的编译错误
+            operator boost::variant<int, std::string>() const { return value; }
+        };
         using data_value_list = std::vector<data_value>;
         using data_value_lists = std::vector<data_value_list>;
 
         /** expr */
-        using expr = boost::variant<data_value, column>;
+        struct expr {
+            boost::variant<data_value, column> expression;
+
+            bool is_value() const { return expression.which() == 0; }
+            bool is_column() const { return expression.which() == 1; }
+
+            data_value& value() { return boost::get<data_value>(expression); }
+            column& col() { return boost::get<column>(expression); }
+        };
 
         /** field */
         enum class FieldKind { Def, PrimaryKey, ForeignKey };
@@ -58,7 +80,7 @@ namespace Orange {
         struct field_def {
             std::string col_name;
             data_type type;
-            bool is_null;
+            bool is_not_null;
             boost::optional<data_value> default_value;
         };
 
@@ -72,7 +94,15 @@ namespace Orange {
             std::string ref_col_name;
         };
 
-        using single_field = boost::variant<field_def, field_primary_key, field_foreign_key>;
+        struct single_field {
+            boost::variant<field_def, field_primary_key, field_foreign_key> field;
+
+            FieldKind kind() const { return (FieldKind)field.which(); }
+
+            field_def& def() { return boost::get<field_def>(field); }
+            field_primary_key& primary_key() { return boost::get<field_primary_key>(field); }
+            field_foreign_key& foreign_key() { return boost::get<field_foreign_key>(field); }
+        };
         using field_list = std::vector<single_field>;
 
         /** where clause */
@@ -87,7 +117,15 @@ namespace Orange {
             bool is_null;
         };
 
-        using single_where = boost::variant<single_where_op, single_where_null>;
+        struct single_where {
+            boost::variant<single_where_op, single_where_null> where;
+
+            bool is_op() const { return where.which() == 0; }
+            bool is_is_null() const { return where.which() == 1; }
+
+            single_where_op& op() { return boost::get<single_where_op>(where); }
+            single_where_null& null() { return boost::get<single_where_null>(where); }
+        };
 
         using where_clause = std::vector<single_where>;
 

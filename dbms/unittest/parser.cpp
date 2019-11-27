@@ -53,17 +53,14 @@ TEST_CASE("keywords and skipper", "[parser]") {
     sql_ast ast;
 
     // 一些成功的例子
-    parse_sql("show Databases;", ast);
-    parse_sql("\tcreate database test1;\ndrop database test2;", ast);
-    parse_sql("use test_3_; show tables;", ast);
+    parse_sql("show DatabaseS;     ", ast);
+    parse_sql("create database test1;\ndrop database test2;", ast);
+    parse_sql("\tuse test_3_; show tables;", ast);
     parse_sql("select * from table1 where name='测试', name1='中文';", ast);
 
     // 一些失败的例子
-    parse_sql("SHOW databases");
     parse_sql("a b c d");
     parse_sql("tables;");
-    parse_sql("create database 1a;");
-    parse_sql("drop table 测试;");
     parse_sql("showdatabases;");
 }
 
@@ -80,16 +77,25 @@ TEST_CASE("db_stmt", "[parser]") {
     sql_ast ast;
 
     // create database
-    parse_sql("create database test1;", ast);
+    parse_sql("create database \ntest1\t;", ast);
     REQUIRE(ast.stmt_list[0].kind() == StmtKind::Db);
     REQUIRE(ast.stmt_list[0].db().kind() == DbStmtKind::Create);
     REQUIRE(ast.stmt_list[0].db().create().name == "test1");
 
     // drop database
     parse_sql("drop database test2;", ast);
-    REQUIRE(ast.stmt_list[0].kind() == StmtKind::Db);
     REQUIRE(ast.stmt_list[0].db().kind() == DbStmtKind::Drop);
     REQUIRE(ast.stmt_list[0].db().drop().name == "test2");
+
+    // use database
+    parse_sql("USE test3;use test4  ;", ast);
+    REQUIRE(ast.stmt_list[0].db().kind() == DbStmtKind::Use);
+    REQUIRE(ast.stmt_list[0].db().use().name == "test3");
+    REQUIRE(ast.stmt_list[1].db().use().name == "test4");
+
+    // show tables
+    parse_sql("show tables;", ast);
+    REQUIRE(ast.stmt_list[0].db().kind() == DbStmtKind::Show);
 }
 
 TEST_CASE("tb_stmt", "[parser]") {
@@ -100,6 +106,17 @@ TEST_CASE("tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].kind() == StmtKind::Tb);
     REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Create);
     REQUIRE(ast.stmt_list[0].tb().create().name == "aaa");
+    REQUIRE(ast.stmt_list[0].tb().create().fields.size() == 2);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[0].kind() == FieldKind::Def);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().col_name == "col1");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().type.kind == DataTypeKind::Float);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().is_not_null == true);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().default_value.has_value() == false);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().col_name == "col2");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().type.kind == DataTypeKind::VarChar);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().type.value == 2);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().is_not_null == false);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().default_value.has_value() == false);
 }
 
 TEST_CASE("idx_stmt", "[parser]") {}

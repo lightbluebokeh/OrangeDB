@@ -69,12 +69,16 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::add_constraint_foreign_key_stmt, table
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_foreign_key_stmt, table_name, fk_name)
 
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::column, table_name, col_name)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_type, type, value)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_def, col_name, type, is_null, default_value)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_value, value)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_type, kind, value)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::expr, expression)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_def, col_name, type, is_not_null, default_value)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_primary_key, col_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_foreign_key, col, ref_table_name, ref_col_name)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_field, field)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_op, col_name, operator_, expression)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_null, col_name, is_null)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_set, col_name)
 
 // 表演完成
