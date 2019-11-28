@@ -238,7 +238,7 @@ namespace Orange {
         struct select_tb_stmt {
             selector select;
             table_list tables;
-            where_clause where;
+            boost::optional<where_clause> where;
         };
 
         struct tb_stmt {

@@ -178,10 +178,11 @@ namespace Orange {
                 using phoenix::at_c;
                 using phoenix::bind;
                 using phoenix::construct;
+                using phoenix::push_back;
                 using phoenix::val;
 
                 // <program> := <stmt>*
-                program %= *stmt > qi::eoi;
+                program = *(stmt[push_back(at_c<0>(qi::_val), qi::_1)] | ';') > qi::eoi;
 
                 // <stmt> := (<sys_stmt> | <db_stmt> | <tb_stmt> | <idx_stmt> | <alter_stmt>) ';'
                 stmt %= (sys | db | tb | idx | alter) > ';';
@@ -222,9 +223,10 @@ namespace Orange {
                 // <update_tb> := 'UPDATE' [tb_name] 'SET' <set_clause> 'WHERE' <where_clause>
                 update_tb %=
                     kw(+"UPDATE") > identifier > kw(+"SET") > set_list > kw(+"WHERE") > where_list;
-                // <select_tb> := 'SELECT' <selector> 'FROM' <table_list> 'WHERE' <where_clause>
-                select_tb %=
-                    kw(+"SELECT") > selectors > kw(+"FROM") > tables > kw(+"WHERE") > where_list;
+                // <select_tb> := 'SELECT' <selector> 'FROM' <table_list> ('WHERE' <where_clause>)?
+                select_tb = kw(+"SELECT") > selectors[at_c<0>(qi::_val) = qi::_1] > kw(+"FROM") >
+                            tables[at_c<1>(qi::_val) = qi::_1] >
+                            -(kw(+"WHERE") > where_list)[at_c<2>(qi::_val) = qi::_1];
 
                 // <idx_stmt> := <create_idx> | <drop_idx> | <alter_add_idx> | <alter_drop_idx>
                 idx %= create_idx | drop_idx | alter_add_idx | alter_drop_idx;
@@ -339,7 +341,9 @@ namespace Orange {
                 // <where> := <where_op> | <where_null>
                 where %= where_op | where_null;
                 // <where_op> := <col> <op> <expr>
-                where_op %= identifier >> (operator_ > expression);
+                where_op = identifier[at_c<0>(qi::_val) = qi::_1] >>
+                           operator_[at_c<1>(qi::_val) = qi::_1] >
+                           expression[at_c<2>(qi::_val) = qi::_1];
                 // <where_null> := <col> 'IS' 'NOT'? 'NULL'
                 where_null %= identifier >> (kw(+"IS") > qi::matches[kw(+"NOT")] > kw(+"NULL"));
 

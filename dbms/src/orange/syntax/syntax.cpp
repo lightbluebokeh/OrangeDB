@@ -38,7 +38,7 @@ namespace Orange {
 
     void sys(sys_stmt& stmt) {
         switch (stmt.kind()) {
-            case SysStmtKind::ShowDb: std::cout << "show something?\n";
+            case SysStmtKind::ShowDb: std::cout << "show something?\n"; break;
             default: unexpected();
         }
     }
@@ -142,6 +142,7 @@ namespace Orange {
                             std::cout << "      " << columns[i] << ": " << value_string(values[i])
                                       << std::endl;
                         }
+                        std::cout << std::endl;
                     }
                 } else {
                     std::cout << "    values:";
@@ -159,12 +160,13 @@ namespace Orange {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
                         std::cout << "      " << null.col_name << " IS "
-                                  << (null.is_not_null ? "NOT " : "") << "NULL" << std::endl;
+                                  << (null.is_not_null ? "NOT " : "") << "NULL";
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
                         std::cout << "      " << o.col_name << " " << o.operator_ << " "
                                   << expression_string(o.expression);
                     }
+                    std::cout << std::endl;
                 }
             } break;
             case TbStmtKind::Update: {
@@ -176,16 +178,18 @@ namespace Orange {
                     std::cout << "      " << set.col_name << ": " << value_string(set.val)
                               << std::endl;
                 }
+                std::cout << "    where:" << std::endl;
                 for (auto& cond : update.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
                         std::cout << "      " << null.col_name << " IS "
-                                  << (null.is_not_null ? "NOT " : "") << "NULL" << std::endl;
+                                  << (null.is_not_null ? "NOT " : "") << "NULL";
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
                         std::cout << "      " << o.col_name << " " << o.operator_ << " "
                                   << expression_string(o.expression);
                     }
+                    std::cout << std::endl;
                 }
             } break;
             case TbStmtKind::Select: {
@@ -206,16 +210,19 @@ namespace Orange {
                     std::cout << table << ' ';
                 }
                 std::cout << std::endl;
-                std::cout << "    where:" << std::endl;
-                for (auto& cond : select.where) {
-                    if (cond.is_null_check()) {
-                        const auto& null = cond.null_check();
-                        std::cout << "      " << null.col_name << " IS "
-                                  << (null.is_not_null ? "NOT " : "") << "NULL" << std::endl;
-                    } else if (cond.is_op()) {
-                        const auto& o = cond.op();
-                        std::cout << "      " << o.col_name << " " << o.operator_ << " "
-                                  << expression_string(o.expression);
+                if (select.where.has_value()) {
+                    std::cout << "    where:" << std::endl;
+                    for (auto& cond : select.where.get()) {
+                        if (cond.is_null_check()) {
+                            const auto& null = cond.null_check();
+                            std::cout << "      " << null.col_name << " IS "
+                                      << (null.is_not_null ? "NOT " : "") << "NULL";
+                        } else if (cond.is_op()) {
+                            const auto& o = cond.op();
+                            std::cout << "      " << o.col_name << " " << o.operator_ << " "
+                                      << expression_string(o.expression);
+                        }
+                        std::cout << std::endl;
                     }
                 }
             } break;
