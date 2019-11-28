@@ -205,7 +205,7 @@ namespace Orange {
 
         struct delete_from_tb_stmt {
             std::string name;
-            where_clause where_clause;
+            where_clause where;
         };
 
         struct update_tb_stmt {
