@@ -154,7 +154,7 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     parse_sql("insert into table0 values (1, 1.3, '', NULL, 'abc  ');", ast);
     REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::InsertInto);
     REQUIRE(ast.stmt_list[0].tb().insert_into().name == "table0");
-    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.has_value() == false);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().columns.has_value() == false);
     REQUIRE(ast.stmt_list[0].tb().insert_into().values.size() == 5);
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[0].is_int());
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[0].to_int() == 1);
@@ -166,10 +166,10 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[4].is_string() == true);
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[4].to_string() == "abc  ");
     parse_sql("insert into table1 (col1, col2) values (123.456, '');", ast);
-    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.has_value() == true);
-    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.get().size() == 2);
-    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.get()[0] == "col1");
-    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.get()[1] == "col2");
+    REQUIRE(ast.stmt_list[0].tb().insert_into().columns.has_value() == true);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().columns.get().size() == 2);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().columns.get()[0] == "col1");
+    REQUIRE(ast.stmt_list[0].tb().insert_into().columns.get()[1] == "col2");
 }
 
 // 测试index statement

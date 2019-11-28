@@ -45,7 +45,8 @@ namespace Orange {
         /** value */
         enum class DataValueKind { Null, Int, String, Float };
         struct data_value {
-            boost::variant<boost::blank, int, std::string, double> value;
+            using value_type = boost::variant<boost::blank, int, std::string, double>;
+            value_type value;
 
             bool is_null() const { return value.which() == 0; }
             bool is_int() const { return value.which() == 1; }
@@ -59,6 +60,8 @@ namespace Orange {
             const std::string& to_string() const { return boost::get<std::string>(value); }
             double& to_float() { return boost::get<double>(value); }
             double to_float() const { return boost::get<double>(value); }
+
+            operator value_type() const { return value; }
         };
         using data_value_list = std::vector<data_value>;
         using data_value_lists = std::vector<data_value_list>;
@@ -70,7 +73,9 @@ namespace Orange {
             bool is_value() const { return expression.which() == 0; }
             bool is_column() const { return expression.which() == 1; }
 
+            const data_value& value() const { return boost::get<data_value>(expression); }
             data_value& value() { return boost::get<data_value>(expression); }
+            const column& col() const { return boost::get<column>(expression); }
             column& col() { return boost::get<column>(expression); }
         };
 
@@ -99,8 +104,15 @@ namespace Orange {
 
             FieldKind kind() const { return (FieldKind)field.which(); }
 
+            const field_def& def() const { return boost::get<field_def>(field); }
             field_def& def() { return boost::get<field_def>(field); }
+            const field_primary_key& primary_key() const {
+                return boost::get<field_primary_key>(field);
+            }
             field_primary_key& primary_key() { return boost::get<field_primary_key>(field); }
+            const field_foreign_key& foreign_key() const {
+                return boost::get<field_foreign_key>(field);
+            }
             field_foreign_key& foreign_key() { return boost::get<field_foreign_key>(field); }
         };
         using field_list = std::vector<single_field>;
@@ -114,17 +126,21 @@ namespace Orange {
 
         struct single_where_null {
             std::string col_name;
-            bool is_null;
+            bool is_not_null;
         };
 
         struct single_where {
             boost::variant<single_where_op, single_where_null> where;
 
             bool is_op() const { return where.which() == 0; }
-            bool is_is_null() const { return where.which() == 1; }
+            bool is_null_check() const { return where.which() == 1; }
 
+            const single_where_op& op() const { return boost::get<single_where_op>(where); }
             single_where_op& op() { return boost::get<single_where_op>(where); }
-            single_where_null& null() { return boost::get<single_where_null>(where); }
+            const single_where_null& null_check() const {
+                return boost::get<single_where_null>(where);
+            }
+            single_where_null& null_check() { return boost::get<single_where_null>(where); }
         };
 
         using where_clause = std::vector<single_where>;
@@ -150,6 +166,7 @@ namespace Orange {
 
             SysStmtKind kind() const { return (SysStmtKind)stmt.which(); }
 
+            const show_db_stmt& show_db() const { return boost::get<show_db_stmt>(stmt); }
             show_db_stmt& show_db() { return boost::get<show_db_stmt>(stmt); }
         };
 
@@ -175,9 +192,13 @@ namespace Orange {
 
             DbStmtKind kind() const { return (DbStmtKind)stmt.which(); }
 
+            const show_tb_stmt& show() const { return boost::get<show_tb_stmt>(stmt); }
             show_tb_stmt& show() { return boost::get<show_tb_stmt>(stmt); }
+            const create_db_stmt& create() const { return boost::get<create_db_stmt>(stmt); }
             create_db_stmt& create() { return boost::get<create_db_stmt>(stmt); }
+            const drop_db_stmt& drop() const { return boost::get<drop_db_stmt>(stmt); }
             drop_db_stmt& drop() { return boost::get<drop_db_stmt>(stmt); }
+            const use_db_stmt& use() const { return boost::get<use_db_stmt>(stmt); }
             use_db_stmt& use() { return boost::get<use_db_stmt>(stmt); }
         };
 
@@ -199,7 +220,7 @@ namespace Orange {
 
         struct insert_into_tb_stmt {
             std::string name;
-            boost::optional<table_list> tables;
+            boost::optional<column_list> columns;
             data_value_list values;
         };
 
@@ -227,12 +248,23 @@ namespace Orange {
 
             TbStmtKind kind() const { return (TbStmtKind)stmt.which(); }
 
+            const create_tb_stmt& create() const { return boost::get<create_tb_stmt>(stmt); }
             create_tb_stmt& create() { return boost::get<create_tb_stmt>(stmt); }
+            const drop_tb_stmt& drop() const { return boost::get<drop_tb_stmt>(stmt); }
             drop_tb_stmt& drop() { return boost::get<drop_tb_stmt>(stmt); }
+            const desc_tb_stmt& desc() const { return boost::get<desc_tb_stmt>(stmt); }
             desc_tb_stmt& desc() { return boost::get<desc_tb_stmt>(stmt); }
+            const insert_into_tb_stmt& insert_into() const {
+                return boost::get<insert_into_tb_stmt>(stmt);
+            }
             insert_into_tb_stmt& insert_into() { return boost::get<insert_into_tb_stmt>(stmt); }
+            const delete_from_tb_stmt& delete_from() const {
+                return boost::get<delete_from_tb_stmt>(stmt);
+            }
             delete_from_tb_stmt& delete_from() { return boost::get<delete_from_tb_stmt>(stmt); }
+            const update_tb_stmt& update() const { return boost::get<update_tb_stmt>(stmt); }
             update_tb_stmt& update() { return boost::get<update_tb_stmt>(stmt); }
+            const select_tb_stmt& select() const { return boost::get<select_tb_stmt>(stmt); }
             select_tb_stmt& select() { return boost::get<select_tb_stmt>(stmt); }
         };
 
@@ -265,9 +297,18 @@ namespace Orange {
                 stmt;
 
             IdxStmtKind kind() const { return (IdxStmtKind)stmt.which(); }
+
+            const create_idx_stmt& create() const { return boost::get<create_idx_stmt>(stmt); }
             create_idx_stmt& create() { return boost::get<create_idx_stmt>(stmt); }
+            const drop_idx_stmt& drop() const { return boost::get<drop_idx_stmt>(stmt); }
             drop_idx_stmt& drop() { return boost::get<drop_idx_stmt>(stmt); }
+            const alter_add_idx_stmt& alter_add() const {
+                return boost::get<alter_add_idx_stmt>(stmt);
+            }
             alter_add_idx_stmt& alter_add() { return boost::get<alter_add_idx_stmt>(stmt); }
+            const alter_drop_idx_stmt& alter_drop() const {
+                return boost::get<alter_drop_idx_stmt>(stmt);
+            }
             alter_drop_idx_stmt& alter_drop() { return boost::get<alter_drop_idx_stmt>(stmt); }
         };
 
@@ -343,21 +384,40 @@ namespace Orange {
 
             AlterStmtKind kind() const { return (AlterStmtKind)stmt.which(); }
 
+            const add_field_stmt& add_field() const { return boost::get<add_field_stmt>(stmt); }
             add_field_stmt& add_field() { return boost::get<add_field_stmt>(stmt); }
+            const drop_col_stmt& drop_col() const { return boost::get<drop_col_stmt>(stmt); }
             drop_col_stmt& drop_col() { return boost::get<drop_col_stmt>(stmt); }
+            const change_col_stmt& change_col() const { return boost::get<change_col_stmt>(stmt); }
             change_col_stmt& change_col() { return boost::get<change_col_stmt>(stmt); }
+            const rename_tb_stmt& rename_tb() const { return boost::get<rename_tb_stmt>(stmt); }
             rename_tb_stmt& rename_tb() { return boost::get<rename_tb_stmt>(stmt); }
+            const add_primary_key_stmt& add_primary_key() const {
+                return boost::get<add_primary_key_stmt>(stmt);
+            }
             add_primary_key_stmt& add_primary_key() {
                 return boost::get<add_primary_key_stmt>(stmt);
+            }
+            const add_constraint_primary_key_stmt& add_constraint_primary_key() const {
+                return boost::get<add_constraint_primary_key_stmt>(stmt);
             }
             add_constraint_primary_key_stmt& add_constraint_primary_key() {
                 return boost::get<add_constraint_primary_key_stmt>(stmt);
             }
+            const drop_primary_key_stmt& drop_primary_key() const {
+                return boost::get<drop_primary_key_stmt>(stmt);
+            }
             drop_primary_key_stmt& drop_primary_key() {
                 return boost::get<drop_primary_key_stmt>(stmt);
             }
+            const add_constraint_foreign_key_stmt& add_constraint_foreign_key() const {
+                return boost::get<add_constraint_foreign_key_stmt>(stmt);
+            }
             add_constraint_foreign_key_stmt& add_constraint_foreign_key() {
                 return boost::get<add_constraint_foreign_key_stmt>(stmt);
+            }
+            const drop_foreign_key_stmt& drop_foreign_key() const {
+                return boost::get<drop_foreign_key_stmt>(stmt);
             }
             drop_foreign_key_stmt& drop_foreign_key() {
                 return boost::get<drop_foreign_key_stmt>(stmt);
@@ -372,10 +432,15 @@ namespace Orange {
             StmtKind kind() const { return (StmtKind)stmt.which(); }
 
             // 转换成特定的语句，类型不对应时会抛异常
+            const sys_stmt& sys() const { return boost::get<sys_stmt>(stmt); }
             sys_stmt& sys() { return boost::get<sys_stmt>(stmt); }
+            const db_stmt& db() const { return boost::get<db_stmt>(stmt); }
             db_stmt& db() { return boost::get<db_stmt>(stmt); }
+            const tb_stmt& tb() const { return boost::get<tb_stmt>(stmt); }
             tb_stmt& tb() { return boost::get<tb_stmt>(stmt); }
+            const idx_stmt& idx() const { return boost::get<idx_stmt>(stmt); }
             idx_stmt& idx() { return boost::get<idx_stmt>(stmt); }
+            const alter_stmt& alter() const { return boost::get<alter_stmt>(stmt); }
             alter_stmt& alter() { return boost::get<alter_stmt>(stmt); }
         };
 
@@ -386,5 +451,17 @@ namespace Orange {
             // 语句列表
             sql_stmt_list stmt_list;
         };
+
+        inline std::ostream& operator<<(std::ostream& os, const op& oper) {
+            switch (oper) {
+                case op::Eq: os << "="; break;
+                case op::Neq: os << "<>"; break;
+                case op::Le: os << "<="; break;
+                case op::Ge: os << ">="; break;
+                case op::Ls: os << "<"; break;
+                case op::Gt: os << ">"; break;
+            }
+            return os;
+        }
     }  // namespace parser
 }  // namespace Orange

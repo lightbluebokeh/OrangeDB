@@ -44,7 +44,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::tb_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_tb_stmt, name, fields)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_tb_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::desc_tb_stmt, name)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, tables, values)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, columns, values)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::delete_from_tb_stmt, name, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::update_tb_stmt, name, set, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::select_tb_stmt, select, tables, where)
@@ -77,7 +77,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_primary_key, col_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_foreign_key, col, ref_table_name, ref_col_name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_field, field)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_op, col_name, operator_, expression)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_null, col_name, is_null)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_null, col_name, is_not_null)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_set, col_name)
 
@@ -212,10 +212,10 @@ namespace Orange {
                 drop_tb %= kw(+"DROP") >> kw(+"TABLE") > identifier;
                 // <desc_tb> := 'DESC' [tb_name]
                 desc_tb %= kw(+"DESC") > identifier;
-                // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] ('(' <table_list> ')')?
+                // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] ('(' <column_list> ')')?
                 //                     'VALUES' '(' <value_list> ')'
-                insert_into_tb %= kw(+"INSERT") > kw(+"INTO") > identifier > -('(' > tables > ')') >
-                                  kw(+"VALUES") > '(' > value_list > ')';
+                insert_into_tb %= kw(+"INSERT") > kw(+"INTO") > identifier >
+                                  -('(' > columns > ')') > kw(+"VALUES") > '(' > value_list > ')';
                 // <delete_from_tb> := 'DELETE' 'FROM' [tb_name] 'WHERE' <where_clause>
                 delete_from_tb %=
                     kw(+"DELETE") > kw(+"FROM") > identifier > kw(+"WHERE") > where_list;
@@ -292,7 +292,8 @@ namespace Orange {
                 value_string %= '\'' > qi::no_skip[*(~encoding::char_('\'') | "\\'")] > '\'';
 
                 // <column> := ([tb_name] '.')? [col_name]
-                col %= -(identifier >> '.') > identifier;
+                col = -(identifier >> '.')[at_c<0>(qi::_val) = qi::_1] >
+                      identifier[at_c<1>(qi::_val) = qi::_1];
 
                 // <column_list> := [col_name] (',' [col_name])*
                 columns %= identifier % ',';
@@ -338,9 +339,9 @@ namespace Orange {
                 // <where> := <where_op> | <where_null>
                 where %= where_op | where_null;
                 // <where_op> := <col> <op> <expr>
-                where_op %= identifier > operator_ > expression;
+                where_op %= identifier >> (operator_ > expression);
                 // <where_null> := <col> 'IS' 'NOT'? 'NULL'
-                where_null %= identifier > kw(+"IS") > qi::matches[!kw(+"NOT")] > kw(+"NULL");
+                where_null %= identifier >> (kw(+"IS") > qi::matches[kw(+"NOT")] > kw(+"NULL"));
 
                 // <where_clause> := <where> ('AND' <where>)*
                 where_list %= where % ',';
@@ -355,7 +356,7 @@ namespace Orange {
                 field %= definition_field | primary_key_field | foreign_key_field;
                 // <field_def> := [col_name] <type> ('NOT' 'NULL')? ('DEFAULT' <value>)?
                 definition_field %= identifier > type > qi::matches[kw(+"NOT") > kw(+"NULL")] >
-                                    -qi::omit[kw(+"DEFAULT") > value[at_c<3>(qi::_val) = qi::_1]];
+                                    -(kw(+"DEFAULT") > value);
                 // <field_primary_key> := 'PRIMARY' 'KEY' '(' <column_list> ')'
                 primary_key_field %= kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
                 // <field_foreign_key> := 'FOREIGN' 'KEY' '(' [col_name] ')' 'REFERENCES' [tb_name]
@@ -409,17 +410,6 @@ namespace Orange {
 
 #ifdef BOOST_SPIRIT_DEBUG
         // 这些是输出语法树用的
-        std::ostream& operator<<(std::ostream& os, const op& oper) {
-            switch (oper) {
-                case op::Eq: os << "="; break;
-                case op::Neq: os << "<>"; break;
-                case op::Le: os << "<="; break;
-                case op::Ge: os << ">="; break;
-                case op::Ls: os << "<"; break;
-                case op::Gt: os << ">"; break;
-            }
-            return os;
-        }
         std::ostream& operator<<(std::ostream& os, const show_tb_stmt& stmt) {
             return os << "<show_tb_stmt>";
         }

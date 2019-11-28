@@ -22,6 +22,7 @@ set(SRCS
     ${PROJECT_SOURCE_DIR}/src/orange/index/index.cpp
     ${PROJECT_SOURCE_DIR}/src/fs/allocator/allocator.cpp
     ${PROJECT_SOURCE_DIR}/src/orange/parser/parser.cpp
+    ${PROJECT_SOURCE_DIR}/src/orange/syntax/syntax.cpp
 )
 
 # 设置编译方式

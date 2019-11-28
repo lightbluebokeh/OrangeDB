@@ -3,12 +3,13 @@
 #include <sstream>
 
 #include <orange/parser/parser.h>
+#include <orange/syntax/syntax.h>
 
 enum class ErrorCode { Ok, ParseError };
 
 std::string generate_error_message(const char* sql, const Orange::parser::parse_error& e) {
     std::stringstream ss;
-    ss << RED << "FAILED" << RESET << ": " << e.what() << "(at " << e.first << ")\n";
+    ss << RED << "FAILED" << RESET << ": " << e.what() << " (at " << e.first << ")\n";
     ss << "  " << sql << '\n';
     ss << "  " << std::string(e.first, ' ') << '^'
        << std::string(std::max(0, e.last - e.first - 1), ' ') << '\n';
@@ -27,6 +28,7 @@ ErrorCode manage(const std::string& sql) {
         sql_ast ast = parser.parse(sql);
         std::cout << GREEN << "parsed " << ast.stmt_list.size() << " statement"
                   << (ast.stmt_list.size() <= 1 ? "" : "s") << RESET << std::endl;
+        Orange::program(ast);
     }
     catch (const parse_error& e) {
         std::cout << generate_error_message(sql.c_str(), e);
