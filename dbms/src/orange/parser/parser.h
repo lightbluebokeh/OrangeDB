@@ -14,7 +14,9 @@ namespace Orange {
         };
 
         struct parse_error : public std::runtime_error {
-            int first, last;
+            // 错误位置
+            int first, last; // 由于使用迭代器来解析，last会始终指向字符串结尾
+            // 期望的非终结符，仅调试用
             std::string expected;
 
             parse_error(const char* msg, int first, int last, const std::string& expected) :

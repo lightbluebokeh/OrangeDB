@@ -1,6 +1,7 @@
 #include <catch/catch.hpp>
 #include <iostream>
 #include <optional>
+#include <sstream>
 
 #include <defs.h>
 #include <orange/parser/parser.h>
@@ -16,7 +17,7 @@ std::string generate_error_message(const char* sql, const parse_error& e) {
     ss << "  " << std::string(e.first, ' ') << '^'
        << std::string(std::max(0, e.last - e.first - 1), ' ') << '\n';
 
-    ss << CYAN << "expected" << RESET << ": " << e.expected << '\n';
+    ss << CYAN << "expected" << RESET << ": <" << e.expected << ">\n";
     ss << CYAN << "got" << RESET << ": '" << std::string(sql + e.first, sql + e.last) << "'\n";
     return ss.str();
 }
@@ -41,7 +42,7 @@ void parse_sql(const char* sql) {
                                                   << (ast.stmt_list.size() <= 1 ? "" : "s"));
     }
     catch (const parse_error& e) {
-        std::cout << YELLOW << "parse error at " << e.first << ": " << e.expected << " expected"
+        std::cout << YELLOW << "parse error at " << e.first << ": <" << e.expected << "> expected"
                   << RESET << std::endl;
     }
 }
@@ -77,7 +78,7 @@ TEST_CASE("db_stmt", "[parser]") {
     sql_ast ast;
 
     // create database
-    parse_sql("create database \ntest1\t;", ast);
+    parse_sql("create database test1\t;", ast);
     REQUIRE(ast.stmt_list[0].kind() == StmtKind::Db);
     REQUIRE(ast.stmt_list[0].db().kind() == DbStmtKind::Create);
     REQUIRE(ast.stmt_list[0].db().create().name == "test1");
@@ -102,11 +103,15 @@ TEST_CASE("tb_stmt", "[parser]") {
     sql_ast ast;
 
     // create table
-    parse_sql("create table aaa(col1 float not null,col2 varchar( 2));", ast);
+    parse_sql("create table a_(col int(3) not);");
+    parse_sql("create table aaa(col1 float not null,"
+              "col2 varchar( 20) default ' abc123中文\t',\n"
+              "col3 int  default NULL);",
+              ast);
     REQUIRE(ast.stmt_list[0].kind() == StmtKind::Tb);
     REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Create);
     REQUIRE(ast.stmt_list[0].tb().create().name == "aaa");
-    REQUIRE(ast.stmt_list[0].tb().create().fields.size() == 2);
+    REQUIRE(ast.stmt_list[0].tb().create().fields.size() == 3);
     REQUIRE(ast.stmt_list[0].tb().create().fields[0].kind() == FieldKind::Def);
     REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().col_name == "col1");
     REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().type.kind == DataTypeKind::Float);
@@ -114,9 +119,16 @@ TEST_CASE("tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().default_value.has_value() == false);
     REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().col_name == "col2");
     REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().type.kind == DataTypeKind::VarChar);
-    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().type.value == 2);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().type.value == 20);
     REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().is_not_null == false);
-    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().default_value.has_value() == false);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().default_value.get().is_string() == true);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().default_value.get().to_string() ==
+            " abc123中文\t");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().col_name == "col3");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().type.kind == DataTypeKind::Int);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().type.value == 0);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().is_not_null == false);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().default_value.get().is_null() == true);
 }
 
 TEST_CASE("idx_stmt", "[parser]") {}

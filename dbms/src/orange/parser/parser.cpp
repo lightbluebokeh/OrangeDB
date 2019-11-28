@@ -310,18 +310,19 @@ namespace Orange {
                             encoding::char_("<")[qi::_val = op::Ls] |
                             encoding::char_(">")[qi::_val = op::Gt];
 
-                // <type> := ('INT' '(' <int> ')') | ('VARCHAR' '(' <int> ')') | 'DATE' | 'FLOAT'
+                // <type> := ('INT' ('(' <int> ')')?) | ('VARCHAR' '(' <int> ')') | 'DATE' | 'FLOAT'
                 type =
-                    (kw(+"INT") > '(' >
-                     qi::int_[at_c<0>(qi::_val) = DataTypeKind::Int, at_c<1>(qi::_val) = qi::_1] >
-                     ')') |
+                    (kw(+"INT") >
+                     -('(' >
+                      qi::int_[at_c<0>(qi::_val) = DataTypeKind::Int, at_c<1>(qi::_val) = qi::_1] >
+                      ')')) |
                     (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = DataTypeKind::VarChar,
                                                      at_c<1>(qi::_val) = qi::_1] > ')') |
                     kw(+"DATE")[at_c<0>(qi::_val) = DataTypeKind::Date] |
                     kw(+"FLOAT")[at_c<0>(qi::_val) = DataTypeKind::Float];
 
-                // <value> := <int> | <string> | 'NULL'
-                value %= qi::int_ | value_string | kw(+"NULL");
+                // <value> := <int> | <string> | <float> | 'NULL'
+                value %= qi::int_ | value_string | qi::double_ | kw(+"NULL");
 
                 // <value_list> := <value> (',' <value>)*
                 value_list %= value % ',';
