@@ -18,7 +18,8 @@ std::string generate_error_message(const char* sql, const parse_error& e) {
        << std::string(std::max(0, e.last - e.first - 1), ' ') << '\n';
 
     ss << CYAN << "expected" << RESET << ": <" << e.expected << ">\n";
-    ss << CYAN << "got" << RESET << ": '" << std::string(sql + e.first, sql + e.last) << "'\n";
+    ss << CYAN << "rest" << RESET << ": '\033[4m" << std::string(sql + e.first, sql + e.last)
+       << "\033[0m'\n";
     return ss.str();
 }
 
@@ -50,7 +51,7 @@ void parse_sql(const char* sql) {
 /* 开始测试 */
 
 // 测token的识别情况和跳过空格换行符之类的情况
-TEST_CASE("keywords and skipper", "[parser]") {
+TEST_CASE("Testing keywords and skipper", "[parser]") {
     sql_ast ast;
 
     // 一些成功的例子
@@ -65,7 +66,7 @@ TEST_CASE("keywords and skipper", "[parser]") {
     parse_sql("showdatabases;");
 }
 
-TEST_CASE("sys_stmt", "[parser]") {
+TEST_CASE("Testing sys_stmt", "[parser]") {
     sql_ast ast;
 
     // show databases
@@ -74,7 +75,7 @@ TEST_CASE("sys_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].sys().kind() == SysStmtKind::ShowDb);
 }
 
-TEST_CASE("db_stmt", "[parser]") {
+TEST_CASE("Testing db_stmt", "[parser]") {
     sql_ast ast;
 
     // create database
@@ -99,14 +100,16 @@ TEST_CASE("db_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].db().kind() == DbStmtKind::Show);
 }
 
-TEST_CASE("tb_stmt", "[parser]") {
+TEST_CASE("Testing tb_stmt", "[parser]") {
     sql_ast ast;
 
     // create table
     parse_sql("create table a_(col int(3) not);");
-    parse_sql("create table aaa(col1 float not null,"
-              "col2 varchar( 20) default ' abc123中文\t',\n"
-              "col3 int  default NULL);",
+    parse_sql("create table aaa("
+              "  col1 float not null,"
+              "  col2 varchar( 20) default ' abc123中文\t',\n"
+              "  col3 int  default NULL"
+              ");",
               ast);
     REQUIRE(ast.stmt_list[0].kind() == StmtKind::Tb);
     REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Create);
@@ -129,8 +132,35 @@ TEST_CASE("tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().type.value == 0);
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().is_not_null == false);
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().default_value.get().is_null() == true);
+
+    // drop table
+    parse_sql("Drop table t1;Drop table t2;drop table t3;", ast);
+    REQUIRE(ast.stmt_list.size() == 3);
+    REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Drop);
+    REQUIRE(ast.stmt_list[0].tb().drop().name == "t1");
+    REQUIRE(ast.stmt_list[1].tb().drop().name == "t2");
+    REQUIRE(ast.stmt_list[2].tb().drop().name == "t3");
+
+    // describe table
+    parse_sql("desc table0;", ast);
+    REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Desc);
+
+    // insert into table
+    parse_sql("insert into table0 values (1, 1.3, '', NULL, 'abc  ');", ast);
+    REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::InsertInto);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().name == "table0");
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values.size() == 5);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[0].is_int());
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[0].to_int() == 1);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[1].is_float());
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[1].to_float() == 1.3);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[2].is_string());
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[2].to_string() == "");
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[3].is_null());
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[4].is_string());
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[4].to_string() == "abc  ");
 }
 
-TEST_CASE("idx_stmt", "[parser]") {}
+TEST_CASE("Testing idx_stmt", "[parser]") {}
 
 TEST_CASE("alter_stmt", "[parser]") {}

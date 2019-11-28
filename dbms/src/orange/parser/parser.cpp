@@ -44,7 +44,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::tb_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_tb_stmt, name, fields)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_tb_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::desc_tb_stmt, name)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, values)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, tables, values)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::delete_from_tb_stmt, name, where_clause)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::update_tb_stmt, name, set, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::select_tb_stmt, select, tables, where)
@@ -212,9 +212,10 @@ namespace Orange {
                 drop_tb %= kw(+"DROP") >> kw(+"TABLE") > identifier;
                 // <desc_tb> := 'DESC' [tb_name]
                 desc_tb %= kw(+"DESC") > identifier;
-                // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] 'VALUES' <value_lists>
-                insert_into_tb %=
-                    kw(+"INSERT") > kw(+"INTO") > identifier > kw(+"VALUES") > value_lists;
+                // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] ('(' <table_list> ')')?
+                //                     'VALUES' '(' <value_list> ')'
+                insert_into_tb %= kw(+"INSERT") > kw(+"INTO") > identifier > kw(+"VALUES") >
+                                  -('(' >> tables > ')') > '(' > value_list > ')';
                 // <delete_from_tb> := 'DELETE' 'FROM' [tb_name] 'WHERE' <where_clause>
                 delete_from_tb %=
                     kw(+"DELETE") > kw(+"FROM") > identifier > kw(+"WHERE") > where_list;
@@ -314,15 +315,16 @@ namespace Orange {
                 type =
                     (kw(+"INT") >
                      -('(' >
-                      qi::int_[at_c<0>(qi::_val) = DataTypeKind::Int, at_c<1>(qi::_val) = qi::_1] >
-                      ')')) |
+                       qi::int_[at_c<0>(qi::_val) = DataTypeKind::Int, at_c<1>(qi::_val) = qi::_1] >
+                       ')')) |
                     (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = DataTypeKind::VarChar,
                                                      at_c<1>(qi::_val) = qi::_1] > ')') |
                     kw(+"DATE")[at_c<0>(qi::_val) = DataTypeKind::Date] |
                     kw(+"FLOAT")[at_c<0>(qi::_val) = DataTypeKind::Float];
 
                 // <value> := <int> | <string> | <float> | 'NULL'
-                value %= qi::int_ | value_string | qi::double_ | kw(+"NULL");
+                value %=
+                    (qi::int_ >> &!qi::no_skip['.']) | value_string | qi::double_ | kw(+"NULL");
 
                 // <value_list> := <value> (',' <value>)*
                 value_list %= value % ',';
@@ -353,7 +355,7 @@ namespace Orange {
                 field %= definition_field | primary_key_field | foreign_key_field;
                 // <field_def> := [col_name] <type> ('NOT' 'NULL')? ('DEFAULT' <value>)?
                 definition_field %= identifier > type > qi::matches[kw(+"NOT") > kw(+"NULL")] >
-                                    -(kw(+"DEFAULT") > value);
+                                    -qi::omit[kw(+"DEFAULT") > value[at_c<3>(qi::_val) = qi::_1]];
                 // <field_primary_key> := 'PRIMARY' 'KEY' '(' <column_list> ')'
                 primary_key_field %= kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
                 // <field_foreign_key> := 'FOREIGN' 'KEY' '(' [col_name] ')' 'REFERENCES' [tb_name]

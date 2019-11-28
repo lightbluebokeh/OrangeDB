@@ -45,8 +45,7 @@ namespace Orange {
         /** value */
         enum class DataValueKind { Null, Int, String, Float };
         struct data_value {
-            using value_type = boost::variant<boost::blank, int, std::string, double>;
-            value_type value;
+            boost::variant<boost::blank, int, std::string, double> value;
 
             bool is_null() const { return value.which() == 0; }
             bool is_int() const { return value.which() == 1; }
@@ -60,9 +59,6 @@ namespace Orange {
             const std::string& to_string() const { return boost::get<std::string>(value); }
             double& to_float() { return boost::get<double>(value); }
             double to_float() const { return boost::get<double>(value); }
-
-            // 一个奇怪的编译错误
-            operator value_type() const { return value; }
         };
         using data_value_list = std::vector<data_value>;
         using data_value_lists = std::vector<data_value_list>;
@@ -203,7 +199,8 @@ namespace Orange {
 
         struct insert_into_tb_stmt {
             std::string name;
-            data_value_lists values;
+            boost::optional<table_list> tables;
+            data_value_list values;
         };
 
         struct delete_from_tb_stmt {
