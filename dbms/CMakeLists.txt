@@ -49,4 +49,5 @@ elseif(MSVC)
 endif()
 
 add_library(dbms SHARED src/dbms.cpp ${SRCS})
+add_executable(terminal src/terminal/terminal.cpp ${SRCS})
 add_subdirectory(unittest)

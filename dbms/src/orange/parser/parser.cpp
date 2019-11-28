@@ -214,8 +214,8 @@ namespace Orange {
                 desc_tb %= kw(+"DESC") > identifier;
                 // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] ('(' <table_list> ')')?
                 //                     'VALUES' '(' <value_list> ')'
-                insert_into_tb %= kw(+"INSERT") > kw(+"INTO") > identifier > kw(+"VALUES") >
-                                  -('(' >> tables > ')') > '(' > value_list > ')';
+                insert_into_tb %= kw(+"INSERT") > kw(+"INTO") > identifier > -('(' > tables > ')') >
+                                  kw(+"VALUES") > '(' > value_list > ')';
                 // <delete_from_tb> := 'DELETE' 'FROM' [tb_name] 'WHERE' <where_clause>
                 delete_from_tb %=
                     kw(+"DELETE") > kw(+"FROM") > identifier > kw(+"WHERE") > where_list;

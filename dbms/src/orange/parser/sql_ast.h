@@ -371,7 +371,7 @@ namespace Orange {
             // 包装的语句类型
             StmtKind kind() const { return (StmtKind)stmt.which(); }
 
-            // 转换成特定的语句，类型不对应时get会抛异常
+            // 转换成特定的语句，类型不对应时会抛异常
             sys_stmt& sys() { return boost::get<sys_stmt>(stmt); }
             db_stmt& db() { return boost::get<db_stmt>(stmt); }
             tb_stmt& tb() { return boost::get<tb_stmt>(stmt); }

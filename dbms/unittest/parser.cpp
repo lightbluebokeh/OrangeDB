@@ -23,7 +23,7 @@ std::string generate_error_message(const char* sql, const parse_error& e) {
     return ss.str();
 }
 
-// 封装测试的宏
+// 这是无语法错误的sql，需要传入ast
 void parse_sql(const char* sql, sql_ast& ast) {
     std::cout << "parsing '\033[4m" << sql << "\033[0m'\n";
     try {
@@ -35,10 +35,12 @@ void parse_sql(const char* sql, sql_ast& ast) {
         FAIL(generate_error_message(sql, e));
     }
 }
+// 包含语法错误的sql
 void parse_sql(const char* sql) {
     std::cout << "parsing '\033[4m" << sql << "\033[0m'\n";
     try {
-        sql_ast ast = parser.parse(sql);  // 解析失败
+        sql_ast ast = parser.parse(sql);
+        // 实际上解析成功了，为什么呢
         FAIL("expecting parse error, but parsed " << ast.stmt_list.size() << " statement"
                                                   << (ast.stmt_list.size() <= 1 ? "" : "s"));
     }
@@ -66,6 +68,7 @@ TEST_CASE("Testing keywords and skipper", "[parser]") {
     parse_sql("showdatabases;");
 }
 
+// 测试system statement
 TEST_CASE("Testing sys_stmt", "[parser]") {
     sql_ast ast;
 
@@ -75,6 +78,7 @@ TEST_CASE("Testing sys_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].sys().kind() == SysStmtKind::ShowDb);
 }
 
+// 测试database statement
 TEST_CASE("Testing db_stmt", "[parser]") {
     sql_ast ast;
 
@@ -100,6 +104,7 @@ TEST_CASE("Testing db_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].db().kind() == DbStmtKind::Show);
 }
 
+// 测试table statement
 TEST_CASE("Testing tb_stmt", "[parser]") {
     sql_ast ast;
 
@@ -149,18 +154,26 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     parse_sql("insert into table0 values (1, 1.3, '', NULL, 'abc  ');", ast);
     REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::InsertInto);
     REQUIRE(ast.stmt_list[0].tb().insert_into().name == "table0");
+    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.has_value() == false);
     REQUIRE(ast.stmt_list[0].tb().insert_into().values.size() == 5);
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[0].is_int());
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[0].to_int() == 1);
-    REQUIRE(ast.stmt_list[0].tb().insert_into().values[1].is_float());
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[1].is_float() == true);
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[1].to_float() == 1.3);
-    REQUIRE(ast.stmt_list[0].tb().insert_into().values[2].is_string());
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[2].is_string() == true);
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[2].to_string() == "");
-    REQUIRE(ast.stmt_list[0].tb().insert_into().values[3].is_null());
-    REQUIRE(ast.stmt_list[0].tb().insert_into().values[4].is_string());
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[3].is_null() == true);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().values[4].is_string() == true);
     REQUIRE(ast.stmt_list[0].tb().insert_into().values[4].to_string() == "abc  ");
+    parse_sql("insert into table1 (col1, col2) values (123.456, '');", ast);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.has_value() == true);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.get().size() == 2);
+    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.get()[0] == "col1");
+    REQUIRE(ast.stmt_list[0].tb().insert_into().tables.get()[1] == "col2");
 }
 
+// 测试index statement
 TEST_CASE("Testing idx_stmt", "[parser]") {}
 
+// 测试alter statement
 TEST_CASE("alter_stmt", "[parser]") {}
