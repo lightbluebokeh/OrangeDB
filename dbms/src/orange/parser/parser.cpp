@@ -288,6 +288,14 @@ namespace Orange {
 
                 // <identifier> := [a-zA-Z][_0-9a-zA-Z]*
                 identifier %=
+                    !(kw(+"DATABASE") | kw(+"DATABASES") | kw(+"TABLE") | kw(+"TABLES") |
+                      kw(+"SHOW") | kw(+"CREATE") | kw(+"DROP") | kw(+"USE") | kw(+"PRIMARY") |
+                      kw(+"KEY") | kw(+"NOT") | kw(+"NULL") | kw(+"INSERT") | kw(+"INTO") |
+                      kw(+"VALUES") | kw(+"DELETE") | kw(+"FROM") | kw(+"WHERE") | kw(+"UPDATE") |
+                      kw(+"SET") | kw(+"SELECT") | kw(+"IS") | kw(+"INT") | kw(+"VARCHAR") |
+                      kw(+"DEFAULT") | kw(+"CONSTRAINT") | kw(+"CHANGE") | kw(+"ALTER") |
+                      kw(+"ADD") | kw(+"RENAME") | kw(+"DESC") | kw(+"INDEX") | kw(+"AND") |
+                      kw(+"DATE") | kw(+"FLOAT") | kw(+"FOREIGN") | kw(+"REFERENCES")) >>
                     qi::lexeme[encoding::char_("a-zA-Z") > *(encoding::char_("_0-9a-zA-Z") | '_')];
 
                 // <string> := "'" [^']* "'"
@@ -307,12 +315,9 @@ namespace Orange {
                 selectors %= '*' | (col % ',');
 
                 // <op> := '=' | '<>' | '<=' | '>=' | '<' | '>'
-                operator_ = encoding::char_("=")[qi::_val = op::Eq] |
-                            encoding::char_("<>")[qi::_val = op::Neq] |
-                            encoding::char_("<=")[qi::_val = op::Le] |
-                            encoding::char_(">=")[qi::_val = op::Ge] |
-                            encoding::char_("<")[qi::_val = op::Ls] |
-                            encoding::char_(">")[qi::_val = op::Gt];
+                operator_ = qi::lit("=")[qi::_val = op::Eq] | qi::lit("<>")[qi::_val = op::Neq] |
+                            qi::lit("<=")[qi::_val = op::Le] | qi::lit(">=")[qi::_val = op::Ge] |
+                            qi::lit("<")[qi::_val = op::Ls] | qi::lit(">")[qi::_val = op::Gt];
 
                 // <type> := ('INT' ('(' <int> ')')?) | ('VARCHAR' '(' <int> ')') | 'DATE' | 'FLOAT'
                 type =
