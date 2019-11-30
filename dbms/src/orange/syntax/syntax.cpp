@@ -5,17 +5,24 @@ namespace Orange {
     [[noreturn]] void unexpected() { throw std::runtime_error("unexpected error"); }
 
     using namespace parser;
+    // 1. switch记得break
+    // 2. 用auto&或const auto&而不是auto
+    // 3. 包含variant的结构体带有封装了get来转换类型的方法，类型不对应会抛异常，比如本应是sys_stmt
+    //    结果用.db()转成db_stmt
+    // 4. 文法没有嵌套语句，现在也不确定要支持哪些嵌套语句，就先不搞
 
-    std::string type_string(const data_type& type) {
+    inline std::string type_string(const data_type& type) {
+        // 只有这个的kind不是方法，因为它是在产生式直接赋值的，不是variant（弄成variant=多写4个结构体+5个函数，累了
         switch (type.kind) {
-            case DataTypeKind::Int: return "INT, " + std::to_string(type.value);
-            case DataTypeKind::VarChar: return "VARCHAR, " + std::to_string(type.value);
+            case DataTypeKind::Int:
+                return type.has_value() ? "INT, " + std::to_string(type.int_value()) : "INT";
+            case DataTypeKind::VarChar: return "VARCHAR, " + std::to_string(type.int_value());
             case DataTypeKind::Date: return "DATE";
             case DataTypeKind::Float: return "FLOAT";
             default: unexpected();
         }
     }
-    std::string value_string(const data_value& value) {
+    inline std::string value_string(const data_value& value) {
         switch (value.kind()) {
             case DataValueKind::Int: return std::to_string(value.to_int());
             case DataValueKind::String: return "'" + value.to_string() + "'";
@@ -24,30 +31,35 @@ namespace Orange {
             default: unexpected();
         }
     }
-    std::string expression_string(const expr& e) {
+    inline std::string expression_string(const expr& e) {
         if (e.is_column()) {
             return (e.col().table_name.has_value() ? e.col().table_name.get() + "." : "") +
                    e.col().col_name;
         } else if (e.is_value()) {
             return value_string(e.value());
-        } else
+        } else {
             unexpected();
+        }
     }
 
     /** 遍历语法树部分 */
 
-    void sys(sys_stmt& stmt) {
+    // 附加指令 比如新增调试指令会加在sys这里
+    inline void sys(sys_stmt& stmt) {
         switch (stmt.kind()) {
-            case SysStmtKind::ShowDb: std::cout << "show something?\n"; break;
+            case SysStmtKind::ShowDb:
+                std::cout << "  show databases:\n    show something?\n";
+                break;
             default: unexpected();
         }
     }
 
-    void db(db_stmt& stmt) {
+    inline void db(db_stmt& stmt) {
         switch (stmt.kind()) {
             case DbStmtKind::Show: {
-                std::cout << "nothing to show." << std::endl;
-            } break;
+                std::cout << "  show tables:" << std::endl;
+                std::cout << "    nothing to show." << std::endl;
+            } break;  // clang-format喜欢把break放在这里，为什么呢
             case DbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
                 std::cout << "  create database:" << std::endl;
@@ -67,7 +79,7 @@ namespace Orange {
         }
     }
 
-    void tb(tb_stmt& stmt) {
+    inline void tb(tb_stmt& stmt) {
         switch (stmt.kind()) {
             case TbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
@@ -196,9 +208,9 @@ namespace Orange {
                 auto& select = stmt.select();
                 std::cout << "  select from table:" << std::endl;
                 std::cout << "    selected cols: ";
-                if (select.select.empty())
+                if (select.select.empty()) {  // empty时认为是select *
                     std::cout << "*" << std::endl;
-                else {
+                } else {
                     for (auto& col : select.select) {
                         if (col.table_name.has_value()) std::cout << col.table_name.get() << ".";
                         std::cout << col.col_name << " ";
@@ -213,7 +225,7 @@ namespace Orange {
                 if (select.where.has_value()) {
                     std::cout << "    where:" << std::endl;
                     for (auto& cond : select.where.get()) {
-                        if (cond.is_null_check()) {
+                        if (cond.is_null_check()) {  // 只有两个的variant我只弄了is_xxx，要搞enum可以手动加
                             const auto& null = cond.null_check();
                             std::cout << "      " << null.col_name << " IS "
                                       << (null.is_not_null ? "NOT " : "") << "NULL";
@@ -230,9 +242,10 @@ namespace Orange {
         }
     }
 
-    void idx(idx_stmt& stmt) {}
+    // 懒了
+    inline void idx(idx_stmt& stmt) {}
 
-    void alter(alter_stmt& stmt) {}
+    inline void alter(alter_stmt& stmt) {}
 
     // 遍历语法树
     void program(sql_ast& ast) {

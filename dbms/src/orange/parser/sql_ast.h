@@ -39,7 +39,12 @@ namespace Orange {
         enum class DataTypeKind { Int, VarChar, Date, Float };
         struct data_type {
             DataTypeKind kind;
-            int value;
+            boost::variant<boost::blank, int> value;
+
+            bool has_value() const { return value.which() != 0; }
+
+            int& int_value() { return boost::get<int>(value); }
+            int int_value() const { return boost::get<int>(value); }
         };
 
         /** value */
@@ -64,7 +69,7 @@ namespace Orange {
             operator value_type() const { return value; }
         };
         using data_value_list = std::vector<data_value>;
-        using data_value_lists = std::vector<data_value_list>;
+        using data_value_lists = std::vector<data_value_list>;  // 这个东西多半是假的
 
         /** expr */
         struct expr {
@@ -86,6 +91,7 @@ namespace Orange {
             std::string col_name;
             data_type type;
             bool is_not_null;
+            // bool is_primary_key;  // 有需求再加
             boost::optional<data_value> default_value;
         };
 
@@ -150,7 +156,6 @@ namespace Orange {
             std::string col_name;
             data_value val;
         };
-
         using set_clause = std::vector<single_set>;
 
         /** sql statement */
@@ -269,7 +274,7 @@ namespace Orange {
         };
 
         /** index statement */
-        enum class IdxStmtKind { None = -1, Create, Drop, AlterAdd, AlterDrop };
+        enum class IdxStmtKind { Create, Drop, AlterAdd, AlterDrop };
 
         struct create_idx_stmt {
             std::string idx_name;

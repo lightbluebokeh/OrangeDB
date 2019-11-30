@@ -127,14 +127,14 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().default_value.has_value() == false);
     REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().col_name == "col2");
     REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().type.kind == DataTypeKind::VarChar);
-    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().type.value == 20);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().type.int_value() == 20);
     REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().is_not_null == false);
     REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().default_value.get().is_string() == true);
     REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().default_value.get().to_string() ==
             " abc123中文\t");
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().col_name == "col3");
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().type.kind == DataTypeKind::Int);
-    REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().type.value == 0);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().type.has_value() == false);
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().is_not_null == false);
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().default_value.get().is_null() == true);
 
