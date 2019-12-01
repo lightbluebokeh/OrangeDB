@@ -1,32 +1,42 @@
 <template>
   <div id="app">
-    <div id="nav">
-      <router-link to="/">Home</router-link> |
-      <router-link to="/about">About</router-link>
-    </div>
-    <router-view />
+    <el-container>
+      <el-header>
+        <el-menu :default-active="$route.path" router mode="horizontal">
+          <!-- 来点emoji -->
+          <el-menu-item index="/">🍊 OrangeDB</el-menu-item>
+          <el-menu-item index="/about">关于</el-menu-item>
+        </el-menu>
+      </el-header>
+
+      <el-main class="body">
+        <el-scrollbar class="scrollbar">
+          <router-view />
+        </el-scrollbar>
+      </el-main>
+    </el-container>
   </div>
 </template>
 
+<script lang="ts">
+import Vue from 'vue';
+export default Vue.extend({});
+</script>
+
 <style lang="scss">
-#app {
-  font-family: "Avenir", Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
+$header-height: 60px;
+
+.body {
+  padding: 0;
+  // 鬼知道body的8px margin是从哪来的
+  height: calc(100vh - #{$header-height} - 16px);
 }
 
-#nav {
-  padding: 30px;
+.scrollbar {
+  height: 100%;
 
-  a {
-    font-weight: bold;
-    color: #2c3e50;
-
-    &.router-link-exact-active {
-      color: #42b983;
-    }
+  .el-scrollbar__wrap {
+    overflow-x: hidden;
   }
 }
 </style>
