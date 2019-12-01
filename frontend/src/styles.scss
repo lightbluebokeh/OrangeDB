@@ -8,7 +8,7 @@ $--font-path: "~element-ui/lib/theme-chalk/fonts";
 
 // 文本框衬线字体
 textarea {
-  font-family: sans-serif;
+  font-family: "Consolas", monospace, sans-serif;
 }
 
 // 标题太粗了
@@ -17,17 +17,4 @@ h2,
 h3,
 h4 {
   font-weight: 400;
-}
-
-.nav {
-  padding: 30px;
-
-  a {
-    font-weight: bold;
-    color: #2c3e50;
-
-    &.router-link-exact-active {
-      color: #42b983;
-    }
-  }
 }

@@ -1,8 +1,11 @@
 <template>
   <div class="about">
+    <div style="text-align:center">
+      <img width="128px" src="@/assets/logo.png" alt="logo" />
+    </div>
     <h1>OrangeDB</h1>
     <el-divider />
-    <span>一个迷你关系数据库</span>
+    <p>一个小型关系数据库</p>
   </div>
 </template>
 
