@@ -2,6 +2,7 @@
 
 #include "syntax.h"
 #include "orange/orange.h"
+#include "orange/table/table.h"
 
 static auto& cout = std::cout;
 using std::endl;
@@ -20,11 +21,11 @@ namespace Orange {
     inline std::string type_string(const data_type& type) {
         // 只有这个的kind不是方法，因为它是在产生式直接赋值的，不是variant（弄成variant=多写4个结构体+5个函数，累了
         switch (type.kind) {
-            case DataTypeKind::Int:
+            case ORANGE_INT:
                 return type.has_value() ? "INT, " + std::to_string(type.int_value()) : "INT";
-            case DataTypeKind::VarChar: return "VARCHAR, " + std::to_string(type.int_value());
-            case DataTypeKind::Date: return "DATE";
-            case DataTypeKind::Float: return "FLOAT";
+            case ORANGE_VARCHAR: return "VARCHAR, " + std::to_string(type.int_value());
+            case ORANGE_DATE: return "DATE";
+            case ORANGE_NUMERIC: return "NUMERIC, " + std::to_string(type.int_value() / 40) + std::to_string(type.int_value() % 40);
             default: unexpected();
         }
     }
@@ -54,7 +55,7 @@ namespace Orange {
     inline void sys(sys_stmt& stmt) {
         switch (stmt.kind()) {
             case SysStmtKind::ShowDb: {
-                cout << "  show databases:\n    show something?\n";
+                cout << "  show databases:\n";
                 cout << all() << endl;
             } break;
             default: unexpected();
@@ -65,7 +66,7 @@ namespace Orange {
         switch (stmt.kind()) {
             case DbStmtKind::Show: {
                 cout << "  show tables:" << std::endl;
-                cout << "    nothing to show." << std::endl;
+                cout << all_tables() << endl;
             } break;  // clang-format喜欢把break放在这里，为什么呢
             case DbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
@@ -83,6 +84,7 @@ namespace Orange {
                 auto& use_stmt = stmt.use();
                 cout << "  use database:" << std::endl;
                 cout << "    name: " << use_stmt.name << std::endl;
+                use(use_stmt.name);
             } break;
             default: unexpected();
         }
@@ -95,6 +97,9 @@ namespace Orange {
                 cout << "  create table:" << std::endl;
                 cout << "    table: " << create_stmt.name << std::endl;
                 cout << "    fields:" << std::endl;
+                std::vector<Column> cols;
+                std::vector<String> p_key;
+                std::vector<f_key_t> f_keys;
                 for (auto& field : create_stmt.fields) {
                     switch (field.kind()) {
                         case FieldKind::Def: {
@@ -108,6 +113,20 @@ namespace Orange {
                                               ? value_string(def.default_value.get())
                                               : "<none>")
                                       << std::endl;
+                                    //   def.default_value.get_value_or(/)
+                            byte_arr_t dft = {DATA_NULL};
+                            if (def.default_value.has_value()) {
+                                auto &value = def.default_value.get();
+                                if (value.is_int()) {
+                                    dft.resize(1 + 4);
+                                    *(int*)(dft.data() + 1) = value.to_int();
+                                } else if (value.is_string()) {
+                                    auto str = value.to_string();
+                                    dft.resize(1 + str.length());
+                                    strncpy((char*)dft.data() + 1, str.data(), str.length());
+                                }
+                            }
+                            cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), 0, 0, !def.is_not_null, dft, {}));
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
@@ -117,27 +136,32 @@ namespace Orange {
                                 cout << col << ' ';
                             }
                             cout << std::endl;
+                            p_key = primary_key.col_list;
                         } break;
                         case FieldKind::ForeignKey: {
                             auto& foreign_key = field.foreign_key();
                             cout << "      foreign key:" << std::endl;
                             cout << "        col name: " << foreign_key.col;
                             cout << "        ref table: " << foreign_key.ref_table_name;
-                            cout << "        ref col name: " << foreign_key.col;
+                            cout << "        ref col name: " << foreign_key.col << endl;
+                            f_keys.push_back(f_key_t(foreign_key.col, foreign_key.ref_table_name, {foreign_key.col}, {foreign_key.ref_col_name}));
                         } break;
                         default: unexpected();
                     }
                 }
+                SavedTable::create(create_stmt.name, cols, p_key, f_keys);
             } break;
             case TbStmtKind::Drop: {
                 auto& drop = stmt.drop();
                 cout << "  drop table:" << std::endl;
-                cout << "    table name: " << drop.name;
+                cout << "    table name: " << drop.name << endl;
+                SavedTable::drop(drop.name);
             } break;
             case TbStmtKind::Desc: {
                 auto& desc = stmt.desc();
                 cout << "  describe table:" << std::endl;
-                cout << "    table name: " << desc.name;
+                cout << "    table name: " << desc.name << endl;
+                cout << SavedTable::get(desc.name)->description() << endl;
             } break;
             case TbStmtKind::InsertInto: {
                 auto& insert = stmt.insert_into();

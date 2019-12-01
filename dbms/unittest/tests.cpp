@@ -70,7 +70,7 @@ TEST_CASE("table", "[fs]") {
     Orange::create("test");
     Orange::use("test");
 
-    SavedTable::create("test", {Column("test", "int", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    SavedTable::create("test", {Column("test", ORANGE_INT, 0, 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = SavedTable::get("test");
 
@@ -117,7 +117,7 @@ TEST_CASE("btree", "[index]") {
     Orange::create("test");
     Orange::use("test");
 
-    SavedTable::create("test", {Column("test", "int", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    SavedTable::create("test", {Column("test", ORANGE_INT, 0, 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
     auto table = SavedTable::get("test");
     table->create_index("test");
@@ -171,7 +171,7 @@ TEST_CASE("varchar", "[index]") {
 
     Orange::create("test");
     Orange::use("test");
-    SavedTable::create("varchar", {Column("test", "varchar(2333)", 0, 0, 0, to_bytes("233"), {})}, {},
+    SavedTable::create("varchar", {Column("test", ORANGE_VARCHAR, 2333, 0, 0, 0, to_bytes("233"), {})}, {},
                   {});
     auto table = SavedTable::get("varchar");
     int lim = 1000;

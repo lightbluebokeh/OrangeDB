@@ -33,7 +33,6 @@ namespace Orange {
         if (name == cur) return 1;
         unuse();
         ensure(exists(name), "database `" + name + "` does not exist");
-        if (cur.length()) fs::current_path("..");
         fs::current_path(name);
         cur = name;
         return 1;
@@ -58,7 +57,7 @@ namespace Orange {
         // if (!using_db()) return {};
         ensure(using_db(), "using some database first");
         std::vector<String> data;
-        for (auto it : fs::directory_iterator(cur)) {
+        for (auto it : fs::directory_iterator(".")) {
             if (it.is_directory()) data.push_back(it.path().filename().string());
         }
         return TmpTable::from_strings("tables", data);

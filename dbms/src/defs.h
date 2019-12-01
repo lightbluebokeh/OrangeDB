@@ -72,39 +72,39 @@ using uint8 = uint8_t;
 
 // 没法重载赋值 /cy
 const int F_KEY_NAME_LIM = 32;
-struct f_key_name_t {
-    char data[F_KEY_NAME_LIM + 1];
-};
-const int COL_NAME_LIM = 32;
-struct col_name_t {
-    char data[COL_NAME_LIM + 1];
-    inline String get() const { return String(data); }
-    void set(const String& name) {
-        memcpy(data, name.data(), name.length());
-        data[name.length()] = 0;
-    }
-};
-const int TBL_NAME_LIM = 32;
-struct tbl_name_t {
-    char data[TBL_NAME_LIM + 1];
-    // tbl_name_t(const String& name) {
-    //     memcpy(data, name.data(), name.size());
-    //     data[name.size()] = 0;
-    // }
-    inline String get() { return String(data); }
-};
-const int COL_NAME_LIST_LIM = 5;
-struct col_name_list_t {
-    col_name_t data[COL_NAME_LIST_LIM];
-    int size = 0;
+// struct f_key_name_t {
+//     char data[F_KEY_NAME_LIM + 1];
+// };
+// const int COL_NAME_LIM = 32;
+// struct col_name_t {
+//     char data[COL_NAME_LIM + 1];
+//     inline String get() const { return String(data); }
+//     void set(const String& name) {
+//         memcpy(data, name.data(), name.length());
+//         data[name.length()] = 0;
+//     }
+// };
+// const int TBL_NAME_LIM = 32;
+// struct tbl_name_t {
+//     char data[TBL_NAME_LIM + 1];
+//     // tbl_name_t(const String& name) {
+//     //     memcpy(data, name.data(), name.size());
+//     //     data[name.size()] = 0;
+//     // }
+//     inline String get() { return String(data); }
+// };
+// const int COL_NAME_LIST_LIM = 5;
+// struct col_name_list_t {
+//     col_name_t data[COL_NAME_LIST_LIM];
+//     int size = 0;
 
-    void add(col_name_t name) {
-        if (size == COL_NAME_LIST_LIM) {
-            throw "increase your constant";
-        }
-        data[size++] = name;
-    }
-};
+//     void add(col_name_t name) {
+//         if (size == COL_NAME_LIST_LIM) {
+//             throw "increase your constant";
+//         }
+//         data[size++] = name;
+//     }
+// };
 
 template <typename>
 struct is_std_vector : std::false_type {};

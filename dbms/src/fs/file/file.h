@@ -13,6 +13,7 @@
 #include <fs/file/file_manage.h>
 
 class Column;
+class f_key_t;
 
 // 打开的文件
 class File {
@@ -103,6 +104,8 @@ public:
                 write(arg.lo, arg.lo_eq, arg.hi, arg.hi_eq);
             } else if constexpr (std::is_same_v<arg_t, Column>) {
                 write(arg.name, arg.kind, arg.maxsize, arg.p, arg.s, arg.unique, arg.nullable, arg.index, arg.dft, arg.ranges);
+            } else if constexpr (std::is_same_v<arg_t, f_key_t>) {
+                write(arg.name, arg.ref_tbl, arg.list, arg.ref_list);
             } else {
                 write_bytes((bytes_t)&arg, sizeof(arg_t));
             }
@@ -150,6 +153,8 @@ public:
             read(t.lo, t.lo_eq, t.hi, t.hi_eq);
         } else if constexpr (std::is_same_v<T, Column>) {
             read(t.name, t.type, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
+        } else if constexpr (std::is_same_v<T, f_key_t>) {
+            read(t.name, t.ref_tbl, t.list, t.ref_list);
         } else {
             read_bytes((bytes_t)&t, sizeof(T));
         }

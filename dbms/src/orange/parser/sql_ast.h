@@ -12,6 +12,8 @@
 #pragma warning(pop)
 #endif
 
+#include "defs.h"
+
 #include <vector>
 
 namespace Orange {
@@ -36,15 +38,16 @@ namespace Orange {
         enum class op { Eq, Neq, Le, Ge, Ls, Gt };
 
         /** type */
-        enum class DataTypeKind { Int, VarChar, Date, Float };
+        // enum class DataTypeKind { Int, VarChar, Date, Float };
         struct data_type {
-            DataTypeKind kind;
+            datatype_t kind;
             boost::variant<boost::blank, int> value;
 
             bool has_value() const { return value.which() != 0; }
 
             int& int_value() { return boost::get<int>(value); }
             int int_value() const { return boost::get<int>(value); }
+            int int_value_or(int x) const { return has_value() ? int_value() : x; }
         };
 
         /** value */
@@ -65,6 +68,10 @@ namespace Orange {
             const std::string& to_string() const { return boost::get<std::string>(value); }
             double& to_float() { return boost::get<double>(value); }
             double to_float() const { return boost::get<double>(value); }
+
+            static data_value null_value() {
+                return data_value();
+            }
 
             operator value_type() const { return value; }
         };

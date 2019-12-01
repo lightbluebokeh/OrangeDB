@@ -53,7 +53,7 @@ public:
 
     static TmpTable from_strings(const String& title, const std::vector<String>& strs) {
         TmpTable ret;
-        ret.cols.push_back(Column(title, ORANGE_VARCHAR));
+        ret.cols.push_back(Column(title));
         ret.recs.reserve(strs.size());
         for (auto &str: strs) {
             ret.recs.push_back({to_bytes(str)});

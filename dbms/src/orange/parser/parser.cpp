@@ -324,12 +324,12 @@ namespace Orange {
                 type =
                     (kw(+"INT") >
                      -('(' >
-                       qi::int_[at_c<0>(qi::_val) = DataTypeKind::Int, at_c<1>(qi::_val) = qi::_1] >
+                       qi::int_[at_c<0>(qi::_val) = ORANGE_INT, at_c<1>(qi::_val) = qi::_1] >
                        ')')) |
-                    (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = DataTypeKind::VarChar,
+                    (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = ORANGE_VARCHAR,
                                                      at_c<1>(qi::_val) = qi::_1] > ')') |
-                    kw(+"DATE")[at_c<0>(qi::_val) = DataTypeKind::Date] |
-                    kw(+"FLOAT")[at_c<0>(qi::_val) = DataTypeKind::Float];
+                    kw(+"DATE")[at_c<0>(qi::_val) = ORANGE_DATE] |
+                    kw(+"FLOAT")[at_c<0>(qi::_val) = ORANGE_NUMERIC, at_c<1>(qi::_val) = 40 * 18 + 2];
 
                 // <value> := <int> | <string> | <float> | 'NULL'
                 value %=

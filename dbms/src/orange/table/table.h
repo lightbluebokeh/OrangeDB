@@ -95,7 +95,7 @@ public:
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_keys) {
         check_db();
-        ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
+        // ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
         ensure(!fs::exists(get_root(name)), "table `" + name + "' exists");
         std::error_code e;
         if (!fs::create_directory(get_root(name), e)) throw e.message();
@@ -116,6 +116,20 @@ public:
         table->read_metadata();
         table->rid_pool.load();
         return table;
+    }
+
+    TmpTable description() {
+        TmpTable ret;
+        ret.cols.push_back(Column("Name"));
+        ret.cols.push_back(Column("null"));
+        ret.cols.push_back(Column("type"));
+        ret.recs.resize(cols.size());
+        for (unsigned i = 0; i < cols.size(); i++) {
+            ret.recs[i].push_back(to_bytes(cols[i].get_name()));
+            ret.recs[i].push_back(to_bytes(cols[i].nullable ? "nullable" : "not null"));
+            ret.recs[i].push_back(to_bytes(cols[i].type_string()));
+        }
+        return ret;
     }
 
     //  切换数据库的时候调用
