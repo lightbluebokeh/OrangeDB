@@ -6,12 +6,6 @@
 static auto& cout = std::cout;
 using std::endl;
 
-// put `c` for `cnt` times
-static auto& put(char c, int cnt = 1, std::ostream& cout = ::cout) { 
-    while (cnt--) cout.put(c); 
-    return cout;
-}
-
 namespace Orange {
     // 可能调试有用
     [[noreturn]] void unexpected() { throw std::runtime_error("unexpected error"); }
@@ -61,15 +55,7 @@ namespace Orange {
         switch (stmt.kind()) {
             case SysStmtKind::ShowDb: {
                 cout << "  show databases:\n    show something?\n";
-                auto dbs = all();
-                int max_len = std::max_element(dbs.begin(), dbs.end(), [] (auto& a, auto& b) { return a.length() < b.length(); })->length();
-                put('+');
-                put('-', max_len);
-                put('+') << endl;
-                cout << '|' << "Databases" << '|' << endl;
-                put('+');
-                put('-', max_len);
-                put('+') << endl;
+                cout << all() << endl;
             } break;
             default: unexpected();
         }

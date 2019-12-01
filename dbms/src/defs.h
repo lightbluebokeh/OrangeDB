@@ -193,35 +193,6 @@ struct pred_t {
     }
 };
 
-
-
-class Column;
-class TmpTable;
-
-class Table {
-protected:
-    std::vector<Column> cols;
-
-    std::vector<Column>::iterator find_col(const String& col_name);
-    bool has_col(const String& col_name) { return find_col(col_name) != cols.end(); }
-public:
-    virtual std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim) = 0;
-    virtual TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) = 0;
-};
-
-class SavedTable;
-
-class TmpTable : public Table {
-private:
-    std::vector<rec_t> recs;
-public:
-    // brute force
-    std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim);
-    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids);
-
-    friend class SavedTable;
-};
-
 class OrangeException : public std::exception {
 private:
     String msg;
@@ -252,11 +223,3 @@ inline auto to_bytes(const String& str) {
     memcpy(ret.data() + 1, str.data(), str.size());
     return ret;
 }
-
-// inline String to_lowercase(const String& s) {
-//     auto ret = s;
-//     for (auto &c: ret) {
-//         if ('A' <= c && c <= 'Z') c += 'a' - 'A';
-//     }
-//     return ret;
-// }

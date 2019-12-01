@@ -50,14 +50,18 @@ namespace Orange {
 
     bool using_db() { return cur != ""; }
 
-    std::vector<String> all() { return {names.begin(), names.end()}; }
-    std::vector<String> all_tables() {
-        if (!using_db()) return {};
-        std::vector<String> ret;
+    TmpTable all() {
+        return TmpTable::from_strings("databases", {names.begin(), names.end()});
+    }
+
+    TmpTable all_tables() {
+        // if (!using_db()) return {};
+        ensure(using_db(), "using some database first");
+        std::vector<String> data;
         for (auto it : fs::directory_iterator(cur)) {
-            if (it.is_directory()) ret.push_back(it.path().filename().string());
+            if (it.is_directory()) data.push_back(it.path().filename().string());
         }
-        return ret;
+        return TmpTable::from_strings("tables", data);
     }
 
     String get_cur() { return cur; }
@@ -73,7 +77,6 @@ namespace Orange {
 
     void paolu() {
         unuse();
-        for (auto db : all()) drop(db);
         fs::current_path("..");
         fs::remove_all("db");
         // std::cerr << e << std::endl;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <defs.h>
+#include <orange/table/table_base.h>
 #include <unordered_set>
 
 namespace Orange {
@@ -14,6 +15,7 @@ namespace Orange {
     bool using_db();
     bool unuse();
     String get_cur();
-    std::vector<String> all();  // 所有数据库
-    std::vector<String> all_tables();
+    // 所有数据库
+    TmpTable all();  
+    TmpTable all_tables();
 };  // namespace Orange

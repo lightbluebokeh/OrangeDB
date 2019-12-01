@@ -10,6 +10,7 @@
 #include <orange/orange.h>
 #include <orange/table/column.h>
 #include <orange/table/key.h>
+#include <orange/table/table_base.h>
 #include <utils/id_pool.h>
 
 // 数据库中的表
@@ -192,7 +193,7 @@ public:
         std::vector<int> col_ids;
         for (auto name : names) {
             auto col_id = find_col(name) - cols.begin();
-            for (int i = 0; i < rids.size(); i++) {
+            for (unsigned i = 0; i < rids.size(); i++) {
                 ret.recs[i].push_back(this->indices[col_id].get_val(rids[i]));
             }
         }

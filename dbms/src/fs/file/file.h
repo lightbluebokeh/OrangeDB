@@ -149,7 +149,7 @@ public:
         } else if constexpr (std::is_same_v<T, pred_t>) {
             read(t.lo, t.lo_eq, t.hi, t.hi_eq);
         } else if constexpr (std::is_same_v<T, Column>) {
-            read(t.name, t.kind, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
+            read(t.name, t.type, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
         } else {
             read_bytes((bytes_t)&t, sizeof(T));
         }
