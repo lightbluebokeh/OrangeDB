@@ -1,4 +1,16 @@
+#include <algorithm>
+
 #include "syntax.h"
+#include "orange/orange.h"
+
+static auto& cout = std::cout;
+using std::endl;
+
+// put `c` for `cnt` times
+static auto& put(char c, int cnt = 1, std::ostream& cout = ::cout) { 
+    while (cnt--) cout.put(c); 
+    return cout;
+}
 
 namespace Orange {
     // 可能调试有用
@@ -47,9 +59,18 @@ namespace Orange {
     // 附加指令 比如新增调试指令会加在sys这里
     inline void sys(sys_stmt& stmt) {
         switch (stmt.kind()) {
-            case SysStmtKind::ShowDb:
-                std::cout << "  show databases:\n    show something?\n";
-                break;
+            case SysStmtKind::ShowDb: {
+                cout << "  show databases:\n    show something?\n";
+                auto dbs = all();
+                int max_len = std::max_element(dbs.begin(), dbs.end(), [] (auto& a, auto& b) { return a.length() < b.length(); })->length();
+                put('+');
+                put('-', max_len);
+                put('+') << endl;
+                cout << '|' << "Databases" << '|' << endl;
+                put('+');
+                put('-', max_len);
+                put('+') << endl;
+            } break;
             default: unexpected();
         }
     }
@@ -57,23 +78,25 @@ namespace Orange {
     inline void db(db_stmt& stmt) {
         switch (stmt.kind()) {
             case DbStmtKind::Show: {
-                std::cout << "  show tables:" << std::endl;
-                std::cout << "    nothing to show." << std::endl;
+                cout << "  show tables:" << std::endl;
+                cout << "    nothing to show." << std::endl;
             } break;  // clang-format喜欢把break放在这里，为什么呢
             case DbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
-                std::cout << "  create database:" << std::endl;
-                std::cout << "    name: " << create_stmt.name << std::endl;
+                cout << "  create database:" << std::endl;
+                cout << "    name: " << create_stmt.name << std::endl;
+                create(create_stmt.name);
             } break;
             case DbStmtKind::Drop: {
                 auto& drop_stmt = stmt.drop();
-                std::cout << "  drop database:" << std::endl;
-                std::cout << "    name: " << drop_stmt.name << std::endl;
+                cout << "  drop database:" << std::endl;
+                cout << "    name: " << drop_stmt.name << std::endl;
+                drop(drop_stmt.name);
             } break;
             case DbStmtKind::Use: {
                 auto& use_stmt = stmt.use();
-                std::cout << "  use database:" << std::endl;
-                std::cout << "    name: " << use_stmt.name << std::endl;
+                cout << "  use database:" << std::endl;
+                cout << "    name: " << use_stmt.name << std::endl;
             } break;
             default: unexpected();
         }
@@ -83,18 +106,18 @@ namespace Orange {
         switch (stmt.kind()) {
             case TbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
-                std::cout << "  create table:" << std::endl;
-                std::cout << "    table: " << create_stmt.name << std::endl;
-                std::cout << "    fields:" << std::endl;
+                cout << "  create table:" << std::endl;
+                cout << "    table: " << create_stmt.name << std::endl;
+                cout << "    fields:" << std::endl;
                 for (auto& field : create_stmt.fields) {
                     switch (field.kind()) {
                         case FieldKind::Def: {
                             auto& def = field.def();
-                            std::cout << "      def:" << std::endl;
-                            std::cout << "        col name: " << def.col_name << std::endl;
-                            std::cout << "        type: " << type_string(def.type) << std::endl;
-                            std::cout << "        is not null: " << def.is_not_null << std::endl;
-                            std::cout << "        default value: "
+                            cout << "      def:" << std::endl;
+                            cout << "        col name: " << def.col_name << std::endl;
+                            cout << "        type: " << type_string(def.type) << std::endl;
+                            cout << "        is not null: " << def.is_not_null << std::endl;
+                            cout << "        default value: "
                                       << (def.default_value.has_value()
                                               ? value_string(def.default_value.get())
                                               : "<none>")
@@ -102,19 +125,19 @@ namespace Orange {
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
-                            std::cout << "      primary key:" << std::endl;
-                            std::cout << "        col list: ";
+                            cout << "      primary key:" << std::endl;
+                            cout << "        col list: ";
                             for (auto& col : primary_key.col_list) {
-                                std::cout << col << ' ';
+                                cout << col << ' ';
                             }
-                            std::cout << std::endl;
+                            cout << std::endl;
                         } break;
                         case FieldKind::ForeignKey: {
                             auto& foreign_key = field.foreign_key();
-                            std::cout << "      foreign key:" << std::endl;
-                            std::cout << "        col name: " << foreign_key.col;
-                            std::cout << "        ref table: " << foreign_key.ref_table_name;
-                            std::cout << "        ref col name: " << foreign_key.col;
+                            cout << "      foreign key:" << std::endl;
+                            cout << "        col name: " << foreign_key.col;
+                            cout << "        ref table: " << foreign_key.ref_table_name;
+                            cout << "        ref col name: " << foreign_key.col;
                         } break;
                         default: unexpected();
                     }
@@ -122,119 +145,119 @@ namespace Orange {
             } break;
             case TbStmtKind::Drop: {
                 auto& drop = stmt.drop();
-                std::cout << "  drop table:" << std::endl;
-                std::cout << "    table name: " << drop.name;
+                cout << "  drop table:" << std::endl;
+                cout << "    table name: " << drop.name;
             } break;
             case TbStmtKind::Desc: {
                 auto& desc = stmt.desc();
-                std::cout << "  describe table:" << std::endl;
-                std::cout << "    table name: " << desc.name;
+                cout << "  describe table:" << std::endl;
+                cout << "    table name: " << desc.name;
             } break;
             case TbStmtKind::InsertInto: {
                 auto& insert = stmt.insert_into();
-                std::cout << "  insert into table:" << std::endl;
-                std::cout << "    table name: " << insert.name << std::endl;
+                cout << "  insert into table:" << std::endl;
+                cout << "    table name: " << insert.name << std::endl;
                 if (insert.columns.has_value()) {
                     auto& columns = insert.columns.get();
                     auto& values = insert.values;
                     if (columns.size() != values.size()) {
-                        std::cout << "    * columns and values not match *" << std::endl;
-                        std::cout << "    columns:";
+                        cout << "    * columns and values not match *" << std::endl;
+                        cout << "    columns:";
                         for (auto& col : insert.columns.get()) {
-                            std::cout << ' ' << col;
+                            cout << ' ' << col;
                         }
-                        std::cout << std::endl;
-                        std::cout << "    values:";
+                        cout << std::endl;
+                        cout << "    values:";
                         for (auto& val : insert.values) {
-                            std::cout << ' ' << value_string(val);
+                            cout << ' ' << value_string(val);
                         }
                     } else {
-                        std::cout << "    columns and values:" << std::endl;
+                        cout << "    columns and values:" << std::endl;
                         for (size_t i = 0; i < columns.size(); i++) {
-                            std::cout << "      " << columns[i] << ": " << value_string(values[i])
+                            cout << "      " << columns[i] << ": " << value_string(values[i])
                                       << std::endl;
                         }
-                        std::cout << std::endl;
+                        cout << std::endl;
                     }
                 } else {
-                    std::cout << "    values:";
+                    cout << "    values:";
                     for (auto& val : insert.values) {
-                        std::cout << ' ' << value_string(val);
+                        cout << ' ' << value_string(val);
                     }
                 }
             } break;
             case TbStmtKind::DeleteFrom: {
                 auto& delete_from = stmt.delete_from();
-                std::cout << "  delete from table:" << std::endl;
-                std::cout << "    table name: " << delete_from.name << std::endl;
-                std::cout << "    where:" << std::endl;
+                cout << "  delete from table:" << std::endl;
+                cout << "    table name: " << delete_from.name << std::endl;
+                cout << "    where:" << std::endl;
                 for (auto& cond : delete_from.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
-                        std::cout << "      " << null.col_name << " IS "
+                        cout << "      " << null.col_name << " IS "
                                   << (null.is_not_null ? "NOT " : "") << "NULL";
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
-                        std::cout << "      " << o.col_name << " " << o.operator_ << " "
+                        cout << "      " << o.col_name << " " << o.operator_ << " "
                                   << expression_string(o.expression);
                     }
-                    std::cout << std::endl;
+                    cout << std::endl;
                 }
             } break;
             case TbStmtKind::Update: {
                 auto& update = stmt.update();
-                std::cout << "  update:" << std::endl;
-                std::cout << "    table name: " << update.name << std::endl;
-                std::cout << "    set:" << std::endl;
+                cout << "  update:" << std::endl;
+                cout << "    table name: " << update.name << std::endl;
+                cout << "    set:" << std::endl;
                 for (auto& set : update.set) {
-                    std::cout << "      " << set.col_name << ": " << value_string(set.val)
+                    cout << "      " << set.col_name << ": " << value_string(set.val)
                               << std::endl;
                 }
-                std::cout << "    where:" << std::endl;
+                cout << "    where:" << std::endl;
                 for (auto& cond : update.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
-                        std::cout << "      " << null.col_name << " IS "
+                        cout << "      " << null.col_name << " IS "
                                   << (null.is_not_null ? "NOT " : "") << "NULL";
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
-                        std::cout << "      " << o.col_name << " " << o.operator_ << " "
+                        cout << "      " << o.col_name << " " << o.operator_ << " "
                                   << expression_string(o.expression);
                     }
-                    std::cout << std::endl;
+                    cout << std::endl;
                 }
             } break;
             case TbStmtKind::Select: {
                 auto& select = stmt.select();
-                std::cout << "  select from table:" << std::endl;
-                std::cout << "    selected cols: ";
+                cout << "  select from table:" << std::endl;
+                cout << "    selected cols: ";
                 if (select.select.empty()) {  // empty时认为是select *
-                    std::cout << "*" << std::endl;
+                    cout << "*" << std::endl;
                 } else {
                     for (auto& col : select.select) {
-                        if (col.table_name.has_value()) std::cout << col.table_name.get() << ".";
-                        std::cout << col.col_name << " ";
+                        if (col.table_name.has_value()) cout << col.table_name.get() << ".";
+                        cout << col.col_name << " ";
                     }
-                    std::cout << std::endl;
+                    cout << std::endl;
                 }
-                std::cout << "    table list: ";
+                cout << "    table list: ";
                 for (auto& table : select.tables) {
-                    std::cout << table << ' ';
+                    cout << table << ' ';
                 }
-                std::cout << std::endl;
+                cout << std::endl;
                 if (select.where.has_value()) {
-                    std::cout << "    where:" << std::endl;
+                    cout << "    where:" << std::endl;
                     for (auto& cond : select.where.get()) {
                         if (cond.is_null_check()) {  // 只有两个的variant我只弄了is_xxx，要搞enum可以手动加
                             const auto& null = cond.null_check();
-                            std::cout << "      " << null.col_name << " IS "
+                            cout << "      " << null.col_name << " IS "
                                       << (null.is_not_null ? "NOT " : "") << "NULL";
                         } else if (cond.is_op()) {
                             const auto& o = cond.op();
-                            std::cout << "      " << o.col_name << " " << o.operator_ << " "
+                            cout << "      " << o.col_name << " " << o.operator_ << " "
                                       << expression_string(o.expression);
                         }
-                        std::cout << std::endl;
+                        cout << std::endl;
                     }
                 }
             } break;
@@ -243,20 +266,24 @@ namespace Orange {
     }
 
     // 懒了
-    inline void idx(idx_stmt& stmt) {}
+    inline void idx(idx_stmt& stmt) {UNIMPLEMENTED}
 
-    inline void alter(alter_stmt& stmt) {}
+    inline void alter(alter_stmt& stmt) {UNIMPLEMENTED}
 
     // 遍历语法树
     void program(sql_ast& ast) {
         for (auto& stmt : ast.stmt_list) {
-            switch (stmt.kind()) {
-                case StmtKind::Sys: sys(stmt.sys()); break;
-                case StmtKind::Db: db(stmt.db()); break;
-                case StmtKind::Tb: tb(stmt.tb()); break;
-                case StmtKind::Idx: idx(stmt.idx()); break;
-                case StmtKind::Alter: alter(stmt.alter()); break;
-                default: unexpected();
+            try {
+                switch (stmt.kind()) {
+                    case StmtKind::Sys: sys(stmt.sys()); break;
+                    case StmtKind::Db: db(stmt.db()); break;
+                    case StmtKind::Tb: tb(stmt.tb()); break;
+                    case StmtKind::Idx: idx(stmt.idx()); break;
+                    case StmtKind::Alter: alter(stmt.alter()); break;
+                    default: unexpected();
+                }
+            } catch (OrangeException& e) {
+                cout << e.what() << endl;
             }
         }
     }

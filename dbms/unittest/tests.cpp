@@ -70,9 +70,9 @@ TEST_CASE("table", "[fs]") {
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {Column("test", "int", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    SavedTable::create("test", {Column("test", "int", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
-    auto table = Table::get("test");
+    auto table = SavedTable::get("test");
 
     std::mt19937 rng(time(0));
     constexpr int lim = 5000;
@@ -117,9 +117,9 @@ TEST_CASE("btree", "[index]") {
     Orange::create("test");
     Orange::use("test");
 
-    Table::create("test", {Column("test", "int", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
+    SavedTable::create("test", {Column("test", "int", 0, 0, 1, {DATA_NULL, 0, 0, 0, 0}, {})}, {}, {});
     cerr << "create table test" << endl;
-    auto table = Table::get("test");
+    auto table = SavedTable::get("test");
     table->create_index("test");
 
     constexpr int lim = 50000;
@@ -171,9 +171,9 @@ TEST_CASE("varchar", "[index]") {
 
     Orange::create("test");
     Orange::use("test");
-    Table::create("varchar", {Column("test", "varchar(2333)", 0, 0, 0, to_bytes("233"), {})}, {},
+    SavedTable::create("varchar", {Column("test", "varchar(2333)", 0, 0, 0, to_bytes("233"), {})}, {},
                   {});
-    auto table = Table::get("varchar");
+    auto table = SavedTable::get("varchar");
     int lim = 1000;
     for (int i = 0; i < lim; i++) {
         table->insert({{"test", to_bytes(rand_str(3, 2333))}});

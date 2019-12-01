@@ -12,24 +12,17 @@
 #include <orange/table/key.h>
 #include <utils/id_pool.h>
 
-// 大概是运算的结果的表？
-struct table_t {
-    std::vector<Column> cols;
-    std::vector<byte_arr_t> recs;
-};
-
 // 数据库中的表
-class Table {
+class SavedTable : public Table {
     int id;
     String name;
     IdPool<rid_t> rid_pool;
 
-    Table(int id, const String& name) : id(id), name(name), rid_pool(pool_name()) {}
-    ~Table() {}
+    SavedTable(int id, const String& name) : id(id), name(name), rid_pool(pool_name()) {}
+    ~SavedTable() {}
 
     // metadata
     rid_t rec_cnt;
-    std::vector<Column> cols;
     std::vector<String> p_key;
     std::vector<f_key_t> f_keys;
 
@@ -52,12 +45,12 @@ class Table {
         }
     }
 
-    static Table* tables[MAX_TBL_NUM];
+    static SavedTable* tables[MAX_TBL_NUM];
 
-    static Table* new_table(const String& name) {
+    static SavedTable* new_table(const String& name) {
         for (int i = 0; i < MAX_TBL_NUM; i++) {
             if (!tables[i]) {
-                tables[i] = new Table(i, name);
+                tables[i] = new SavedTable(i, name);
                 tables[i]->id = i;
                 return tables[i];
             }
@@ -76,7 +69,7 @@ class Table {
         rec_cnt++;
     }
 
-    static void free_table(Table* table) {
+    static void free_table(SavedTable* table) {
         if (table == nullptr) return;
         tables[table->id] = nullptr;
         delete table;
@@ -96,13 +89,6 @@ class Table {
         }
     }
 
-    auto find_col(const String& col_name) {
-        auto it = cols.begin();
-        while (it != cols.end() && it->get_name() != col_name) it++;
-        return it;
-    }
-    bool has_col(const String& col_name) { return find_col(col_name) != cols.end(); }
-
     static String get_root(const String& name) { return name + "/"; }
 public:
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
@@ -117,7 +103,7 @@ public:
         return 1;
     }
 
-    static Table* get(const String& name) {
+    static SavedTable* get(const String& name) {
         check_db();
         ensure(fs::exists(get_root(name)), "table `" + name + "` does not exists");
         for (int i = 0; i < MAX_TBL_NUM; i++) {
@@ -200,20 +186,15 @@ public:
         }
     }
 
-    auto select(std::vector<String> names, const std::vector<rid_t>& rids) {
-        std::vector<std::vector<byte_arr_t>> ret;
+    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) {
+        TmpTable ret;
+        ret.recs.resize(rids.size());
         std::vector<int> col_ids;
         for (auto name : names) {
-            auto it = find_col(name);
-            ensure(it != cols.end(), "???");
-            col_ids.push_back(int(it - cols.begin()));
-        }
-        for (auto rid: rids) {
-            std::vector<byte_arr_t> cur;
-            for (auto cid : col_ids) {
-                cur.push_back(indices[cid].get_val(rid));
+            auto col_id = find_col(name) - cols.begin();
+            for (int i = 0; i < rids.size(); i++) {
+                ret.recs[i].push_back(this->indices[col_id].get_val(rids[i]));
             }
-            ret.push_back(cur);
         }
         return ret;
     }

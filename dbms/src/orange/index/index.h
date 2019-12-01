@@ -7,13 +7,13 @@
 #include <fs/allocator/allocator.h>
 #include <orange/index/b_tree.h>
 
-class Table;
+class SavedTable;
 
 // 同时维护数据和索引，有暴力模式和数据结构模式
 // 希望设计的时候索引模块不需要关注完整性约束，而交给其它模块
 class Index {
 private:
-    Table &table;
+    SavedTable &table;
     Column *column;
 
     datatype_t kind;
@@ -62,7 +62,7 @@ private:
     }
 
 public:
-    Index(Table& table, datatype_t kind, size_t size, const String& prefix, bool on) : table(table), kind(kind), size(size), prefix(prefix), on(on) {
+    Index(SavedTable& table, datatype_t kind, size_t size, const String& prefix, bool on) : table(table), kind(kind), size(size), prefix(prefix), on(on) {
         if (!fs::exists(data_name())) File::create(data_name());
         f_data = File::open(data_name());
         if (kind == ORANGE_VARCHAR) allocator = new FileAllocator(vchar_name());

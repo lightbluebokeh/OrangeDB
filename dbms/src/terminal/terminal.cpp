@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 
+#include <orange/orange.h>
 #include <orange/parser/parser.h>
 #include <orange/syntax/syntax.h>
 
@@ -38,13 +39,14 @@ ErrorCode manage(const std::string& sql) {
 }
 
 int main(int argc, char* argv[]) {
+    Orange::setup();
     std::cout << CYAN << "Welcome to OrangeDB terminal!" << RESET << std::endl;
     int retcode = 0;
     std::string sql;
     while (true) {
         std::cout << ">> ";
         std::getline(std::cin, sql);
-        if (sql == "q") break;
+        if (sql == "q" || sql == "Q") break;
         retcode = (int)manage(sql);
     }
 

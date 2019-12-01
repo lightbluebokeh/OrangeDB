@@ -7,7 +7,9 @@
 
 static_assert(sizeof(std::size_t) == 8, "x64 only");
 
-#pragma warning(disable: 26812)  // enum class
+#ifdef _MSC_VER
+#pragma warning(disable : 26812)  // enum class
+#endif
 
 namespace fs = std::filesystem;
 
@@ -170,7 +172,6 @@ namespace Orange {
     }
 }  // namespace Orange
 
-
 struct pred_t {
     byte_arr_t lo;
     bool lo_eq;  // 是否允许取等
@@ -190,6 +191,35 @@ struct pred_t {
     bool test(const byte_arr_t& k, datatype_t kind) const {
         return test_lo(k, kind) && test_hi(k, kind);
     }
+};
+
+
+
+class Column;
+class TmpTable;
+
+class Table {
+protected:
+    std::vector<Column> cols;
+
+    std::vector<Column>::iterator find_col(const String& col_name);
+    bool has_col(const String& col_name) { return find_col(col_name) != cols.end(); }
+public:
+    virtual std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim) = 0;
+    virtual TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) = 0;
+};
+
+class SavedTable;
+
+class TmpTable : public Table {
+private:
+    std::vector<rec_t> recs;
+public:
+    // brute force
+    std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim);
+    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids);
+
+    friend class SavedTable;
 };
 
 class OrangeException : public std::exception {
