@@ -2,8 +2,9 @@
 
 #include <fstream>
 
-#include <utils/id_pool.h>
-#include <orange/table/column.h>
+#include "utils/id_pool.h"
+#include "orange/table/column.h"
+#include "orange/parser/sql_ast.h"
 
 class Index;
 
@@ -63,13 +64,11 @@ private:
                                     + sizeof(bid_t) + tree.key_size);
         }
         bool leaf() const { 
-            return !ch(0) && !ch(1); 
+            return !ch(0) && !ch(1);    // 非叶子只可能有一个是零
         }
         bool full() const { return key_num() == tree.t * 2 - 1; }
         bool least() const { return key_num() == tree.t - 1; }
-#ifdef DEBUG
         void check_order();
-#endif
     };
 
     using node_ptr_t = std::unique_ptr<node_t>;
@@ -165,6 +164,12 @@ private:
     void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v);
     void query(node_ptr_t &x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim);
     void check_order(node_ptr_t& x);
+    void query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
+    void query_le(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
+    void query_lt(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
+    void query_ge(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
+    void query_gt(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
+    void query_eq(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
 public:
     BTree(Index *index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { ensure(t >= 2, "fanout too few"); }
@@ -186,6 +191,28 @@ public:
     std::vector<rid_t> query(const pred_t& pred, rid_t lim) {
         std::vector<rid_t> ret;
         query(root, pred, ret, lim);
+        return ret;
+    }
+
+    auto query(Orange::parser::op op, const Orange::parser::data_value& value, rid_t lim, std::vector<rid_t>) {
+        using op_t = Orange::parser::op;
+        std::vector<rid_t> ret;
+        switch (op) {
+            case op_t::Eq: query_eq(root, value, ret, lim);
+            break;
+            case op_t::Ge: query_ge(root, value, ret, lim);
+            break;
+            case op_t::Gt: query_gt(root, value, ret, lim);
+            break;
+            case op_t::Le: query_le(root, value, ret, lim);
+            break;
+            case op_t::Lt: query_lt(root, value, ret, lim);
+            break;
+            case op_t::Neq:
+                query_lt(root, value, ret, lim);
+                query_gt(root, value, ret, lim);
+            break;
+        }
         return ret;
     }
 

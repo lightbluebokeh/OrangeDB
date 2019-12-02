@@ -1,7 +1,10 @@
 #pragma once
 
-#include <defs.h>
-#include <orange/table/column.h>
+#include <set>
+
+#include "defs.h"
+#include "orange/common.h"
+#include "orange/table/column.h"
 
 class TmpTable;
 
@@ -9,17 +12,81 @@ class Table {
 protected:
     std::vector<Column> cols;
 
-    std::vector<Column>::iterator find_col(const String& col_name) {
+    virtual ~Table() {}
+
+    auto find_col(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
         ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
         return it;
     }
-    bool has_col(const String& col_name) { return find_col(col_name) != cols.end(); }
-    virtual ~Table() {}
+    int get_col_id(const String& col_name) const { return find_col(col_name) - cols.begin(); }
+    bool has_col(const String& col_name) const { 
+        auto it = cols.begin();
+        while (it != cols.end() && it->get_name() != col_name) it++;
+        return it != cols.end();
+    }
+
+    // 返回所有合法 rid
+    virtual std::vector<rid_t> all() const = 0;
+    virtual byte_arr_t get_field(rid_t rid, int col_id) const = 0;
+
+    // 慢是慢了点，不过用暴力的话已经在内存里了，真慢了再说
+    bool check_where(const Orange::parser::single_where& where, rid_t rid) const {
+        if (where.is_null_check()) {
+            auto &null = where.null_check();
+            auto flag = get_field(rid, get_col_id(null.col_name)).front();
+            return null.is_not_null && flag != DATA_NULL || !null.is_not_null && flag == DATA_NULL;
+        } else if (where.is_op()) {
+            auto &op = where.op();
+            auto col1_id = get_col_id(op.col_name);
+            // auto &col1 = cols[col1_id];
+            if (op.expression.is_column()) {
+                auto &col2 = op.expression.col();
+                ensure(!col2.table_name.has_value(), "cannot specify table name here");
+                int col2_id = get_col_id(col2.col_name);
+                return Orange::cmp(get_field(rid, col1_id), cols[col1_id].get_datatype(), op.operator_, get_field(rid, col2_id), cols[col2_id].get_datatype());
+            } else if (op.expression.is_value()) {
+                auto &value = op.expression.value();
+                return Orange::cmp(get_field(rid, col1_id), cols[col1_id].get_datatype(), op.operator_, Orange::to_bytes(value), value.get_datatype());
+            } else {
+                ORANGE_UNIMPL
+                return 0;
+            }
+        } else {
+            ORANGE_UNIMPL
+            return 0;
+        }
+    }
+
+    // default brute force
+    virtual std::vector<rid_t> single_where(const Orange::parser::single_where& where, rid_t lim = std::numeric_limits<rid_t>::max()) const {
+        std::vector<rid_t> ret;
+        for (auto rid: all()) {
+            if (ret.size() >= lim) break;
+            if (check_where(where, rid)) ret.push_back(rid);
+        }
+        return ret;
+    }
 public:
-    virtual std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim = std::numeric_limits<rid_t>::max()) = 0;
-    virtual TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) = 0;
+    virtual std::vector<rid_t> where(const Orange::parser::where_clause& where) const {
+        // 多条 where clause 是与关系，求交
+        if (where.empty()) return all();
+        std::vector<rid_t> ret = single_where(where.front());
+        for (auto i = 1u; i < where.size(); i++) {
+            std::set<rid_t> set(ret.begin(), ret.end());
+            ret.clear();
+            auto cur = single_where(where[i]);
+            for (auto rid: cur) {
+                if (set.count(rid)) {
+                    ret.push_back(rid);
+                }
+            }
+        }
+        return ret;
+    }
+
+    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) const;
 };
 
 class SavedTable;
@@ -28,42 +95,43 @@ class TmpTable : public Table {
 private:
     std::vector<rec_t> recs;
 public:
-    // brute force
-    std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim) {
+    std::vector<rid_t> all() const {
         std::vector<rid_t> ret;
-        auto it = find_col(col_name);
-        int col_id = it - cols.begin();
-        for (unsigned i = 0; i < recs.size() && ret.size() < lim; i++) {
-            if (pred.test(recs[i][col_id], it->get_datatype())) ret.push_back(i);
+        for (rid_t i = 0; i < recs.size(); i++) {
+            ret.push_back(i);
         }
-        return ret;        
+        return ret;
     }
-    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) {
-        TmpTable ret;
-        ret.recs.resize(rids.size());
-        for (auto name: names) {
-            auto col_id = find_col(name) - cols.begin();
-            ret.cols.push_back(cols[col_id]);
-            for (auto rid: rids) {
-                ret.recs[rid].push_back(recs[rid][col_id]);
-            }
-        }
-        return ret;        
-    }
+
+    byte_arr_t get_field(rid_t rid, int col_id) const override { return recs[rid][col_id]; }
 
     static TmpTable from_strings(const String& title, const std::vector<String>& strs) {
         TmpTable ret;
         ret.cols.push_back(Column(title));
         ret.recs.reserve(strs.size());
         for (auto &str: strs) {
-            ret.recs.push_back({to_bytes(str)});
+            ret.recs.push_back({Orange::to_bytes(str)});
         }
         return ret;
     }
 
+    friend class Table;
     friend class SavedTable;
     friend std::ostream& operator << (std::ostream& os, const TmpTable& table);
 };
+
+inline TmpTable Table::select(std::vector<String> names, const std::vector<rid_t>& rids) const {
+    TmpTable ret;
+    ret.recs.resize(rids.size());
+    for (auto name: names) {
+        auto col_id = get_col_id(name);
+        ret.cols.push_back(cols[col_id]);
+        for (auto rid: rids) {
+            ret.recs[rid].push_back(get_field(rid, col_id));
+        }
+    }
+    return ret;          
+}
 
 static String to_string(const byte_arr_t &bytes, datatype_t type) {
     if (bytes.front() == DATA_NULL) return "null";
@@ -75,9 +143,10 @@ static String to_string(const byte_arr_t &bytes, datatype_t type) {
         }
         case ORANGE_INT: return std::to_string(*(int*)(bytes.data() + 1));
         case ORANGE_NUMERIC:
-        case ORANGE_DATE: UNIMPLEMENTED
+        case ORANGE_DATE: ORANGE_UNIMPL
+        default: ORANGE_UNIMPL
     }
-    return "unimplemented";
+    return "fuck warning";
 }
 
 constexpr static int width = 15 + 3;

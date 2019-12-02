@@ -1,9 +1,14 @@
 #pragma once
 
+#include <string>
+#include <cassert>
 #include <cstring>
 #include <filesystem>
-#include <string>
 #include <type_traits>
+
+#ifndef NDEBUG
+#define DEBUG
+#endif
 
 static_assert(sizeof(std::size_t) == 8, "x64 only");
 
@@ -46,6 +51,30 @@ constexpr const char* YELLOW = "\033[33m"; /* Yellow */
 constexpr const char* CYAN = "\033[36m"; /* Cyan */
 
 void ensure(bool cond, const String& msg);
+#define DATA_INVALID 0xff
+
+class OrangeException : public std::exception {
+private:
+    String msg;
+
+public:
+    OrangeException(const String& msg) : msg(msg) {}
+    const char* what() const noexcept override { return msg.c_str(); }
+};
+
+class OrangeError : public std::exception {
+private:
+    String msg;
+public:
+    OrangeError(const String& msg) : msg(msg) {}
+    const char* what() const noexcept override { return msg.c_str(); }
+};
+// for debug
+inline void orange_assert(bool cond, const String& msg) {
+#ifdef DEBUG
+    if (!cond) throw OrangeError(msg);
+#endif
+}
 
 #ifdef __GNUC__
 #include <unistd.h>
@@ -69,42 +98,6 @@ using uchar = unsigned char;
 using int64 = long long;
 using uint64 = unsigned long long;
 using uint8 = uint8_t;
-
-// 没法重载赋值 /cy
-const int F_KEY_NAME_LIM = 32;
-// struct f_key_name_t {
-//     char data[F_KEY_NAME_LIM + 1];
-// };
-// const int COL_NAME_LIM = 32;
-// struct col_name_t {
-//     char data[COL_NAME_LIM + 1];
-//     inline String get() const { return String(data); }
-//     void set(const String& name) {
-//         memcpy(data, name.data(), name.length());
-//         data[name.length()] = 0;
-//     }
-// };
-// const int TBL_NAME_LIM = 32;
-// struct tbl_name_t {
-//     char data[TBL_NAME_LIM + 1];
-//     // tbl_name_t(const String& name) {
-//     //     memcpy(data, name.data(), name.size());
-//     //     data[name.size()] = 0;
-//     // }
-//     inline String get() { return String(data); }
-// };
-// const int COL_NAME_LIST_LIM = 5;
-// struct col_name_list_t {
-//     col_name_t data[COL_NAME_LIST_LIM];
-//     int size = 0;
-
-//     void add(col_name_t name) {
-//         if (size == COL_NAME_LIST_LIM) {
-//             throw "increase your constant";
-//         }
-//         data[size++] = name;
-//     }
-// };
 
 template <typename>
 struct is_std_vector : std::false_type {};
@@ -133,9 +126,9 @@ constexpr int MAX_VARCHAR_LEN = 65535;
 
 #define DATA_NULL 0x0
 #define DATA_NORMAL 0x1
-#define DATA_INVALID 0xff
 
-#define UNIMPLEMENTED throw "unimplemented";
+#define ORANGE_UNIMPL throw OrangeError("lazy orange coder has not implemented this yet");
+#define ORANGE_UNREACHABLE throw OrangeError("ni za guo lai de");
 
 template <class Fn, class... Args>
 int expand(Fn&& func, Args&&... args) {
@@ -167,7 +160,7 @@ namespace Orange {
                 }
                 if (k1.size() == k2.size()) return 0;
                 return k1.size() < k2.size() ? -int(k2[k1.size()]) : k1[k2.size()];
-            default: UNIMPLEMENTED
+            default: ORANGE_UNIMPL
         }
     }
 }  // namespace Orange
@@ -193,33 +186,34 @@ struct pred_t {
     }
 };
 
-class OrangeException : public std::exception {
-private:
-    String msg;
-
-public:
-    OrangeException(const String& msg) : msg(msg) {}
-    const char* what() const noexcept override { return msg.c_str(); }
-};
-
 using numeric_t = long double;
 
-#ifndef NDEBUG
-#define DEBUG
-#endif
 
-template <typename T>
-auto to_bytes(const T& t) {
-    byte_arr_t ret(sizeof(T) + 1);
-    ret[0] = DATA_NORMAL;
-    memcpy(ret.data() + 1, (bytes_t)&t, sizeof(T));
-    return ret;
+namespace Orange {
+    template <typename T>
+    auto to_bytes(const T& t) {
+        byte_arr_t ret(sizeof(T) + 1);
+        ret[0] = DATA_NORMAL;
+        memcpy(ret.data() + 1, (bytes_t)&t, sizeof(T));
+        return ret;
+    }
+
+    template <>
+    inline auto to_bytes(const String& str) {
+        byte_arr_t ret(str.size() + 1);
+        ret[0] = DATA_NORMAL;
+        memcpy(ret.data() + 1, str.data(), str.size());
+        return ret;
+    }
+
+    inline int bytes_to_int(const byte_arr_t& bytes) {
+        orange_assert(bytes.size() == 5 && bytes.front() != DATA_NULL, "bad byte array for int");
+        return *(int*)(bytes.data() + 1);
+    }
+
+    inline String bytes_to_string(const byte_arr_t& bytes) {
+        orange_assert(bytes.front() != DATA_NULL, "null byte array for string");
+        return String(bytes.begin() + 1, bytes.end());
+    }
 }
 
-template <>
-inline auto to_bytes(const String& str) {
-    byte_arr_t ret(str.size() + 1);
-    ret[0] = DATA_NORMAL;
-    memcpy(ret.data() + 1, str.data(), str.size());
-    return ret;
-}

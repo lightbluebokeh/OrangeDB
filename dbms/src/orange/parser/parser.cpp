@@ -45,7 +45,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::tb_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_tb_stmt, name, fields)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_tb_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::desc_tb_stmt, name)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, columns, values)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, columns, value_lists)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::delete_from_tb_stmt, name, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::update_tb_stmt, name, set, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::select_tb_stmt, select, tables, where)
@@ -217,7 +217,7 @@ namespace Orange {
                 // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] ('(' <column_list> ')')?
                 //                     'VALUES' '(' <value_list> ')'
                 insert_into_tb %= kw(+"INSERT") > kw(+"INTO") > identifier >
-                                  -('(' > columns > ')') > kw(+"VALUES") > '(' > value_list > ')';
+                                  -('(' > columns > ')') > kw(+"VALUES") > value_lists;
                 // <delete_from_tb> := 'DELETE' 'FROM' [tb_name] 'WHERE' <where_clause>
                 delete_from_tb %=
                     kw(+"DELETE") > kw(+"FROM") > identifier > kw(+"WHERE") > where_list;
@@ -318,7 +318,7 @@ namespace Orange {
                 // <op> := '=' | '<>' | '<=' | '>=' | '<' | '>'
                 operator_ = qi::lit("=")[qi::_val = op::Eq] | qi::lit("<>")[qi::_val = op::Neq] |
                             qi::lit("<=")[qi::_val = op::Le] | qi::lit(">=")[qi::_val = op::Ge] |
-                            qi::lit("<")[qi::_val = op::Ls] | qi::lit(">")[qi::_val = op::Gt];
+                            qi::lit("<")[qi::_val = op::Lt] | qi::lit(">")[qi::_val = op::Gt];
 
                 // <type> := ('INT' ('(' <int> ')')?) | ('VARCHAR' '(' <int> ')') | 'DATE' | 'FLOAT'
                 type =

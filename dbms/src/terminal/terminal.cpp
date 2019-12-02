@@ -39,6 +39,10 @@ ErrorCode manage(const std::string& sql) {
 }
 
 int main(int argc, char* argv[]) {
+    for (int i = 0; i < argc; i++) {
+        // 消 warning
+        printf("%s\n", argv[i]);
+    }
     Orange::setup();
     std::cout << CYAN << "Welcome to OrangeDB terminal!" << RESET << std::endl;
     int retcode = 0;

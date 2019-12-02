@@ -1,6 +1,6 @@
 #pragma once
 
-#include <defs.h>
+#include "defs.h"
 
 // 文件分配器, 线程不安全, 异常也不安全
 // 如果发生越界就会破坏链表结构和覆盖之后的数据, 这将不可修复, 因此尽量用接口来读写
@@ -18,7 +18,7 @@ class FileAllocator {
     static const int ALIGN_SIZE = 8;
 
     // 初始化
-    void init();
+    void init() const;
 
 public:
     // 构造函数传入文件名
@@ -29,20 +29,20 @@ public:
     ~FileAllocator();
 
     // 返回偏移量, 如果有数据还能顺便写进去
-    size_t allocate(size_t size, void* data = nullptr);
+    size_t allocate(size_t size, void* data = nullptr) const;
 
     // 读取某个地方的值, max_size单位是字节, 返回具体读了多少个字节.
     // 写这个函数是因为fd只存在这个对象里, 否则外面需要fopen数据文件
-    int read(size_t offset, void* dst, size_t max_size = -1);
+    int read(size_t offset, void* dst, size_t max_size = -1) const;
 
     // 和上面差不多
-    int write(size_t offset, void* data, size_t max_size = -1);
+    int write(size_t offset, void* data, size_t max_size = -1) const;
 
     // 释放某个块, 如果返回false说明文件结构被破坏了
-    bool free(size_t offset);
+    bool free(size_t offset) const;
 
     // 刷新文件, 成功时返回0
-    int flush();
+    int flush() const;
 
     // 检查数据文件的结构, false说明被破坏了
     bool check() const;
@@ -52,20 +52,20 @@ public:
 
     // 删除末尾未使用的区域, 返回值是删了多少
     // 不会移动中间的空闲区域, 这样会改变指针; 连续的空闲段理论上不会存在
-    int shrink();
+    int shrink() const;
 
     // 返回长度+数据的字节数组
-    byte_arr_t allocate_byte_arr(const byte_arr_t& arr) {
+    byte_arr_t allocate_byte_arr(const byte_arr_t& arr) const {
         auto size = sizeof(uint32_t) + arr.size();
         auto bytes = new byte_t[size];
         *(uint32_t*)bytes = arr.size();
         memcpy(bytes + sizeof(uint32_t), arr.data(), arr.size());
         auto offset = allocate(size, bytes);
         delete[] bytes;
-        return to_bytes(offset);
+        return Orange::to_bytes(offset);
     }
 
-    auto read_byte_arr(size_t offset) {
+    auto read_byte_arr(size_t offset) const {
         uint32_t size;
         read(offset, &size, sizeof(uint32_t));
         byte_arr_t ret(size);

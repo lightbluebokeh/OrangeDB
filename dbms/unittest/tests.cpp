@@ -86,13 +86,13 @@ TEST_CASE("table", "[fs]") {
     table->drop_index("test");
     std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
-        table->insert({{"test", to_bytes(a[i])}});
+        table->insert({{"test", Orange::to_bytes(a[i])}});
     }
 
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
+        auto pos = table->where("test", pred_t{Orange::to_bytes(x), 1, Orange::to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
         all.erase(all.find(x));
         table->remove({pos.front()});
@@ -131,8 +131,8 @@ TEST_CASE("btree", "[index]") {
         a[i] = rng() % 5000;
         all.insert(a[i]);
         int x = a[i];
-        table->insert({{"test", to_bytes(a[i])}});
-        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
+        table->insert({{"test", Orange::to_bytes(a[i])}});
+        auto pos = table->where("test", pred_t{Orange::to_bytes(x), 1, Orange::to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
         if (rng() & 1) rm.insert(a[i]);
         std::cerr << '\r' << i + 1 << '/' << lim;
@@ -142,7 +142,7 @@ TEST_CASE("btree", "[index]") {
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        auto pos = table->where("test", pred_t{to_bytes(x), 1, to_bytes(x), 1}, lim);
+        auto pos = table->where("test", pred_t{Orange::to_bytes(x), 1, Orange::to_bytes(x), 1}, lim);
         REQUIRE(pos.size() == all.count(x));
         all.erase(all.find(x));
         table->remove({pos.front()});
@@ -171,18 +171,18 @@ TEST_CASE("varchar", "[index]") {
 
     Orange::create("test");
     Orange::use("test");
-    SavedTable::create("varchar", {Column("test", ORANGE_VARCHAR, 2333, 0, 0, 0, to_bytes("233"), {})}, {},
+    SavedTable::create("varchar", {Column("test", ORANGE_VARCHAR, 2333, 0, 0, 0, Orange::to_bytes("233"), {})}, {},
                   {});
     auto table = SavedTable::get("varchar");
     int lim = 1000;
     for (int i = 0; i < lim; i++) {
-        table->insert({{"test", to_bytes(rand_str(3, 2333))}});
+        table->insert({{"test", Orange::to_bytes(rand_str(3, 2333))}});
         std::cerr << '\r' << i << '/' << lim;
     }
     cerr << endl;
     table->create_index("test");
     for (int i = 0; i < lim; i++) {
-        table->insert({{"test", to_bytes(rand_str(3, 2333))}});
+        table->insert({{"test", Orange::to_bytes(rand_str(3, 2333))}});
         std::cerr << '\r' << i << '/' << lim;
     }
     cerr << endl;

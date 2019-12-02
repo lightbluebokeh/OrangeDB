@@ -1,19 +1,17 @@
 #include <orange/index/b_tree.h>
 #include <orange/index/index.h>
 
-#ifdef DEBUG
 void BTree::node_t::check_order() {
+#ifdef DEBUG
     for (int i = 0; i + 1 < key_num(); i++) {
         auto& index = *tree.index;
         assert(index.cmp(index.restore(key(i)), val(i), index.restore(key(i + 1)), val(i + 1)) < 0);
     }
-}
 #endif
+}
 
 void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
-#ifdef DEBUG
     x->check_order();
-#endif
     int i = upper_bound(x, k, v);
     if (i && index->cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) == 0) {
         i--;
@@ -23,18 +21,14 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
                 x->val(j) = x->val(j + 1);
             }
             x->key_num()--;
-#ifdef DEBUG
             x->check_order();
-#endif
         } else {
             auto y = read_node(x->ch(i));
             if (!y->least()) {
                 auto [k_raw, v] = max_raw(y);
                 x->set_key(i, k_raw.data());
                 x->val(i) = v;
-#ifdef DEBUG
                 x->check_order();
-#endif
                 remove_nonleast(y, index->restore(k_raw.data()), v);
             } else {
                 auto z = read_node(x->ch(i + 1));
@@ -42,9 +36,7 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
                     auto [k_raw, v] = min_raw(z);
                     x->set_key(i, k_raw.data());
                     x->val(i) = v;
-#ifdef DEBUG
                     x->check_order();
-#endif
                     remove_nonleast(z, index->restore(k_raw.data()), v);
                 } else {
                     merge(x, y, i, std::move(z));
@@ -77,11 +69,9 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
                 x->set_key(i - 1, l->key(l->key_num() - 1));
                 x->val(i - 1) = l->val(l->key_num() - 1);
                 l->key_num()--;
-#ifdef DEBUG
                 x->check_order();
                 y->check_order();
                 l->check_order();
-#endif
                 return 1;
             };
             auto from_r = [&] {
@@ -101,11 +91,9 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
                 }
                 r->ch(r->key_num() - 1) = r->ch(r->key_num());
                 r->key_num()--;
-#ifdef DEBUG
                 x->check_order();
                 y->check_order();
                 r->check_order();
-#endif
                 return 1;
             };
 
@@ -122,9 +110,7 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
             }
         }
     }
-#ifdef DEBUG
     x->check_order();
-#endif
 }
 
 void BTree::insert(const_bytes_t k_raw, rid_t v, const byte_arr_t& k) {
@@ -157,9 +143,7 @@ int BTree::upper_bound(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
 }
 
 void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v) {
-#ifdef DEBUG
     x->check_order();
-#endif
     int i = upper_bound(x, k, v);
     ensure(!i || index->cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) != 0,
            "try to insert something already exists");
@@ -182,9 +166,7 @@ void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const byte_arr_t&
         }
         insert_nonfull(y, k_raw, k, v);
     }
-#ifdef DEBUG
     x->check_order();
-#endif
 }
 
 void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
@@ -206,6 +188,43 @@ void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, ri
     }
 }
 
+using op_t = Orange::parser::op;
+
+void BTree::query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
+    orange_assert(op != op_t::Neq, "btree is not able to query neq directly");
+    int i = 0;
+    // 有下界
+    if (op == op_t::Ge || op == op_t::Gt || op == op_t::Eq) {
+        while (i < x->key_num() && !Orange::cmp(index->restore(x->key(i)), index->kind, op, value)) i++;
+    }
+    node_ptr_t y;
+    if (!x->leaf()) {
+
+    }
+}
+
+
+// void BTree::query_le(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
+//     if (ret.size() > lim) return;
+//     node_ptr_t y;
+//     if (!x->leaf()) {
+//         y = read_node(x->ch(0));
+//         // query_le
+//     }
+// }
+// void BTree::query_lt(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
+
+// }
+// void BTree::query_ge(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
+
+// }
+// void BTree::query_gt(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
+
+// }
+// void BTree::query_eq(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
+
+// }
+
 void BTree::init(File* f_data) {
     f_tree = File::create_open(tree_name());
     pool.init();
@@ -213,18 +232,13 @@ void BTree::init(File* f_data) {
     root = new_node();
     bytes_t k_raw = new byte_t[key_size];
     f_data->seek_pos(0);
-#ifdef DEBUG
     std::cerr << "B-tree init:" << std::endl;
-#endif
-    for (rid_t i = 0, tot = index->get_tot(); i < tot; i++) {
-        f_data->read_bytes(k_raw, key_size);
-        if (*k_raw != DATA_INVALID) insert(k_raw, i, index->restore(k_raw));
-#ifdef DEBUG
-    std::cerr << '\r' << i << "/" << tot;
-#endif
+    const auto &all = index->get_all();
+    for (auto i: all) {
+        f_data->seek_pos(i * key_size)->read_bytes(k_raw, key_size);
+        insert(k_raw, i, index->restore(k_raw));
+        std::cerr << '\r' << i << "/" << all.size();
     }
-#ifdef DEBUG
     std::cerr << std::endl;
-#endif
     delete[] k_raw;
 }

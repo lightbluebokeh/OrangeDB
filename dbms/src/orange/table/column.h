@@ -20,7 +20,8 @@ private:
     bool test_size(byte_arr_t& val) const {
         if (int(val.size()) > maxsize) return 0;
         if (int(val.size()) < maxsize) {
-            // if (!is_string()) return 0;
+            // 对于 null 或者字符串才补零
+            if (val.front() != DATA_NULL && !is_string()) return 0;
             if (type != ORANGE_VARCHAR) val.resize(maxsize);
         }
         return 1;
@@ -65,6 +66,7 @@ public:
             case ORANGE_DATE: return "date";
             case ORANGE_NUMERIC: return "nummeric(" + std::to_string(p) + "," + std::to_string(s) + ")";
         }
+        return "<error-type>";
     }
 
     // one more bytes for null/valid
@@ -77,6 +79,8 @@ public:
     // 测试 val 能否插入到这一列；对于 非 varchar 会补零
     bool test(byte_arr_t& val) const {
         if (val.empty()) return 0;
+        // 只允许插入 null 或者普通的数据
+        if (val.front() != DATA_NORMAL || val.front() != DATA_NULL) return 0;
         if (!test_size(val)) return 0;
         if (val.front() == DATA_NULL) return nullable;
         for (auto &pred: ranges) if (!pred.test(val, type)) return 0;

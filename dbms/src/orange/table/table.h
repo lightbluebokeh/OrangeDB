@@ -15,6 +15,7 @@
 
 // 数据库中的表
 class SavedTable : public Table {
+private:
     int id;
     String name;
     IdPool<rid_t> rid_pool;
@@ -91,6 +92,10 @@ class SavedTable : public Table {
     }
 
     static String get_root(const String& name) { return name + "/"; }
+protected:
+    std::vector<rid_t> all() const override { return rid_pool.all(); }
+
+    byte_arr_t get_field(rid_t rid, int col_id) const override { return this->indices[col_id].get_val(rid); }
 public:
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_keys) {
@@ -125,9 +130,9 @@ public:
         ret.cols.push_back(Column("type"));
         ret.recs.resize(cols.size());
         for (unsigned i = 0; i < cols.size(); i++) {
-            ret.recs[i].push_back(to_bytes(cols[i].get_name()));
-            ret.recs[i].push_back(to_bytes(cols[i].nullable ? "nullable" : "not null"));
-            ret.recs[i].push_back(to_bytes(cols[i].type_string()));
+            ret.recs[i].push_back(Orange::to_bytes(cols[i].get_name()));
+            ret.recs[i].push_back(Orange::to_bytes(cols[i].nullable ? "nullable" : "not null"));
+            ret.recs[i].push_back(Orange::to_bytes(cols[i].type_string()));
         }
         return ret;
     }
@@ -142,7 +147,6 @@ public:
 
     static bool drop(const String& name) {
         auto table = get(name);
-        // table->close_files();
         table->close();
         free_table(table);
         return fs::remove_all(name);
@@ -155,7 +159,7 @@ public:
         }
     }
 
-    // 这一段代码把输入的值补全
+    // 这一段代码尝试把输入的值补全
     void insert(const std::vector<std::pair<String, byte_arr_t>>& values) {
         std::unordered_map<String, byte_arr_t> map;
         for (auto [name, val]: values) {

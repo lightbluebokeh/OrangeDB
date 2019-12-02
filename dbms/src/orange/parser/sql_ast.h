@@ -35,7 +35,7 @@ namespace Orange {
         using table_list = std::vector<std::string>;
 
         /** op: '=', '<>', '<=', '>=', '<', '>' */
-        enum class op { Eq, Neq, Le, Ge, Ls, Gt };
+        enum class op { Eq, Neq, Le, Ge, Lt, Gt };
 
         /** type */
         // enum class DataTypeKind { Int, VarChar, Date, Float };
@@ -68,6 +68,16 @@ namespace Orange {
             const std::string& to_string() const { return boost::get<std::string>(value); }
             double& to_float() { return boost::get<double>(value); }
             double to_float() const { return boost::get<double>(value); }
+
+            datatype_t get_datatype() const {
+                // if (is_null()) return ORANGE_INT;
+                switch ((DataValueKind)value.which()) {
+                    case DataValueKind::Null:
+                    case DataValueKind::Int: return ORANGE_INT; // null 的话随便
+                    case DataValueKind::String: return ORANGE_VARCHAR;
+                    case DataValueKind::Float: return ORANGE_NUMERIC;
+                }
+            }
 
             static data_value null_value() {
                 return data_value();
@@ -233,7 +243,7 @@ namespace Orange {
         struct insert_into_tb_stmt {
             std::string name;
             boost::optional<column_list> columns;
-            data_value_list values;
+            data_value_lists value_lists;
         };
 
         struct delete_from_tb_stmt {
@@ -470,10 +480,23 @@ namespace Orange {
                 case op::Neq: os << "<>"; break;
                 case op::Le: os << "<="; break;
                 case op::Ge: os << ">="; break;
-                case op::Ls: os << "<"; break;
+                case op::Lt: os << "<"; break;
                 case op::Gt: os << ">"; break;
             }
             return os;
         }
     }  // namespace parser
 }  // namespace Orange
+
+// template <>
+// inline auto to_bytes(const Orange::parser::data_value& value) {
+    
+// }
+
+namespace {
+    inline byte_arr_t to_bytes(const Orange::parser::data_value& value) {
+        if (value.is_null()) return {DATA_NULL};
+        if (value.is_int()) return Orange::to_bytes(value.to_int());
+        if (value.is_string()) return Orange::to_bytes(value.to_string());
+    }
+}

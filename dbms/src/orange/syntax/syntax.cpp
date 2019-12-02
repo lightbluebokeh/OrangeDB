@@ -113,20 +113,7 @@ namespace Orange {
                                               ? value_string(def.default_value.get())
                                               : "<none>")
                                       << std::endl;
-                                    //   def.default_value.get_value_or(/)
-                            byte_arr_t dft = {DATA_NULL};
-                            if (def.default_value.has_value()) {
-                                auto &value = def.default_value.get();
-                                if (value.is_int()) {
-                                    dft.resize(1 + 4);
-                                    *(int*)(dft.data() + 1) = value.to_int();
-                                } else if (value.is_string()) {
-                                    auto str = value.to_string();
-                                    dft.resize(1 + str.length());
-                                    strncpy((char*)dft.data() + 1, str.data(), str.length());
-                                }
-                            }
-                            cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), 0, 0, !def.is_not_null, dft, {}));
+                            cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), 0, 0, !def.is_not_null, Orange::to_bytes(def.default_value.get_value_or(data_value::null_value())), {}));
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
@@ -144,6 +131,7 @@ namespace Orange {
                             cout << "        col name: " << foreign_key.col;
                             cout << "        ref table: " << foreign_key.ref_table_name;
                             cout << "        ref col name: " << foreign_key.col << endl;
+                            
                             f_keys.push_back(f_key_t(foreign_key.col, foreign_key.ref_table_name, {foreign_key.col}, {foreign_key.ref_col_name}));
                         } break;
                         default: unexpected();
@@ -167,32 +155,53 @@ namespace Orange {
                 auto& insert = stmt.insert_into();
                 cout << "  insert into table:" << std::endl;
                 cout << "    table name: " << insert.name << std::endl;
+                auto table = SavedTable::get(insert.name);
                 if (insert.columns.has_value()) {
                     auto& columns = insert.columns.get();
-                    auto& values = insert.values;
-                    if (columns.size() != values.size()) {
-                        cout << "    * columns and values not match *" << std::endl;
-                        cout << "    columns:";
-                        for (auto& col : insert.columns.get()) {
-                            cout << ' ' << col;
+                    auto& value_lists = insert.value_lists;
+                    [&] {
+                        for (auto &values: value_lists) {
+                            if (columns.size() != values.size()) {
+                                cout << "    * columns and values not match *" << std::endl;
+                                cout << "    columns:";
+                                for (auto& col : insert.columns.get()) {
+                                    cout << ' ' << col;
+                                }
+                                cout << std::endl;
+                                cout << "    values:";
+                                for (auto &values: insert.value_lists) {
+                                    for (auto& val : values) {
+                                        cout << ' ' << value_string(val) << endl;
+                                    }
+                                }
+                                return;
+                            }
                         }
-                        cout << std::endl;
-                        cout << "    values:";
-                        for (auto& val : insert.values) {
-                            cout << ' ' << value_string(val);
-                        }
-                    } else {
-                        cout << "    columns and values:" << std::endl;
                         for (size_t i = 0; i < columns.size(); i++) {
-                            cout << "      " << columns[i] << ": " << value_string(values[i])
-                                      << std::endl;
+                            cout << "      " << columns[i] << " ";
                         }
-                        cout << std::endl;
-                    }
+                        cout << endl;
+                        for (auto &values: value_lists) {
+                            std::vector<std::pair<String, byte_arr_t>> data;
+                            for (unsigned i = 0; i < values.size(); i++) {
+                                auto &val = values[i];
+                                cout << "       " << value_string(val);
+                                data.push_back(std::make_pair(columns[i], Orange::to_bytes(val)));
+                            }
+                            table->insert(data);
+                            cout << endl;
+                        }
+                    }();
                 } else {
                     cout << "    values:";
-                    for (auto& val : insert.values) {
-                        cout << ' ' << value_string(val);
+                    for (auto &values: insert.value_lists) {
+                        rec_t rec;
+                        for (auto& val : values) {
+                            cout << ' ' << value_string(val) << endl;
+                            rec.push_back(Orange::to_bytes(val));
+                        }
+                        cout << endl;
+                        table->insert(rec);
                     }
                 }
             } break;
@@ -200,12 +209,14 @@ namespace Orange {
                 auto& delete_from = stmt.delete_from();
                 cout << "  delete from table:" << std::endl;
                 cout << "    table name: " << delete_from.name << std::endl;
+                auto table = SavedTable::get(delete_from.name);
                 cout << "    where:" << std::endl;
                 for (auto& cond : delete_from.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
                         cout << "      " << null.col_name << " IS "
                                   << (null.is_not_null ? "NOT " : "") << "NULL";
+                        
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
                         cout << "      " << o.col_name << " " << o.operator_ << " "
@@ -276,9 +287,9 @@ namespace Orange {
     }
 
     // 懒了
-    inline void idx(idx_stmt& stmt) {UNIMPLEMENTED}
+    inline void idx(idx_stmt& stmt) {ORANGE_UNIMPL}
 
-    inline void alter(alter_stmt& stmt) {UNIMPLEMENTED}
+    inline void alter(alter_stmt& stmt) {ORANGE_UNIMPL}
 
     // 遍历语法树
     void program(sql_ast& ast) {

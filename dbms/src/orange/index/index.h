@@ -6,6 +6,8 @@
 #include <fs/file/file.h>
 #include <fs/allocator/allocator.h>
 #include <orange/index/b_tree.h>
+#include "orange/parser/sql_ast.h"
+#include "orange/common.h"
 
 class SavedTable;
 
@@ -17,6 +19,7 @@ private:
     Column *column;
 
     datatype_t kind;
+    // 每个值的在索引中的大小
     size_t size;
     String prefix;
 
@@ -39,7 +42,7 @@ private:
             default: return key;
         }
     }
-    byte_arr_t restore(const_bytes_t k_raw) {
+    byte_arr_t restore(const_bytes_t k_raw) const {
         switch (kind) {
             case ORANGE_VARCHAR: return allocator->read_byte_arr(*(size_t*)(k_raw + 1));
             default: return byte_arr_t(k_raw, k_raw + size);
@@ -51,8 +54,9 @@ private:
         return key_code == 0 ? v1 - v2 : key_code;
     }
 
-    // 返回 table 中的最大编号
-    rid_t get_tot();
+    // 返回所在表的所有正在使用的 rid
+    std::vector<rid_t> get_all() const;
+
     byte_arr_t get_raw(rid_t rid) {
         auto bytes = new byte_t[size];
         f_data->seek_pos(rid * size)->read_bytes(bytes, size);
@@ -79,6 +83,15 @@ public:
         if (on) delete tree;
         if (f_data) f_data->close();
         delete allocator;
+    }
+
+    //　返回 rid　记录此列的值
+    auto get_val(rid_t rid) const {
+        auto bytes = new byte_t[size];
+        f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+        auto ret = restore(bytes);
+        delete[] bytes;
+        return ret;
     }
 
     void load() {
@@ -131,22 +144,41 @@ public:
             std::vector<rid_t> ret;
             bytes_t bytes = new byte_t[size];
             f_data->seek_pos(0);
-            for (rid_t i = 0, tot = get_tot(); i < tot && lim; i++) {
-                f_data->read_bytes(bytes, size);
-                if (*bytes != DATA_INVALID && pred.test(restore(bytes), kind)) {
-                    ret.push_back(i);
-                    lim--;
-                }
+            for (auto i: get_all()) {
+                if (pred.test(get_val(i), kind)) ret.push_back(i);
             }
             delete[] bytes;
             return ret;
         }
     }
 
-    byte_arr_t get_val(rid_t rid) {
+    auto get_rids_value(Orange::parser::op op, const Orange::parser::data_value& value) {
+        orange_assert(!value.is_null(), "cannot be null here");
+        if (on) {
+
+        } else {
+            std::vector<rid_t> ret;
+            auto bytes = new byte_t[size];
+            for (auto i: get_all()) {
+                f_data->seek_off(i * size)->read_bytes(bytes, size);
+                if (Orange::cmp(byte_arr_t(bytes, bytes + size), kind, op, value)) {
+                    ret.push_back(i);
+                }
+            }            
+            delete[] bytes;
+            return ret;
+        }
+    }
+
+    auto get_rids_null(bool not_null) {
         auto bytes = new byte_t[size];
-        f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-        auto ret = restore(bytes);
+        std::vector<rid_t> ret;
+        for (auto i: get_all()) {
+            f_data->seek_off(i * size)->read_bytes(bytes, size);
+            if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
+                ret.push_back(i);
+            }
+        }
         delete[] bytes;
         return ret;
     }

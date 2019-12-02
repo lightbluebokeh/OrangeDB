@@ -10,7 +10,7 @@ struct _Tag {
 };
 
 // 初始化
-void FileAllocator::init() {
+void FileAllocator::init() const {
     fseek(fd, DATA_OFFSET, SEEK_SET);
     _Tag tag{0, 1};
     fwrite(&tag, 1, sizeof(tag), fd);
@@ -32,7 +32,7 @@ FileAllocator::~FileAllocator() {
 }
 
 // 分配空间
-size_t FileAllocator::allocate(size_t size, void* data) {
+size_t FileAllocator::allocate(size_t size, void* data) const {
     assert((int)size > 0);
     fseek(fd, DATA_OFFSET + sizeof(_Tag), SEEK_SET);
     _Tag tag[1];
@@ -88,7 +88,7 @@ size_t FileAllocator::allocate(size_t size, void* data) {
 }
 
 // 读取
-int FileAllocator::read(size_t offset, void* dst, size_t max_size) {
+int FileAllocator::read(size_t offset, void* dst, size_t max_size) const {
     _Tag tag;
     fseek(fd, offset - sizeof(tag), SEEK_SET);
     fread(&tag, 1, sizeof(tag), fd);
@@ -102,7 +102,7 @@ int FileAllocator::read(size_t offset, void* dst, size_t max_size) {
 }
 
 // 写入
-int FileAllocator::write(size_t offset, void* data, size_t max_size) {
+int FileAllocator::write(size_t offset, void* data, size_t max_size) const {
     _Tag tag;
     fseek(fd, offset - sizeof(tag), SEEK_SET);
     fread(&tag, sizeof(tag), 1, fd);
@@ -117,7 +117,7 @@ int FileAllocator::write(size_t offset, void* data, size_t max_size) {
 }
 
 // 释放
-bool FileAllocator::free(size_t offset) {
+bool FileAllocator::free(size_t offset) const {
     _Tag tag[2];  // tag[0]: 上一个块的footer, tag[1]: 当前块
     fseek(fd, offset - 2 * sizeof(_Tag), SEEK_SET);
     fread(tag, 1, 2 * sizeof(_Tag), fd);
@@ -164,7 +164,7 @@ bool FileAllocator::free(size_t offset) {
 }
 
 // 刷新
-int FileAllocator::flush() {
+int FileAllocator::flush() const {
     return fflush(fd);
 }
 
