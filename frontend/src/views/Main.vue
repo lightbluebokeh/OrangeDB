@@ -20,7 +20,7 @@
             accept=".sql"
             :disabled="uploading"
             :show-file-list="false"
-            :http-request="processUploadFile"
+            :http-request="uploadFile"
           >
             <el-button size="medium" type="file" style="width:100px"
               >读取文件</el-button
@@ -31,22 +31,29 @@
           </el-button>
         </div>
 
-        <el-row style="margin-top:24px">
+        <el-row v-if="result_type > 0" style="margin-top:24px">
           <el-divider content-position="left">查询结果</el-divider>
-          <el-table fit stripe size="medium" :data="results">
-            <el-table-column label="#" width="40">
-              <span slot-scope="props">{{ props.$index + 1 }}</span>
-            </el-table-column>
-            <el-table-column
-              v-for="(h, i) in headers"
-              :key="i"
-              :label="h"
-              :prop="h"
-            />
-          </el-table>
-          <p class="info">
-            共 {{ results.length }} 条记录，查询用时 {{ queryTime }} 秒
-          </p>
+
+          <!-- 返回表格 -->
+          <div v-if="result_type === 1">
+            <el-table fit stripe size="medium" :data="results">
+              <el-table-column label="#" width="40">
+                <span slot-scope="props">{{ props.$index + 1 }}</span>
+              </el-table-column>
+              <el-table-column
+                v-for="(h, i) in headers"
+                :key="i"
+                :label="h"
+                :prop="h"
+              />
+            </el-table>
+            <p class="info">
+              共 {{ results.length }} 条记录，查询用时 {{ queryTime }} 秒
+            </p>
+          </div>
+
+          <!-- 返回消息 -->
+          <div v-else-if="result_type === 2"></div>
         </el-row>
       </el-card>
     </el-col>
@@ -69,47 +76,45 @@ export default Vue.extend({
     return {
       // 查询语句
       statements: '',
+
+      // 查询用时
+      queryTime: 0.01,
       // 查询结果的标题
-      headers: ['test1', 'test2'],
+      headers: [] as string[],
+      // 结果类型
+      result_type: 0,
       // 查询结果
-      results: [
-        {
-          test1: 10,
-          test2: 'abc111111111111111111111111111111111111111111111111111111d',
-        },
-        { test1: 20, test2: 'dd' },
-      ],
+      results: [] as any[],
+
       // 正在上传文件
       uploading: false,
       // 正在查询
       loading: false,
-      // 查询用时
-      queryTime: 0.01,
     };
   },
   methods: {
-    processUploadFile(request: any) {
+    /** 上传文件 */
+    uploadFile(request: any) {
       const file = request.file as File;
       if (file.size > 65536) {
         // 为了避免前端直接卡死
         this.$message({ message: '上传文件太大！', type: 'warning' });
         return;
       }
-      new Promise((resolve) => {
-        this.uploading = true;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          this.statements = (event.target as FileReader).result!.toString();
-          this.saveSql();
-          this.uploading = false;
-        };
-        reader.onerror = () => {
-          this.$message({ message: '读取文件失败', type: 'error' });
-          this.uploading = false;
-        };
-        reader.readAsText(file);
-      });
+      this.uploading = true;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        this.statements = (event.target as FileReader).result!.toString();
+        this.saveSql();
+        this.uploading = false;
+      };
+      reader.onerror = () => {
+        this.$message({ message: '读取文件失败', type: 'error' });
+        this.uploading = false;
+      };
+      reader.readAsText(file);
     },
+    /** 保存语句到临时存储 */
     saveSql() {
       this.$store.commit('save', this.statements);
     },
