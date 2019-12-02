@@ -165,11 +165,6 @@ private:
     void query(node_ptr_t &x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim);
     void check_order(node_ptr_t& x);
     void query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
-    void query_le(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
-    void query_lt(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
-    void query_ge(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
-    void query_gt(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
-    void query_eq(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
 public:
     BTree(Index *index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { ensure(t >= 2, "fanout too few"); }
@@ -188,33 +183,24 @@ public:
     void insert(const_bytes_t k_raw, rid_t v, const byte_arr_t& k);
     void remove(const_bytes_t k_raw, rid_t v);
 
-    std::vector<rid_t> query(const pred_t& pred, rid_t lim) {
-        std::vector<rid_t> ret;
-        query(root, pred, ret, lim);
-        return ret;
-    }
+    // std::vector<rid_t> query(const pred_t& pred, rid_t lim) {
+    //     std::vector<rid_t> ret;
+    //     query(root, pred, ret, lim);
+    //     return ret;
+    // }
 
-    auto query(Orange::parser::op op, const Orange::parser::data_value& value, rid_t lim, std::vector<rid_t>) {
+    auto query(Orange::parser::op op, const Orange::parser::data_value& value, rid_t lim) {
         using op_t = Orange::parser::op;
         std::vector<rid_t> ret;
-        switch (op) {
-            case op_t::Eq: query_eq(root, value, ret, lim);
-            break;
-            case op_t::Ge: query_ge(root, value, ret, lim);
-            break;
-            case op_t::Gt: query_gt(root, value, ret, lim);
-            break;
-            case op_t::Le: query_le(root, value, ret, lim);
-            break;
-            case op_t::Lt: query_lt(root, value, ret, lim);
-            break;
-            case op_t::Neq:
-                query_lt(root, value, ret, lim);
-                query_gt(root, value, ret, lim);
-            break;
+        if (op == op_t::Neq) {
+            query_internal(root, op_t::Lt, value, ret, lim);
+            query_internal(root, op_t::Gt, value, ret, lim);
+        } else {
+            query_internal(root, op, value, ret, lim);
         }
+        orange_assert(ret.size() <= lim, "query limit exeeded");
         return ret;
     }
 
-    friend Index;
+    // friend Index;
 };

@@ -31,12 +31,12 @@ private:
     // 用于 vchar
     FileAllocator *allocator = nullptr;
 
-    String data_name() { return prefix + ".data"; }
-    String meta_name() { return prefix + ".meta"; }
-    String vchar_name() { return prefix + ".vch"; }
+    String data_name() const { return prefix + ".data"; }
+    String meta_name() const { return prefix + ".meta"; }
+    String vchar_name() const { return prefix + ".vch"; }
 
     // 对于 vchar 返回指针，其它直接返回真实值
-    byte_arr_t store(const byte_arr_t& key) {
+    byte_arr_t store(const byte_arr_t& key) const {
         switch (kind) {
             case ORANGE_VARCHAR: return allocator->allocate_byte_arr(key);
             default: return key;
@@ -57,7 +57,7 @@ private:
     // 返回所在表的所有正在使用的 rid
     std::vector<rid_t> get_all() const;
 
-    byte_arr_t get_raw(rid_t rid) {
+    byte_arr_t get_raw(rid_t rid) const {
         auto bytes = new byte_t[size];
         f_data->seek_pos(rid * size)->read_bytes(bytes, size);
         auto ret = byte_arr_t(bytes, bytes + size);
@@ -71,14 +71,7 @@ public:
         f_data = File::open(data_name());
         if (kind == ORANGE_VARCHAR) allocator = new FileAllocator(vchar_name());
     }
-    Index(Index&& index) :
-        table(index.table), kind(index.kind), size(index.size), prefix(index.prefix), on(index.on),
-        f_data(index.f_data), tree(index.tree), allocator(index.allocator) {
-        if (on) tree->index = this;
-        index.f_data = nullptr;
-        index.allocator = nullptr;
-        index.on = 0;
-    }
+    Index(Index&& index) = delete;  // 防止奇怪的 bug
     ~Index() {
         if (on) delete tree;
         if (f_data) f_data->close();
@@ -136,44 +129,35 @@ public:
         insert(val, rid);
     }
 
-    // lo_eq 为真表示允许等于
-    std::vector<rid_t> get_rid(const pred_t& pred, rid_t lim) {
-        if (on)
-            return tree->query(pred, lim);
-        else {
-            std::vector<rid_t> ret;
-            bytes_t bytes = new byte_t[size];
-            f_data->seek_pos(0);
-            for (auto i: get_all()) {
-                if (pred.test(get_val(i), kind)) ret.push_back(i);
+    std::vector<rid_t> get_rids_op(Orange::parser::op &op, Orange::parser::expr &expr, rid_t lim) const {
+        if (expr.is_value()) {
+            auto &value = expr.value();
+            if (value.is_null()) return {};
+            if (on) {
+                return tree->query(op, value, lim);
+            } else {
+                std::vector<rid_t> ret;
+                auto bytes = new byte_t[size];
+                for (auto i: get_all()) {
+                    if (ret.size() >= lim) break;
+                    f_data->seek_off(i * size)->read_bytes(bytes, size);
+                    if (Orange::cmp(byte_arr_t(bytes, bytes + size), kind, op, value)) {
+                        ret.push_back(i);
+                    }
+                }            
+                delete[] bytes;
+                return ret;
             }
-            delete[] bytes;
-            return ret;
-        }
-    }
-
-    auto get_rids_value(Orange::parser::op op, const Orange::parser::data_value& value) {
-        orange_assert(!value.is_null(), "cannot be null here");
-        if (on) {
-
         } else {
-            std::vector<rid_t> ret;
-            auto bytes = new byte_t[size];
-            for (auto i: get_all()) {
-                f_data->seek_off(i * size)->read_bytes(bytes, size);
-                if (Orange::cmp(byte_arr_t(bytes, bytes + size), kind, op, value)) {
-                    ret.push_back(i);
-                }
-            }            
-            delete[] bytes;
-            return ret;
+
         }
     }
 
-    auto get_rids_null(bool not_null) {
+    auto get_rids_null(bool not_null, rid_t lim) const {
         auto bytes = new byte_t[size];
         std::vector<rid_t> ret;
         for (auto i: get_all()) {
+            if (ret.size() >= lim) break;
             f_data->seek_off(i * size)->read_bytes(bytes, size);
             if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
                 ret.push_back(i);

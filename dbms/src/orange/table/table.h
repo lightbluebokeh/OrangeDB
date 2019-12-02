@@ -42,7 +42,7 @@ private:
     void read_metadata() {
         File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
         for (auto &col: cols) {
-            indices.emplace_back(Index(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index()));
+            indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index());
             indices.back().load();
         }
     }
@@ -187,15 +187,28 @@ public:
         }
         insert_internal(rec);
     }
-    
-    std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim) {
-        auto it = find_col(col_name);
-        ensure(it != cols.end(), "where clause failed: unknown column name");
-        int col_id = it - cols.begin();
-        auto &col = cols[col_id];
-        ensure(col.test(pred.lo) && col.test(pred.hi), "bad where clause");
-        return indices[col_id].get_rid(pred, lim);
+
+    std::vector<rid_t> single_where(const Orange::parser::single_where& where, rid_t lim) const override {
+        if(where.is_null_check()) {
+            auto &null = where.null_check();
+            indices[get_col_id(null.col_name)].get_rids_null(null.is_not_null, lim);
+        } else if (where.is_op()) {
+            auto &op = where.op();
+            
+        } else {
+            ORANGE_UNREACHABLE
+            return {233};
+        }
     }
+    
+    // std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim) {
+    //     auto it = find_col(col_name);
+    //     ensure(it != cols.end(), "where clause failed: unknown column name");
+    //     int col_id = it - cols.begin();
+    //     auto &col = cols[col_id];
+    //     ensure(col.test(pred.lo) && col.test(pred.hi), "bad where clause");
+    //     return indices[col_id].get_rid(pred, lim);
+    // }
 
     void remove(const std::vector<rid_t>& rids) {
         for (auto &index: indices) {

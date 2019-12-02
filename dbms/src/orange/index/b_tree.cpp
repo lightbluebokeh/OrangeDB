@@ -169,28 +169,29 @@ void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const byte_arr_t&
     x->check_order();
 }
 
-void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
-    int i = 0;
-    while (i < x->key_num() && !pred.test_lo(index->restore(x->key(i)), index->kind)) i++;
-    node_ptr_t y;
-    if (!x->leaf()) {
-        y = read_node(x->ch(i));
-        query(y, pred, ret, lim);
-    }
-    while (lim && i < x->key_num() && pred.test_hi(index->restore(x->key(i)), index->kind)) {
-        ret.push_back(x->val(i));
-        lim--;
-        if (lim && !x->leaf()) {
-            y = read_node(x->ch(i + 1));
-            query(y, pred, ret, lim);
-        }
-        i++;
-    }
-}
+// void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
+//     int i = 0;
+//     while (i < x->key_num() && !pred.test_lo(index->restore(x->key(i)), index->kind)) i++;
+//     node_ptr_t y;
+//     if (!x->leaf()) {
+//         y = read_node(x->ch(i));
+//         query(y, pred, ret, lim);
+//     }
+//     while (lim && i < x->key_num() && pred.test_hi(index->restore(x->key(i)), index->kind)) {
+//         ret.push_back(x->val(i));
+//         lim--;
+//         if (lim && !x->leaf()) {
+//             y = read_node(x->ch(i + 1));
+//             query(y, pred, ret, lim);
+//         }
+//         i++;
+//     }
+// }
 
 using op_t = Orange::parser::op;
 
 void BTree::query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
+    if (ret.size() >= lim) return;
     orange_assert(op != op_t::Neq, "btree is not able to query neq directly");
     int i = 0;
     // 有下界
@@ -199,31 +200,18 @@ void BTree::query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::p
     }
     node_ptr_t y;
     if (!x->leaf()) {
-
+        y = read_node(x->ch(i));
+        query_internal(y, op, value, ret, lim);
+    }
+    while (ret.size() < lim && Orange::cmp(index->restore(x->key(i)), index->kind, op, value)) {
+        ret.push_back(x->val(i));
+        if (!x->leaf()) {
+            y = read_node(x->ch(i + 1));
+            query_internal(y, op, value, ret, lim);
+        }
+        i++;
     }
 }
-
-
-// void BTree::query_le(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
-//     if (ret.size() > lim) return;
-//     node_ptr_t y;
-//     if (!x->leaf()) {
-//         y = read_node(x->ch(0));
-//         // query_le
-//     }
-// }
-// void BTree::query_lt(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
-
-// }
-// void BTree::query_ge(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
-
-// }
-// void BTree::query_gt(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
-
-// }
-// void BTree::query_eq(node_ptr_t &x, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
-
-// }
 
 void BTree::init(File* f_data) {
     f_tree = File::create_open(tree_name());
