@@ -237,7 +237,7 @@ public:
         }
     }
 
-    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) {
+    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) const override {
         TmpTable ret;
         ret.recs.resize(rids.size());
         std::vector<int> col_ids;

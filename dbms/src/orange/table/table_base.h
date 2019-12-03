@@ -69,7 +69,7 @@ protected:
         return ret;
     }
 public:
-    virtual std::vector<rid_t> where(const Orange::parser::where_clause& where) const {
+    std::vector<rid_t> where(const Orange::parser::where_clause& where) const {
         // 多条 where clause 是与关系，求交
         if (where.empty()) return all();
         std::vector<rid_t> ret = single_where(where.front());
