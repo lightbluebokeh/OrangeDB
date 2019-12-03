@@ -237,18 +237,20 @@ public:
         }
     }
 
-    // TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) {
-    //     TmpTable ret;
-    //     ret.recs.resize(rids.size());
-    //     std::vector<int> col_ids;
-    //     for (auto name : names) {
-    //         auto col_id = find_col(name) - cols.begin();
-    //         for (unsigned i = 0; i < rids.size(); i++) {
-    //             ret.recs[i].push_back(this->indices[col_id].get_val(rids[i]));
-    //         }
-    //     }
-    //     return ret;
-    // }
+    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) {
+        TmpTable ret;
+        ret.recs.resize(rids.size());
+        std::vector<int> col_ids;
+        for (auto name : names) {
+            auto col_id = get_col_id(name);
+            ret.cols.push_back(cols[col_id]);
+            auto vals = indices[col_id].get_vals(rids);
+            for (unsigned i = 0; i < rids.size(); i++) {
+                ret.recs[i].push_back(vals[i]);
+            }
+        }
+        return ret;
+    }
 
     void update(const String& col_name, std::function<byte_arr_t(byte_arr_t)> expr, const std::vector<rid_t>& rids) {
         auto it = find_col(col_name);

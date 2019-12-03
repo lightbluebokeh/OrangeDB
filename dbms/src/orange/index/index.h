@@ -83,6 +83,17 @@ public:
         return ret;
     }
 
+    // 返回一系列 rid 对应的该列值
+    auto get_vals(std::vector<rid_t> rids) const {
+        auto bytes = new byte_t[size];
+        std::vector<byte_arr_t> ret;
+        for (auto rid: rids) {
+            f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+            ret.push_back(restore(bytes));
+        }
+        return ret;
+    }
+
     void load() {
         if (on) {
             tree = new BTree(this, size, prefix);
@@ -134,7 +145,7 @@ public:
             auto bytes = new byte_t[size];
             for (auto i: get_all()) {
                 if (ret.size() >= lim) break;
-                f_data->seek_off(i * size)->read_bytes(bytes, size);
+                f_data->seek_pos(i * size)->read_bytes(bytes, size);
                 if (Orange::cmp(byte_arr_t(bytes, bytes + size), kind, op, value)) {
                     ret.push_back(i);
                 }
@@ -149,7 +160,7 @@ public:
         std::vector<rid_t> ret;
         for (auto i: get_all()) {
             if (ret.size() >= lim) break;
-            f_data->seek_off(i * size)->read_bytes(bytes, size);
+            f_data->seek_pos(i * size)->read_bytes(bytes, size);
             if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
                 ret.push_back(i);
             }

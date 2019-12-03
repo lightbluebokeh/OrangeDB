@@ -86,7 +86,7 @@ public:
         return ret;
     }
 
-    TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) const;
+    virtual TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) const;
     TmpTable select_star(const std::vector<rid_t>& rids) const;
 };
 
