@@ -34,14 +34,14 @@ private:
 
 public:
     static bool create(const String& name) {
-        ensure(FileManage::create_file(name.c_str()) == 0, "file create fail");
+        orange_ensure(FileManage::create_file(name.c_str()) == 0, "file create fail");
         return true;
     }
 
     // 不存在就错误了
     static File* open(const String& name) {
         int id, fd;
-        ensure(FileManage::open_file(name.c_str(), id, fd) == 0, "file open failed");
+        orange_ensure(FileManage::open_file(name.c_str(), id, fd) == 0, "file open failed");
         if (files[id] == nullptr) files[id] = new File(id, name);
         return files[id];
     }
@@ -52,8 +52,8 @@ public:
     }
 
     bool close() {
-        ensure(FileManage::close_file(id) == 0, "close file fail");
-        ensure(this == files[id], "this is magic");
+        orange_ensure(FileManage::close_file(id) == 0, "close file fail");
+        orange_ensure(this == files[id], "this is magic");
         files[id] = nullptr;
         delete this;
         return true;
@@ -62,7 +62,7 @@ public:
     static bool remove(const String& name) {
         // 偷懒.jpg
         // if (FileManage::file_opened(name)) open(name)->close();
-        ensure(FileManage::remove_file(name) == 0, "remove file failed");
+        orange_ensure(FileManage::remove_file(name) == 0, "remove file failed");
         return true;
     }
 

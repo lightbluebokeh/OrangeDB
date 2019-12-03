@@ -114,7 +114,10 @@ namespace Orange {
                                               ? value_string(def.default_value.get())
                                               : "<none>")
                                       << std::endl;
-                            cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), 0, 0, !def.is_not_null, Orange::to_bytes(def.default_value.get_value_or(data_value::null_value())), {}));
+
+                            // auto dft = def.default_value.has_value() ? Orange::to_bytes(def.default_value.get()) : byte_arr_t{};
+                            auto dft = Orange::to_bytes(def.default_value.get_value_or(Orange::parser::data_value::null_value()));
+                            cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), 0, 0, !def.is_not_null, dft, {}));
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
@@ -267,7 +270,7 @@ namespace Orange {
                     for (auto& col : select.select) {
                         if (col.table_name.has_value()) {
                             auto name = col.table_name.get();
-                            ensure(tables.count(name), "unknown table name: `" + name + "`");
+                            orange_ensure(tables.count(name), "unknown table name: `" + name + "`");
                             cout << name << ".";
                         }
                         cout << col.col_name << " ";
@@ -337,7 +340,7 @@ namespace Orange {
                     default: unexpected();
                 }
             } catch (OrangeException& e) {
-                cout << e.what() << endl;
+                cout << RED << "FAILED: " << RESET <<  e.what() << endl;
             }
         }
     }

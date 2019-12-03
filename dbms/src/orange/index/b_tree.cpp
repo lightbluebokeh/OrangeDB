@@ -46,7 +46,7 @@ void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
             }
         }
     } else {
-        ensure(!x->leaf(), "trying to delete something does not exist");
+        orange_ensure(!x->leaf(), "trying to delete something does not exist");
         auto y = read_node(x->ch(i));
         if (!y->least())
             remove_nonleast(y, k, v);
@@ -150,7 +150,7 @@ int BTree::upper_bound(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
 void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v) {
     x->check_order();
     int i = upper_bound(x, k, v);
-    ensure(!i || cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) != 0,
+    orange_ensure(!i || cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) != 0,
            "try to insert something already exists");
     if (x->leaf()) {
         for (int j = x->key_num() - 1; j >= i; j--) {

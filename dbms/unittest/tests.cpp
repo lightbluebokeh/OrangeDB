@@ -58,10 +58,10 @@ TEST_CASE("test fs io", "[fs]") {
     }
     cerr << GREEN << "success" << RESET << endl;
 
-    ensure(f1->close(), "close failed");
-    ensure(File::remove(name1), "remove failed");
-    ensure(f2->close(), "close failed");
-    ensure(File::remove(name2), "remove failed");
+    orange_ensure(f1->close(), "close failed");
+    orange_ensure(File::remove(name1), "remove failed");
+    orange_ensure(f2->close(), "close failed");
+    orange_ensure(File::remove(name2), "remove failed");
 
     cerr << "save your disk!" << endl;
 }

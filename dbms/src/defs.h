@@ -50,9 +50,6 @@ constexpr const char* GREEN = "\033[32m"; /* Green */
 constexpr const char* YELLOW = "\033[33m"; /* Yellow */
 constexpr const char* CYAN = "\033[36m"; /* Cyan */
 
-void ensure(bool cond, const String& msg);
-#define DATA_INVALID 0xff
-
 class OrangeException : public std::exception {
 private:
     String msg;
@@ -69,6 +66,14 @@ public:
     OrangeError(const String& msg) : msg(msg) {}
     const char* what() const noexcept override { return msg.c_str(); }
 };
+
+inline void orange_ensure(bool cond, const String& msg) {
+    if (cond == 0) {
+        // std::cerr << RED << "failed: " << RESET << msg << std::endl;
+        throw OrangeException(msg);
+    }
+}
+
 // for debug
 inline void orange_assert(bool cond, const String& msg) {
 #ifdef DEBUG
@@ -121,14 +126,24 @@ struct is_pair<std::pair<T, U>> : std::true_type {};
 template <typename T>
 constexpr bool is_pair_v = is_pair<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
+template<typename>
+struct is_char_array : public std::false_type {};
+template<std::size_t _Size>
+struct is_char_array<char[_Size]> : public std::true_type {};
+template<>
+struct is_char_array<char[]> : public std::true_type {};
+template<typename T>
+constexpr bool is_char_array_v = is_char_array<T>::value;
+
 constexpr int MAX_CHAR_LEN = 255;
 constexpr int MAX_VARCHAR_LEN = 65535;
 
 #define DATA_NULL 0x0
 #define DATA_NORMAL 0x1
+#define DATA_INVALID 0xff
 
-#define ORANGE_UNIMPL throw OrangeError("lazy orange coder has not implemented this yet");
-#define ORANGE_UNREACHABLE throw OrangeError("ni za guo lai de");
+#define ORANGE_UNIMPL throw OrangeError("<del>lazy</del> orange developer has not implemented this yet");
+#define ORANGE_UNREACHABLE throw OrangeError("how are you able to reach here?");
 
 template <class Fn, class... Args>
 int expand(Fn&& func, Args&&... args) {
@@ -149,10 +164,17 @@ using numeric_t = long double;
 namespace Orange {
     template <typename T>
     auto to_bytes(const T& t) {
-        byte_arr_t ret(sizeof(T) + 1);
-        ret[0] = DATA_NORMAL;
-        memcpy(ret.data() + 1, (bytes_t)&t, sizeof(T));
-        return ret;
+        if constexpr (is_char_array_v<T>) {
+            byte_arr_t ret(sizeof(T));
+            ret[0] = DATA_NORMAL;
+            memcpy(ret.data() + 1, (bytes_t)&t, sizeof(T) - 1);
+            return ret;
+        } else {
+            byte_arr_t ret(sizeof(T) + 1);
+            ret[0] = DATA_NORMAL;
+            memcpy(ret.data() + 1, (bytes_t)&t, sizeof(T));
+            return ret;
+        }
     }
 
     template <>
@@ -175,4 +197,3 @@ namespace Orange {
         return ret;
     }
 }
-

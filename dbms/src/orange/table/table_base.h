@@ -17,7 +17,7 @@ protected:
     auto find_col(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
-        ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
+        orange_ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
         return it;
     }
     int get_col_id(const String& col_name) const { return find_col(col_name) - cols.begin(); }
@@ -43,7 +43,7 @@ protected:
             // auto &col1 = cols[col1_id];
             if (op.expression.is_column()) {
                 auto &col2 = op.expression.col();
-                ensure(!col2.table_name.has_value(), "cannot specify table name here");
+                orange_ensure(!col2.table_name.has_value(), "cannot specify table name here");
                 int col2_id = get_col_id(col2.col_name);
                 return Orange::cmp(get_field(rid, col1_id), cols[col1_id].get_datatype(), op.operator_, get_field(rid, col2_id), cols[col2_id].get_datatype());
             } else if (op.expression.is_value()) {

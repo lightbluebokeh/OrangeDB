@@ -36,11 +36,11 @@ public:
             break;
             case ORANGE_VARCHAR:
                 maxsize = value + 1;
-                ensure(maxsize <= MAX_VARCHAR_LEN, "varchar limit too long");
+                orange_ensure(maxsize <= MAX_VARCHAR_LEN, "varchar limit too long");
             break;
             case ORANGE_CHAR:
                 maxsize = value + 1;
-                ensure(maxsize <= MAX_CHAR_LEN, "char limit too long");
+                orange_ensure(maxsize <= MAX_CHAR_LEN, "char limit too long");
             break;
             case ORANGE_DATE:
                 maxsize = 2 + 1;
@@ -49,13 +49,12 @@ public:
                 maxsize = 17 + 1;
                 p = value / 40;
                 s = value % 40;
-                ensure(0 <= s && s <= p && p <= 20, "bad numeric");
+                orange_ensure(0 <= s && s <= p && p <= 20, "bad numeric");
             break;
         }
         for (auto &pred: this->ranges) {
-            ensure(test_size(pred.lo) && test_size(pred.hi), "bad constraint parameter");
+            orange_ensure(test_size(pred.lo) && test_size(pred.hi), "bad constraint parameter");
         }
-        ensure(test(this->dft), "default value fails constraint");
     }
 
     String type_string() {
@@ -73,7 +72,6 @@ public:
     int key_size() const { return type == ORANGE_VARCHAR ? 1 + sizeof(size_t) : maxsize; }
 
     String get_name() const { return name; }
-    bool has_dft() const { return nullable || dft[0]; }
     byte_arr_t get_dft() const { return dft; }
 
     // 测试 val 能否插入到这一列；对于 非 varchar 会补零

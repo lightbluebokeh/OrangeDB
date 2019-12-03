@@ -11,7 +11,7 @@ private:
     BytesStream(const BytesStream&) = delete;
     BytesStream& operator=(const BytesStream& bs) = delete;
 
-    void check_overflow(size_t n) { ensure(n + offset <= lim, "seems bytes overflow re"); }
+    void check_overflow(size_t n) { orange_ensure(n + offset <= lim, "seems bytes overflow re"); }
 
 protected:
     virtual void before_IO(size_t n) { check_overflow(n); }
@@ -81,13 +81,13 @@ public:
     }
 
     BytesStream& seekpos(size_t pos = 0) {
-        ensure(pos <= lim, "seek overflow re");
+        orange_ensure(pos <= lim, "seek overflow re");
         offset = pos;
         return *this;
     }
 
     BytesStream& seekoff(int off) {
-        ensure((off >= 0 && size_t(off) <= lim - offset) || (off < 0 && size_t(-off) <= offset), "seek overflow re");
+        orange_ensure((off >= 0 && size_t(off) <= lim - offset) || (off < 0 && size_t(-off) <= offset), "seek overflow re");
         offset += off;
         return *this;
     }

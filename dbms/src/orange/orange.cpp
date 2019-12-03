@@ -9,7 +9,7 @@ namespace Orange {
 
     bool create(const String& name) {
         if (using_db()) fs::current_path("..");
-        ensure(!exists(name), "database `" + name + "` already exists");
+        orange_ensure(!exists(name), "database `" + name + "` already exists");
         names.insert(name);
         auto ret = fs::create_directory(name);
         if (using_db()) fs::current_path(cur);
@@ -17,7 +17,7 @@ namespace Orange {
     }
 
     bool drop(const String& name) {
-        ensure(exists(name), "database `" + name + "` does not exist");
+        orange_ensure(exists(name), "database `" + name + "` does not exist");
         names.erase(name);
         if (name == cur) {
             unuse();
@@ -32,7 +32,7 @@ namespace Orange {
     bool use(const String& name) {
         if (name == cur) return 1;
         unuse();
-        ensure(exists(name), "database `" + name + "` does not exist");
+        orange_ensure(exists(name), "database `" + name + "` does not exist");
         fs::current_path(name);
         cur = name;
         return 1;
@@ -55,7 +55,7 @@ namespace Orange {
 
     TmpTable all_tables() {
         // if (!using_db()) return {};
-        ensure(using_db(), "using some database first");
+        orange_ensure(using_db(), "using some database first");
         std::vector<String> data;
         for (auto it : fs::directory_iterator(".")) {
             if (it.is_directory()) data.push_back(it.path().filename().string());

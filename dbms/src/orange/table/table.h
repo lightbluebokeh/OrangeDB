@@ -60,7 +60,7 @@ private:
         throw OrangeException("no more tables >_<");
     }
 
-    static void check_db() { ensure(Orange::using_db(), "use some database first"); }
+    static void check_db() { orange_ensure(Orange::using_db(), "use some database first"); }
 
     // rec 万无一失
     void insert_internal(const std::vector<byte_arr_t>& rec) {
@@ -100,8 +100,8 @@ public:
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_keys) {
         check_db();
-        // ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
-        ensure(!fs::exists(get_root(name)), "table `" + name + "' exists");
+        // orange_ensure(name.length() <= TBL_NAME_LIM, "table name too long: " + name);
+        orange_ensure(!fs::exists(get_root(name)), "table `" + name + "' exists");
         std::error_code e;
         if (!fs::create_directory(get_root(name), e)) throw e.message();
         auto table = new_table(name);
@@ -111,7 +111,7 @@ public:
 
     static SavedTable* get(const String& name) {
         check_db();
-        ensure(fs::exists(get_root(name)), "table `" + name + "` does not exists");
+        orange_ensure(fs::exists(get_root(name)), "table `" + name + "` does not exists");
         for (int i = 0; i < MAX_TBL_NUM; i++) {
             if (tables[i] && tables[i]->name == name) {
                 return tables[i];
@@ -139,7 +139,7 @@ public:
 
     //  切换数据库的时候调用
     bool close() {
-        ensure(this == tables[id], "this is magic");
+        orange_ensure(this == tables[id], "this is magic");
         write_metadata();
         free_table(this);
         return 1;
@@ -155,35 +155,34 @@ public:
     // 一般是换数据库的时候调用这个
     static void close_all() {
         for (auto table : tables) {
-            if (table) ensure(table->close(), "close table failed");
+            if (table) orange_ensure(table->close(), "close table failed");
         }
     }
 
-    // 这一段代码尝试把输入的值补全
+    // 按列插入，会先尝试把输入的值补全
     void insert(const std::vector<std::pair<String, byte_arr_t>>& values) {
         std::unordered_map<String, byte_arr_t> map;
         for (auto [name, val]: values) {
-            ensure(has_col(name), "insertion failed: unknown column name");
+            orange_ensure(has_col(name), "insertion failed: unknown column name");
             map[name] = val;
         }
         std::vector<byte_arr_t> rec;
         for (auto &col: cols) {
             auto it = map.find(col.get_name());
             if (it == map.end()) {
-                ensure(col.has_dft(), "insertion failed: no default value for unspecified column: " + col.get_name());
                 rec.push_back(col.get_dft());
             } else {
-                ensure(col.test(it->second), "insertion failed: value fails constraints");
                 rec.push_back(it->second);
             }
         }
-        insert_internal(rec);
+        insert(rec);
     }
 
+    // 直接插入完整的一条
     void insert(std::vector<byte_arr_t> rec) {
-        ensure(rec.size() == cols.size(), "wrong parameter size");
+        orange_ensure(rec.size() == cols.size(), "wrong parameter size");
         for (unsigned i = 0; i < rec.size(); i++) {
-            ensure(cols[i].test(rec[i]), "column constraints failed");
+            orange_ensure(cols[i].test(rec[i]), "column constraints failed");
         }
         insert_internal(rec);
     }
@@ -199,7 +198,7 @@ public:
             } else if (op.expression.is_column()) { // 只会暴力
                 std::vector<rid_t> ret;
                 auto &col = op.expression.col();
-                ensure(!col.table_name.has_value(), "no table name in where clause");
+                orange_ensure(!col.table_name.has_value(), "no table name in where clause");
                 auto &idx1 = indices[get_col_id(op.col_name)], &idx2 = indices[get_col_id(col.col_name)];
                 auto kind1 = find_col(op.col_name)->get_datatype(), kind2 = find_col(col.col_name)->get_datatype();
                 for (auto rid: all()) {
@@ -217,15 +216,6 @@ public:
             return {};
         }
     }
-    
-    // std::vector<rid_t> where(const String& col_name, pred_t pred, rid_t lim) {
-    //     auto it = find_col(col_name);
-    //     ensure(it != cols.end(), "where clause failed: unknown column name");
-    //     int col_id = it - cols.begin();
-    //     auto &col = cols[col_id];
-    //     ensure(col.test(pred.lo) && col.test(pred.hi), "bad where clause");
-    //     return indices[col_id].get_rid(pred, lim);
-    // }
 
     void remove(const std::vector<rid_t>& rids) {
         for (auto &index: indices) {
@@ -250,27 +240,27 @@ public:
 
     void update(const String& col_name, std::function<byte_arr_t(byte_arr_t)> expr, const std::vector<rid_t>& rids) {
         auto it = find_col(col_name);
-        ensure(it != cols.end(), "update failed: unknown column name");
+        orange_ensure(it != cols.end(), "update failed: unknown column name");
         int col_id = it - cols.begin();
         auto &idx = indices[col_id];
         auto &col = cols[col_id];
         for (auto rid: rids) {
             auto new_val = expr(idx.get_val(rid));
-            ensure(col.test(new_val), "update failed: new value fails constraint");
+            orange_ensure(col.test(new_val), "update failed: new value fails constraint");
             idx.update(new_val, rid);
         }
     }
 
     void create_index(const String& col_name) {
         auto it = find_col(col_name);
-        ensure(it != cols.end(), "create index failed: unknown column name");
+        orange_ensure(it != cols.end(), "create index failed: unknown column name");
         auto col_id = it - cols.begin();
         indices[col_id].turn_on();
     }
 
     void drop_index(const String& col_name) {
         auto it = find_col(col_name);
-        ensure(it != cols.end(), "drop index failed: unknown column name");
+        orange_ensure(it != cols.end(), "drop index failed: unknown column name");
         auto col_id = it - cols.begin();
         indices[col_id].turn_off();
     }

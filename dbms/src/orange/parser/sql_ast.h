@@ -489,15 +489,14 @@ namespace Orange {
     }  // namespace parser
 }  // namespace Orange
 
-// template <>
-// inline auto to_bytes(const Orange::parser::data_value& value) {
-    
-// }
-
-namespace {
+namespace Orange {
     inline byte_arr_t to_bytes(const Orange::parser::data_value& value) {
         if (value.is_null()) return {DATA_NULL};
         if (value.is_int()) return Orange::to_bytes(value.to_int());
         if (value.is_string()) return Orange::to_bytes(value.to_string());
+        if (value.is_float()) {
+            ORANGE_UNIMPL
+        }
+        return to_bytes("fuck warning");
     }
 }

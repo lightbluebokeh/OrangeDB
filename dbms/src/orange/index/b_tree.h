@@ -169,7 +169,7 @@ private:
     void query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
 public:
     BTree(Index *index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
-        key_size(key_size), pool(pool_name()), t(fanout(key_size)) { ensure(t >= 2, "fanout too few"); }
+        key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_ensure(t >= 2, "fanout too few"); }
     ~BTree() {
         write_root();
         f_tree->close();
