@@ -153,7 +153,8 @@ static String to_string(const byte_arr_t &bytes, datatype_t type) {
     return "fuck warning";
 }
 
-constexpr static int width = 15 + 3;
+// 最后三个字符留作省略号
+constexpr static int width = 12 + 3;
 
 inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
     using std::endl;

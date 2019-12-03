@@ -28,6 +28,14 @@ public:
         map_inv[buf_id] = page;
     }
 
+    // 清除文件 file_id 的所有缓存页映射
+    void clear_file(int file_id) {
+        for (auto buf_id: get_all(file_id)) {
+            map_inv[buf_id] = {-1, -1};
+        }
+        map[file_id].clear();
+    }
+
     BufpageMap() {
         for (int i = 0; i < BUF_CAP; i++) {
             map_inv[i] = {-1, -1};

@@ -16,7 +16,10 @@ private:
 
 public:
     IdPool(String filename) : filename(filename) {}
-    ~IdPool() { f_pool->seek_pos(0)->write(top, tot)->close(); }
+    ~IdPool() { 
+        f_pool->seek_pos(0)->write(top, tot)->close(); 
+        // std::cerr << "destruct id pool" << std::endl;
+    }
 
     void init() {
         File::create(filename);

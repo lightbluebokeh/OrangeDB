@@ -49,11 +49,6 @@ private:
         }
     }
 
-    // int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const {
-    //     int key_code = Orange::cmp(k1, k2, kind);
-    //     return key_code == 0 ? v1 - v2 : key_code;
-    // }
-
     // 返回所在表的所有正在使用的 rid
     std::vector<rid_t> get_all() const;
 
@@ -71,7 +66,8 @@ public:
         f_data = File::open(data_name());
         if (kind == ORANGE_VARCHAR) allocator = new FileAllocator(vchar_name());
     }
-    // Index(Index&& index) = delete;  // 防止奇怪的 bug
+    // 拒绝移动构造
+    Index(Index&& index) : table(index.table) { ORANGE_UNREACHABLE }
     ~Index() {
         if (on) delete tree;
         if (f_data) f_data->close();

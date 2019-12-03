@@ -56,10 +56,15 @@ namespace BufpageManage {
         for (int buf_id : bufpage_map.get_all(file_id)) {
             ::write_back(buf_id);
         }
+        bufpage_map.clear_file(file_id);
     }
 
     buf_t get_page_buf(page_t page) {
         int buf_id = bufpage_map.get_buf_id(page);
+        if (buf_id == 0) {
+            int a = 0;
+            a++;
+        }
         if (buf_id == -1) {
             auto buf = fetch_page(page);
             FileManage::read_page(page, buf.bytes);

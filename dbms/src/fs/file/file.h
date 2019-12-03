@@ -94,24 +94,21 @@ public:
         return this;
     }
 
-    template <typename... T>
-    File* write(const T&... args) {
-        auto write_each = [&](auto&& arg) {
-            using arg_t = decltype(arg);
-            if constexpr (is_std_vector_v<arg_t> || is_basic_string_v<arg_t>) {
-                write(arg.size());
-                for (auto x : arg) write(x);
-            } else if constexpr (std::is_same_v<arg_t, pred_t>) {
-                write(arg.lo, arg.lo_eq, arg.hi, arg.hi_eq);
-            } else if constexpr (std::is_same_v<arg_t, Column>) {
-                write(arg.name, arg.kind, arg.maxsize, arg.p, arg.s, arg.unique, arg.nullable, arg.index, arg.dft, arg.ranges);
-            } else if constexpr (std::is_same_v<arg_t, f_key_t>) {
-                write(arg.name, arg.ref_tbl, arg.list, arg.ref_list);
-            } else {
-                write_bytes((bytes_t)&arg, sizeof(arg_t));
-            }
-        };
-        expand(write_each, args...);
+    template <typename T, typename... Ts>
+    File* write(const T& t, const Ts&... ts) {
+        if constexpr (is_std_vector_v<T> || is_basic_string_v<T>) {
+            write(t.size());
+            for (auto x : t) write(x);
+        } else if constexpr (std::is_same_v<T, pred_t>) {
+            write(t.lo, t.lo_eq, t.hi, t.hi_eq);
+        } else if constexpr (std::is_same_v<T, Column>) {
+            write(t.name, t.type, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
+        } else if constexpr (std::is_same_v<T, f_key_t>) {
+            write(t.name, t.ref_tbl, t.list, t.ref_list);
+        } else {
+            write_bytes((bytes_t)&t, sizeof(T));
+        }
+        if constexpr (sizeof...(Ts) != 0) write(ts...);
         return this;
     }
 

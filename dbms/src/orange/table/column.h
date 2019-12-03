@@ -78,7 +78,7 @@ public:
     bool test(byte_arr_t& val) const {
         if (val.empty()) return 0;
         // 只允许插入 null 或者普通的数据
-        if (val.front() != DATA_NORMAL || val.front() != DATA_NULL) return 0;
+        if (val.front() != DATA_NORMAL && val.front() != DATA_NULL) return 0;
         if (!test_size(val)) return 0;
         if (val.front() == DATA_NULL) return nullable;
         for (auto &pred: ranges) if (!pred.test(val, type)) return 0;

@@ -54,6 +54,8 @@ int main(int argc, char* argv[]) {
         retcode = (int)manage(sql);
     }
 
+    Orange::unuse();
+
     std::cout << "Goodbye." << std::endl;
     return retcode;
 }

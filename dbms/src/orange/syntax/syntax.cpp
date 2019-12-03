@@ -197,11 +197,11 @@ namespace Orange {
                         }
                     }();
                 } else {
-                    cout << "    values:";
                     for (auto &values: insert.value_lists) {
+                        cout << "    values:";
                         rec_t rec;
                         for (auto& val : values) {
-                            cout << ' ' << value_string(val) << endl;
+                            cout << ' ' << value_string(val);
                             rec.push_back(Orange::to_bytes(val));
                         }
                         cout << endl;
