@@ -87,6 +87,7 @@ public:
     }
 
     TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) const;
+    TmpTable select_star(const std::vector<rid_t>& rids) const;
 };
 
 class SavedTable;
@@ -133,15 +134,18 @@ inline TmpTable Table::select(std::vector<String> names, const std::vector<rid_t
     return ret;          
 }
 
+inline TmpTable Table::select_star(const std::vector<rid_t>& rids) const {
+    std::vector<String> names;
+    for (auto &col: cols) names.push_back(col.get_name());
+    return select(names, rids);
+}
+
 static String to_string(const byte_arr_t &bytes, datatype_t type) {
     if (bytes.front() == DATA_NULL) return "null";
     switch (type) {
-        case ORANGE_VARCHAR: return String(bytes.data() + 1, bytes.data() + bytes.size());
-        case ORANGE_CHAR: {
-            int len = bytes.back() ? MAX_CHAR_LEN : strlen((char*)bytes.data() + 1);
-            return String(bytes.data() + 1, bytes.data() + len + 1);
-        }
-        case ORANGE_INT: return std::to_string(*(int*)(bytes.data() + 1));
+        case ORANGE_VARCHAR:
+        case ORANGE_CHAR: return Orange::bytes_to_string(bytes);
+        case ORANGE_INT: return std::to_string(Orange::bytes_to_int(bytes));
         case ORANGE_NUMERIC:
         case ORANGE_DATE: ORANGE_UNIMPL
         default: ORANGE_UNIMPL

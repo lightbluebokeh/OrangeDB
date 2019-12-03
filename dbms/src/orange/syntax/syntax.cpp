@@ -1,3 +1,4 @@
+#include <map>
 #include <algorithm>
 
 #include "syntax.h"
@@ -224,6 +225,7 @@ namespace Orange {
                     }
                     cout << std::endl;
                 }
+                table->remove(table->where(delete_from.where));
             } break;
             case TbStmtKind::Update: {
                 auto& update = stmt.update();
@@ -251,21 +253,27 @@ namespace Orange {
             case TbStmtKind::Select: {
                 auto& select = stmt.select();
                 cout << "  select from table:" << std::endl;
+                std::map<String, SavedTable*> tables;
+                cout << "    table list: ";
+                for (auto& table : select.tables) {
+                    cout << table << ' ';
+                    tables[table] = SavedTable::get(table);
+                }
+                cout << std::endl;
                 cout << "    selected cols: ";
                 if (select.select.empty()) {  // empty时认为是select *
                     cout << "*" << std::endl;
                 } else {
                     for (auto& col : select.select) {
-                        if (col.table_name.has_value()) cout << col.table_name.get() << ".";
+                        if (col.table_name.has_value()) {
+                            auto name = col.table_name.get();
+                            ensure(tables.count(name), "unknown table name: `" + name + "`");
+                            cout << name << ".";
+                        }
                         cout << col.col_name << " ";
                     }
                     cout << std::endl;
                 }
-                cout << "    table list: ";
-                for (auto& table : select.tables) {
-                    cout << table << ' ';
-                }
-                cout << std::endl;
                 if (select.where.has_value()) {
                     cout << "    where:" << std::endl;
                     for (auto& cond : select.where.get()) {
@@ -281,15 +289,40 @@ namespace Orange {
                         cout << std::endl;
                     }
                 }
+                if (select.select.empty()) {
+                    if (tables.size() == 1) {
+                        auto table = tables.begin()->second;
+                        cout << table->select_star(table->where(select.where.get_value_or({}))) << endl;
+                    } else {
+                        ORANGE_UNIMPL
+                    }
+                } else {
+                    if (tables.size() == 1) {
+                        auto table = tables.begin()->second;
+                        std::vector<String> names;
+                        for (auto col: select.select) {
+                            names.push_back(col.col_name);
+                        }
+                        cout << table->select(names, table->where(select.where.get_value_or({}))) << endl;
+                    } else {
+                        ORANGE_UNIMPL
+                    }
+                }
             } break;
             default: unexpected();
         }
     }
 
     // 懒了
-    inline void idx(idx_stmt& stmt) {ORANGE_UNIMPL}
+    inline void idx(idx_stmt& stmt) {
+        // 乱写
+        cout << stmt.alter_add().col_list.front() << endl;
+    }
 
-    inline void alter(alter_stmt& stmt) {ORANGE_UNIMPL}
+    inline void alter(alter_stmt& stmt) {
+        // 乱写
+        cout << stmt.add_field().table_name << endl;
+    }
 
     // 遍历语法树
     void program(sql_ast& ast) {

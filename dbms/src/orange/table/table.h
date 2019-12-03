@@ -57,7 +57,7 @@ private:
                 return tables[i];
             }
         }
-        throw "cannot allocate table";
+        throw OrangeException("no more tables >_<");
     }
 
     static void check_db() { ensure(Orange::using_db(), "use some database first"); }
@@ -87,7 +87,7 @@ private:
         rid_pool.init();
         fs::create_directory(data_root());
         for (auto col: this->cols) {
-            indices.emplace_back(Index(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index()));
+            indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index());
         }
     }
 
@@ -191,13 +191,30 @@ public:
     std::vector<rid_t> single_where(const Orange::parser::single_where& where, rid_t lim) const override {
         if(where.is_null_check()) {
             auto &null = where.null_check();
-            indices[get_col_id(null.col_name)].get_rids_null(null.is_not_null, lim);
+            return indices[get_col_id(null.col_name)].get_rids_null(null.is_not_null, lim);
         } else if (where.is_op()) {
             auto &op = where.op();
-            
+            if (op.expression.is_value()) {
+                return indices[get_col_id(op.col_name)].get_rids_value(op.operator_, op.expression.value(), lim);
+            } else if (op.expression.is_column()) { // 只会暴力
+                std::vector<rid_t> ret;
+                auto &col = op.expression.col();
+                ensure(!col.table_name.has_value(), "no table name in where clause");
+                auto &idx1 = indices[get_col_id(op.col_name)], &idx2 = indices[get_col_id(col.col_name)];
+                auto kind1 = find_col(op.col_name)->get_datatype(), kind2 = find_col(col.col_name)->get_datatype();
+                for (auto rid: all()) {
+                    if (Orange::cmp(idx1.get_val(rid), kind1, op.operator_, idx2.get_val(rid), kind2)) {
+                        ret.push_back(rid);
+                    }
+                }
+                return ret;
+            } else {
+                ORANGE_UNREACHABLE
+                return {};
+            }
         } else {
             ORANGE_UNREACHABLE
-            return {233};
+            return {};
         }
     }
     

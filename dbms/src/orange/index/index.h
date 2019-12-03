@@ -49,10 +49,10 @@ private:
         }
     }
 
-    int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const {
-        int key_code = Orange::cmp(k1, k2, kind);
-        return key_code == 0 ? v1 - v2 : key_code;
-    }
+    // int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const {
+    //     int key_code = Orange::cmp(k1, k2, kind);
+    //     return key_code == 0 ? v1 - v2 : key_code;
+    // }
 
     // 返回所在表的所有正在使用的 rid
     std::vector<rid_t> get_all() const;
@@ -71,7 +71,7 @@ public:
         f_data = File::open(data_name());
         if (kind == ORANGE_VARCHAR) allocator = new FileAllocator(vchar_name());
     }
-    Index(Index&& index) = delete;  // 防止奇怪的 bug
+    // Index(Index&& index) = delete;  // 防止奇怪的 bug
     ~Index() {
         if (on) delete tree;
         if (f_data) f_data->close();
@@ -129,27 +129,22 @@ public:
         insert(val, rid);
     }
 
-    std::vector<rid_t> get_rids_op(Orange::parser::op &op, Orange::parser::expr &expr, rid_t lim) const {
-        if (expr.is_value()) {
-            auto &value = expr.value();
-            if (value.is_null()) return {};
-            if (on) {
-                return tree->query(op, value, lim);
-            } else {
-                std::vector<rid_t> ret;
-                auto bytes = new byte_t[size];
-                for (auto i: get_all()) {
-                    if (ret.size() >= lim) break;
-                    f_data->seek_off(i * size)->read_bytes(bytes, size);
-                    if (Orange::cmp(byte_arr_t(bytes, bytes + size), kind, op, value)) {
-                        ret.push_back(i);
-                    }
-                }            
-                delete[] bytes;
-                return ret;
-            }
+    std::vector<rid_t> get_rids_value(const Orange::parser::op &op, const Orange::parser::data_value &value, rid_t lim) const {
+        if (value.is_null()) return {};
+        if (on) {
+            return tree->query(op, value, lim);
         } else {
-
+            std::vector<rid_t> ret;
+            auto bytes = new byte_t[size];
+            for (auto i: get_all()) {
+                if (ret.size() >= lim) break;
+                f_data->seek_off(i * size)->read_bytes(bytes, size);
+                if (Orange::cmp(byte_arr_t(bytes, bytes + size), kind, op, value)) {
+                    ret.push_back(i);
+                }
+            }            
+            delete[] bytes;
+            return ret;
         }
     }
 

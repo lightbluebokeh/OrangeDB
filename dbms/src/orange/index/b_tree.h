@@ -23,6 +23,8 @@ private:
     String pool_name() { return prefix + ".pl"; }
     String varchar_name() { return prefix + "vch"; }
 
+    int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const;
+
     struct node_t {
         BTree &tree;
 

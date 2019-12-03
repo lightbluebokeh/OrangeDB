@@ -9,6 +9,9 @@
 
 using namespace std;
 
+namespace parser = Orange::parser;
+using op_t = parser::op;
+
 TEST_CASE("test fs io", "[fs]") {
     constexpr int TEST_PAGE_NUM = 50000;
     fs::create_directories("test_dir");
@@ -92,7 +95,9 @@ TEST_CASE("table", "[fs]") {
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        auto pos = table->where("test", pred_t{Orange::to_bytes(x), 1, Orange::to_bytes(x), 1}, lim);
+        parser::single_where where = {parser::single_where_op{"test", parser::op::Eq, parser::data_value{x}}};
+        auto pos = table->single_where(where, lim);
+
         REQUIRE(pos.size() == all.count(x));
         all.erase(all.find(x));
         table->remove({pos.front()});
@@ -132,7 +137,7 @@ TEST_CASE("btree", "[index]") {
         all.insert(a[i]);
         int x = a[i];
         table->insert({{"test", Orange::to_bytes(a[i])}});
-        auto pos = table->where("test", pred_t{Orange::to_bytes(x), 1, Orange::to_bytes(x), 1}, lim);
+        auto pos = table->single_where(parser::single_where{parser::single_where_op{"test", op_t::Eq, parser::data_value{x}}}, lim);
         REQUIRE(pos.size() == all.count(x));
         if (rng() & 1) rm.insert(a[i]);
         std::cerr << '\r' << i + 1 << '/' << lim;
@@ -142,7 +147,7 @@ TEST_CASE("btree", "[index]") {
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        auto pos = table->where("test", pred_t{Orange::to_bytes(x), 1, Orange::to_bytes(x), 1}, lim);
+        auto pos = table->single_where(parser::single_where{parser::single_where_op{"test", op_t::Eq, parser::data_value{x}}}, lim);
         REQUIRE(pos.size() == all.count(x));
         all.erase(all.find(x));
         table->remove({pos.front()});

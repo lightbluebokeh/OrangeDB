@@ -77,6 +77,7 @@ namespace Orange {
                     case DataValueKind::String: return ORANGE_VARCHAR;
                     case DataValueKind::Float: return ORANGE_NUMERIC;
                 }
+                return ORANGE_INT;
             }
 
             static data_value null_value() {

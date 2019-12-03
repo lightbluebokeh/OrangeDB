@@ -1,19 +1,19 @@
 #include <orange/index/b_tree.h>
 #include <orange/index/index.h>
 
+using op_t = Orange::parser::op;
+
 void BTree::node_t::check_order() {
-#ifdef DEBUG
     for (int i = 0; i + 1 < key_num(); i++) {
         auto& index = *tree.index;
-        assert(index.cmp(index.restore(key(i)), val(i), index.restore(key(i + 1)), val(i + 1)) < 0);
+        orange_assert(tree.cmp(index.restore(key(i)), val(i), index.restore(key(i + 1)), val(i + 1)) < 0, "btree gua le");
     }
-#endif
 }
 
 void BTree::remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
     x->check_order();
     int i = upper_bound(x, k, v);
-    if (i && index->cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) == 0) {
+    if (i && cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) == 0) {
         i--;
         if (x->leaf()) {
             for (int j = i; j + 1 < x->key_num(); j++) {
@@ -127,6 +127,11 @@ void BTree::remove(const_bytes_t k_raw, rid_t v) {
     remove_nonleast(root, index->restore(k_raw), v);
 }
 
+int BTree::cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const {
+    int key_code = Orange::cmp(k1, k2, index->kind);
+    return key_code == 0 ? v1 - v2 : key_code;
+}
+
 int BTree::upper_bound(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
     // int i = 0;
     // while (i < x->key_num() && index->cmp(k, v, index->restore(x->key(i)), x->val(i)) >= 0) i++;
@@ -134,7 +139,7 @@ int BTree::upper_bound(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
     int l = 0, r = x->key_num() - 1;
     while (l <= r) {
         int m = (l + r) >> 1;
-        if (index->cmp(k, v, index->restore(x->key(m)), x->val(m)) < 0)
+        if (cmp(k, v, index->restore(x->key(m)), x->val(m)) < 0)
             i = m, r = m - 1;
         else
             l = m + 1;
@@ -145,7 +150,7 @@ int BTree::upper_bound(node_ptr_t& x, const byte_arr_t& k, rid_t v) {
 void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v) {
     x->check_order();
     int i = upper_bound(x, k, v);
-    ensure(!i || index->cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) != 0,
+    ensure(!i || cmp(k, v, index->restore(x->key(i - 1)), x->val(i - 1)) != 0,
            "try to insert something already exists");
     if (x->leaf()) {
         for (int j = x->key_num() - 1; j >= i; j--) {
@@ -159,7 +164,7 @@ void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const byte_arr_t&
         auto y = read_node(x->ch(i));
         if (y->full()) {
             split(x, y, i);
-            if (index->cmp(k, v, index->restore(x->key(i)), x->val(i)) > 0) {
+            if (cmp(k, v, index->restore(x->key(i)), x->val(i)) > 0) {
                 i++;
                 y = read_node(x->ch(i));
             }
@@ -168,27 +173,6 @@ void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const byte_arr_t&
     }
     x->check_order();
 }
-
-// void BTree::query(node_ptr_t& x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim) {
-//     int i = 0;
-//     while (i < x->key_num() && !pred.test_lo(index->restore(x->key(i)), index->kind)) i++;
-//     node_ptr_t y;
-//     if (!x->leaf()) {
-//         y = read_node(x->ch(i));
-//         query(y, pred, ret, lim);
-//     }
-//     while (lim && i < x->key_num() && pred.test_hi(index->restore(x->key(i)), index->kind)) {
-//         ret.push_back(x->val(i));
-//         lim--;
-//         if (lim && !x->leaf()) {
-//             y = read_node(x->ch(i + 1));
-//             query(y, pred, ret, lim);
-//         }
-//         i++;
-//     }
-// }
-
-using op_t = Orange::parser::op;
 
 void BTree::query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
     if (ret.size() >= lim) return;

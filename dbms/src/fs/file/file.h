@@ -11,6 +11,7 @@
 #include <fs/bufpage/bufpage_manage.h>
 #include <fs/bufpage/bufpage_stream.h>
 #include <fs/file/file_manage.h>
+#include "orange/common.h"
 
 class Column;
 class f_key_t;
