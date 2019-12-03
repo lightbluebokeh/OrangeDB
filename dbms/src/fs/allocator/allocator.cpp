@@ -101,6 +101,22 @@ int FileAllocator::read(size_t offset, void* dst, size_t max_size) const {
     return fread(dst, 1, max_size, fd);
 }
 
+std::pair<bytes_t, size_t> FileAllocator::read_block(size_t offset) const {
+    _Tag tag;
+    fseek(fd, offset - sizeof(tag), SEEK_SET);
+    fread(&tag, 1, sizeof(tag), fd);
+
+    if (tag.af != 1) {
+        return std::make_pair(nullptr, 0);  // offset是假的!
+    }
+    auto size = tag.size;
+    auto ret = new byte_t[size];
+
+    auto read_size = fread(ret, 1, size, fd);
+    orange_assert(int(read_size) == size, "IO error");
+    return std::make_pair(ret, size);
+}
+
 // 写入
 int FileAllocator::write(size_t offset, void* data, size_t max_size) const {
     _Tag tag;
@@ -117,6 +133,7 @@ int FileAllocator::write(size_t offset, void* data, size_t max_size) const {
 }
 
 // 释放
+
 bool FileAllocator::free(size_t offset) const {
     _Tag tag[2];  // tag[0]: 上一个块的footer, tag[1]: 当前块
     fseek(fd, offset - 2 * sizeof(_Tag), SEEK_SET);

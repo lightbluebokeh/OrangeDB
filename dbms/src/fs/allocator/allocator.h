@@ -34,6 +34,7 @@ public:
     // 读取某个地方的值, max_size单位是字节, 返回具体读了多少个字节.
     // 写这个函数是因为fd只存在这个对象里, 否则外面需要fopen数据文件
     int read(size_t offset, void* dst, size_t max_size = -1) const;
+    std::pair<bytes_t, size_t> read_block(size_t offset) const;
 
     // 和上面差不多
     int write(size_t offset, void* data, size_t max_size = -1) const;
@@ -56,20 +57,18 @@ public:
 
     // 返回长度+数据的字节数组
     byte_arr_t allocate_byte_arr(const byte_arr_t& arr) const {
-        auto size = sizeof(uint32_t) + arr.size();
+        auto size = arr.size();
         auto bytes = new byte_t[size];
-        *(uint32_t*)bytes = arr.size();
-        memcpy(bytes + sizeof(uint32_t), arr.data(), arr.size());
+        memcpy(bytes, arr.data(), arr.size());
         auto offset = allocate(size, bytes);
         delete[] bytes;
         return Orange::to_bytes(offset);
     }
 
     auto read_byte_arr(size_t offset) const {
-        uint32_t size;
-        read(offset, &size, sizeof(uint32_t));
-        byte_arr_t ret(size);
-        read(offset + sizeof(uint32_t), ret.data(), size);
+        auto [data, size] = read_block(offset);
+        auto ret = byte_arr_t(data, data + size);
+        delete[] data;
         return ret;
     }
 };

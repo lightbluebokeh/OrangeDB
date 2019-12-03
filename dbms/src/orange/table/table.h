@@ -41,7 +41,7 @@ private:
     }
     void read_metadata() {
         File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
-        indices.reserve(cols.size());
+        indices.reserve(MAX_COL_NUM);
         for (auto &col: cols) {
             indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index());
             indices.back().load();
@@ -87,7 +87,7 @@ private:
         write_metadata();
         rid_pool.init();
         fs::create_directory(data_root());
-        indices.reserve(cols.size());   // 拒绝移动构造
+        indices.reserve(MAX_COL_NUM);   // 拒绝移动构造
         for (auto col: this->cols) {
             indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index());
         }

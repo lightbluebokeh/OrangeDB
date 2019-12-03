@@ -318,8 +318,22 @@ namespace Orange {
 
     // 懒了
     inline void idx(idx_stmt& stmt) {
-        // 乱写
-        cout << stmt.alter_add().col_list.front() << endl;
+        switch (stmt.kind) {
+            case IdxStmtKind::AlterAdd: {
+                ORANGE_UNIMPL
+            } break;
+            case IdxStmtKind::AlterDrop: {
+                ORANGE_UNIMPL
+            } break;
+            case IdxStmtKind::Create: {
+                auto &create = stmt.create();
+                auto table = SavedTable::get(create.tb_name);
+            } break;
+            case IdxStmtKind::Drop: {
+                ORANGE_UNIMPL
+            } break;
+        }
+
     }
 
     inline void alter(alter_stmt& stmt) {

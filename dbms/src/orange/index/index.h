@@ -146,7 +146,7 @@ public:
             for (auto i: get_all()) {
                 if (ret.size() >= lim) break;
                 f_data->seek_pos(i * size)->read_bytes(bytes, size);
-                if (Orange::cmp(byte_arr_t(bytes, bytes + size), kind, op, value)) {
+                if (Orange::cmp(restore(bytes), kind, op, value)) {
                     ret.push_back(i);
                 }
             }            

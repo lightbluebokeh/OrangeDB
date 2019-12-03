@@ -193,7 +193,7 @@ namespace Orange {
     inline String bytes_to_string(const byte_arr_t& bytes) {
         orange_assert(bytes.front() != DATA_NULL, "null byte array for string");
         auto ret = String(bytes.begin() + 1, bytes.end());
-        
+        ret.resize(strlen(ret.data()));
         return ret;
     }
 }
