@@ -14,13 +14,25 @@ protected:
 
     virtual ~Table() {}
 
-    auto find_col(const String& col_name) const {
+    auto get_col(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
         orange_ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
-        return it;
+        return *it;
     }
-    int get_col_id(const String& col_name) const { return find_col(col_name) - cols.begin(); }
+    auto get_cols(const std::vector<String> col_names) const {
+        std::vector<Column> ret;
+        for (auto &col_name: col_names) {
+            ret.push_back(col_name);
+        }
+        return ret;
+    }
+    int get_col_id(const String& col_name) const { 
+        auto it = cols.begin();
+        while (it != cols.end() && it->get_name() != col_name) it++;
+        orange_ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
+        return it - cols.begin(); 
+    }
     bool has_col(const String& col_name) const { 
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;

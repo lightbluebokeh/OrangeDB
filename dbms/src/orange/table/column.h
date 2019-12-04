@@ -14,9 +14,10 @@ private:
     int id; // 所在 table 的列编号
     ast::data_type type;
     bool nullable;
-    int key_size;
     ast::data_value dft;
     std::vector<std::pair<ast::op, ast::data_value>> checks;
+
+    int key_size;
 public:
     Column() {}
     // 适合打印名称的那种
@@ -45,6 +46,8 @@ public:
         }
     }
 
+    int get_id() const { return id; }
+
     String type_string() {
         switch (type.kind) {
             case orange_t::Int: return "int";
@@ -56,14 +59,10 @@ public:
         return "<error-type>";
     }
 
-    // one more bytes for null/valid
-    // int key_size() const { return type == orange_t::Varchar ? 1 + sizeof(size_t) : maxsize; }
     int get_key_size() const { return key_size; }
 
     String get_name() const { return name; }
-    ast::data_value get_dft() const {
-        dft;
-    }
+    ast::data_value get_dft() const { dft; }
 
     // 列完整性约束，返回是否成功和错误消息
     std::pair<bool, String> check(const ast::data_value& value) const {
@@ -90,19 +89,23 @@ public:
 
     ast::data_type get_datatype() const { return type; }
 
+    static int key_size_sum(const std::vector<Column> cols) {
+        int ret = 0;
+        for (auto &col: cols) ret += col.get_key_size();
+        return ret;
+    }
+
     friend class SavedTable;
     friend std::istream& operator >> (std::istream& is, Column& col);
     friend std::ostream& operator << (std::ostream& os, const Column& col);
 };
 
+inline std::ostream& operator << (std::ostream& os, const Column& col) {
+    print(os, ' ', col.name, col.id, col.type, col.nullable, col.dft, col.checks, col.key_size);
+    return os;
+}
 inline std::istream& operator >> (std::istream& is, Column& col) {
-    is >> col.name;
+    is >> col.name >> col.id >> col.type >> col.nullable >> col.dft >> col.checks >> col.key_size;
     return is;
 }
 
-inline std::ostream& operator << (std::ostream& os, const Column& col) {
-    os << col.name;
-    return os;
-}
-
-constexpr auto col_size = sizeof(Column);

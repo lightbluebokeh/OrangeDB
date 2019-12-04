@@ -10,7 +10,7 @@ class Index;
 
 class BTree {
 private:
-    Index *index;
+    Index &index;
     String prefix;
     size_t key_size;
     File *f_tree;
@@ -21,7 +21,7 @@ private:
 
     String tree_name() { return prefix + ".bt"; }
     String pool_name() { return prefix + ".pl"; }
-    String varchar_name() { return prefix + "vch"; }
+    // String varchar_name() { return prefix + "vch"; }
 
     int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const;
 
@@ -167,8 +167,8 @@ private:
     void query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
     void check_order(node_ptr_t& x);
 public:
-    BTree(Index *index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
-        key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_ensure(t >= 2, "fanout too few"); }
+    BTree(Index &index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
+        key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_ensure(t >= 2, "btree fanout is too small"); }
     ~BTree() {
         write_root();
         f_tree->close();

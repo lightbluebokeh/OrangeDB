@@ -16,10 +16,9 @@ class SavedTable;
 class Index {
 private:
     SavedTable &table;
-
+    String name;
     std::vector<Column> cols;
-
-    File* f_data;
+    
     BTree tree;
 
     // 用于 vchar
@@ -51,6 +50,12 @@ private:
     // }
 
 public:
+    const std::vector<Column>& get_cols() const { return cols; }
+    Index(SavedTable& table, const String& name, const std::vector<Column>& cols);
+
+    void drop() {
+        ORANGE_UNIMPL
+    }
 
     // Index(SavedTable& table, orange_t kind, size_t size, const String& prefix, bool on) : table(table), kind(kind), size(size), prefix(prefix), on(on) {
     //     if (!fs::exists(data_name())) File::create(data_name());
@@ -123,38 +128,38 @@ public:
         insert(raw, rid, val);
     }
 
-    std::vector<rid_t> get_rids_value(const Orange::parser::op &op, const Orange::parser::data_value &value, rid_t lim) const {
-        if (value.is_null()) return {};
-        if (on) {
-            return tree->query(op, value, lim);
-        } else {
-            std::vector<rid_t> ret;
-            auto bytes = new byte_t[size];
-            for (auto i: get_all()) {
-                if (ret.size() >= lim) break;
-                f_data->seek_pos(i * size)->read_bytes(bytes, size);
-                if (Orange::cmp(restore(bytes), kind, op, value)) {
-                    ret.push_back(i);
-                }
-            }            
-            delete[] bytes;
-            return ret;
-        }
-    }
+    // std::vector<rid_t> get_rids_value(const Orange::parser::op &op, const Orange::parser::data_value &value, rid_t lim) const {
+    //     if (value.is_null()) return {};
+    //     if (on) {
+    //         return tree->query(op, value, lim);
+    //     } else {
+    //         std::vector<rid_t> ret;
+    //         auto bytes = new byte_t[size];
+    //         for (auto i: get_all()) {
+    //             if (ret.size() >= lim) break;
+    //             f_data->seek_pos(i * size)->read_bytes(bytes, size);
+    //             if (Orange::cmp(restore(bytes), kind, op, value)) {
+    //                 ret.push_back(i);
+    //             }
+    //         }            
+    //         delete[] bytes;
+    //         return ret;
+    //     }
+    // }
 
-    auto get_rids_null(bool not_null, rid_t lim) const {
-        auto bytes = new byte_t[size];
-        std::vector<rid_t> ret;
-        for (auto i: get_all()) {
-            if (ret.size() >= lim) break;
-            f_data->seek_pos(i * size)->read_bytes(bytes, size);
-            if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
-                ret.push_back(i);
-            }
-        }
-        delete[] bytes;
-        return ret;
-    }
+    // auto get_rids_null(bool not_null, rid_t lim) const {
+    //     auto bytes = new byte_t[size];
+    //     std::vector<rid_t> ret;
+    //     for (auto i: get_all()) {
+    //         if (ret.size() >= lim) break;
+    //         f_data->seek_pos(i * size)->read_bytes(bytes, size);
+    //         if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
+    //             ret.push_back(i);
+    //         }
+    //     }
+    //     delete[] bytes;
+    //     return ret;
+    // }
 
     friend class BTree;
 };

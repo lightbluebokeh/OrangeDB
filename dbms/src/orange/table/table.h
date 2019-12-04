@@ -27,34 +27,51 @@ private:
     std::vector<String> p_key;
     std::vector<f_key_t> f_keys;
 
-    std::vector<Index> indices;
-    // map index by there name
+    // map index by their name
     std::unordered_map<String, Index*> indexes;
-    // indexes on a column
-    std::unordered_map<String, Index*> col_indexes;
 
     String root() { return get_root(name); }
-    String metadata_name() { return root() + "metadata.tbl"; }
+    String metadata_name() { return root() + "metadata.table"; }
     String pool_name() { return root() + "rid.pl"; }
     String data_root() { return root() + "data/"; }
     String col_prefix(const String& col_name) { return data_root() + col_name; }
     String data_name(const String& col_name) { return col_prefix(col_name) + ".data"; };
+    String index_root() { return root() + "index/"; }
 
     void write_metadata() {
-        // 现在看来确实有点智障，之后有时间再改吧
-        File::open(metadata_name())->seek_pos(0)->write(cols, rec_cnt, p_key, f_keys)->close();
+        std::ofstream ofs(metadata_name());
+        print(ofs, ' ', cols, rec_cnt, p_key, f_keys);
+        ofs << ' ' << indexes.size();
+        for (auto &[idx_name, idx]: indexes) {
+            const auto& cols = idx->get_cols();
+            ofs << ' ' << idx_name << ' ' << cols.size();
+            for (const auto &col: cols) {
+                ofs << ' ' << col.get_id();
+            }
+        }
     }
     void read_metadata() {
-        File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
-        indices.reserve(MAX_COL_NUM);
-        for (auto &col: cols) {
-            indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()));
-            indices.back().load();
+        std::ifstream ifs(metadata_name());
+        ifs >> cols >> rec_cnt >> p_key >> f_keys;
+        int index_num;
+        ifs >> index_num;
+        while (index_num--) {
+            String idx_name;
+            std::vector<Column> idx_cols;
+            int col_num;
+            ifs >> idx_name >> col_num;
+            while (col_num--) {
+                int col_id;
+                ifs >> col_id;
+                idx_cols.push_back(cols[col_id]);
+            }
+            auto index = new Index(*this, idx_name, cols);;
+            index->load();
+            indexes[idx_name] = index;
         }
     }
 
     static SavedTable* tables[MAX_TBL_NUM];
-
     static SavedTable* new_table(const String& name) {
         for (int i = 0; i < MAX_TBL_NUM; i++) {
             if (!tables[i]) {
@@ -73,17 +90,7 @@ private:
     }
 
     static void check_db() { orange_ensure(Orange::using_db(), "use some database first"); }
-
-    // rec 万无一失
-    void insert_internal(const std::vector<byte_arr_t>& rec) {
-        rid_t rid = rid_pool.new_id();
-
-        // for (unsigned i = 0; i < rec.size(); i++) {
-        //     indices[i].insert(rec[i], rid);
-        // }
-        rec_cnt++;
-    }
-
+    
     void on_create(const std::vector<Column>& cols, const std::vector<String>& p_key, const std::vector<f_key_t>& f_keys) {
         this->cols = cols;
         this->p_key = p_key;
@@ -93,10 +100,18 @@ private:
         write_metadata();
         rid_pool.init();
         fs::create_directory(data_root());
-        indices.reserve(MAX_COL_NUM);   // 拒绝移动构造
-        for (auto col: this->cols) {
-            indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()));
+        fs::create_directory(index_root());
+
+        // primary key
+        std::vector<Column> p_cols;
+        for (const auto &name: p_key) {
+            p_cols.push_back(get_col(name));
         }
+        auto index = new Index(*this, "", cols);    // primary key 没有名字
+        indexes[""] = index;
+
+        // foreign key
+        ORANGE_UNIMPL
     }
 
     static String get_root(const String& name) { return name + "/"; }
@@ -205,7 +220,7 @@ public:
 
         }
         // for (auto &value: values) rec.push_back(Orange::value_to_bytes(value, col_size));
-        insert_internal(values);
+        // insert_internal(values);
     }
 
     std::vector<rid_t> single_where(const Orange::parser::single_where& where, rid_t lim) const override {
@@ -269,9 +284,7 @@ public:
     }
 
     void update(const String& col_name, std::function<byte_arr_t(byte_arr_t)> expr, const std::vector<rid_t>& rids) {
-        auto it = find_col(col_name);
-        orange_ensure(it != cols.end(), "update failed: unknown column name");
-        int col_id = it - cols.begin();
+        int col_id = get_col_id(col_name);
         auto &idx = indices[col_id];
         auto &col = cols[col_id];
         for (auto rid: rids) {
@@ -281,23 +294,29 @@ public:
         }
     }
 
-    void create_index(const String& col_name) {
-        auto it = find_col(col_name);
-        orange_ensure(it != cols.end(), "create index failed: unknown column name");
-        auto col_id = it - cols.begin();
-        indices[col_id].turn_on();
-    }
+    // void create_index(const String& col_name) {
+    //     auto it = find_col(col_name);
+    //     orange_ensure(it != cols.end(), "create index failed: unknown column name");
+    //     auto col_id = it - cols.begin();
+    //     indices[col_id].turn_on();
+    // }
 
-    void create_index(const std::vector<String>& , const String& ) {
+    void create_index(const String& idx_name, const std::vector<String>& col_names) {
+        orange_ensure(!indexes.count(idx_name), "already has index named `" + idx_name + "`");
+        auto index = new Index(*this, idx_name, get_cols(col_names));
         ORANGE_UNIMPL
     }
-
-    void drop_index(const String& col_name) {
-        auto it = find_col(col_name);
-        orange_ensure(it != cols.end(), "drop index failed: unknown column name");
-        auto col_id = it - cols.begin();
-        indices[col_id].turn_off();
+    void drop_index(const String& idx_name) {
+        orange_ensure(indexes.count(idx_name), "index `" + name + "` does not exists");
+        indexes[idx_name]->drop();
     }
+
+    // void drop_index(const String& col_name) {
+    //     auto it = find_col(col_name);
+    //     orange_ensure(it != cols.end(), "drop index failed: unknown column name");
+    //     auto col_id = it - cols.begin();
+    //     indices[col_id].turn_off();
+    // }
 
     friend class Index;
 };

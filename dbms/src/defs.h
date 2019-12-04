@@ -111,13 +111,14 @@ struct is_std_vector<std::vector<T>> : std::true_type {};
 template <typename T>
 constexpr bool is_std_vector_v = is_std_vector<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
-template <typename>
-struct is_basic_string : std::false_type {};
-template <typename T>
-struct is_basic_string<std::basic_string<T>> : std::true_type {};
-template <typename T>
-constexpr bool is_basic_string_v =
-    is_basic_string<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+// template <typename>
+// struct is_basic_string : std::false_type {};
+// template <typename T>
+// struct is_basic_string<std::basic_string<T>> : std::true_type {};
+// template <typename T>
+// constexpr bool is_basic_string_v =
+//     is_basic_string<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+
 
 template <typename>
 struct is_pair : std::false_type {};
@@ -199,5 +200,52 @@ namespace Orange {
         auto ret = String(bytes.begin() + 1, bytes.end());
         ret.resize(strlen(ret.data()));
         return ret;
+    }
+}
+
+template<typename T>
+std::enable_if_t<std::is_enum_v<T>, std::ostream&> operator << (std::ostream& is, const T& t) {
+    os << int(t);
+    return os;
+}
+template<typename T>
+std::enable_if_t<std::is_enum_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+    is >> (int&)t;
+    return is;
+}
+
+template<typename T>
+std::enable_if_t<is_std_vector_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
+    os << t.size();
+    for (auto &x: t) os << ' ' << x;
+    return os;
+}
+template<typename T>
+std::enable_if_t<is_std_vector_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+    size_t size;
+    is >> size;
+    t.resize(size);
+    for (auto &x: t) is >> x;
+    return is;
+}
+
+template<typename T>
+std::enable_if_t<is_pair_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
+    os << t.first << ' ' << t.second;
+    return os;
+}
+template<typename T>
+std::enable_if_t<is_pair_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+    is >> t.first >> t.second;
+    return is;
+}
+
+// 用 div 字符分隔
+template<typename T, typename... Ts>
+void print(std::ostream& os, char div, const T& t, const Ts&... ts) {
+    os << t;
+    if constexpr (sizeof...(Ts) != 0) {
+        os << div; 
+        print(os, ts, div);
     }
 }

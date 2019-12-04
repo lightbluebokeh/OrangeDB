@@ -50,6 +50,19 @@ namespace Orange {
             int_t int_value_or(int_t x) const { return has_value() ? int_value() : x; }
         };
 
+        inline std::ostream& operator << (ostream& os, const data_type& type) {
+            os << type.kind << ' ' << type.int_value_or(-1);    // cannot be negative
+            return os;
+        }
+        inline std::istream& operator >> (istream& is, data_type& type) {
+            is >> type.kind;
+            int value;
+            is >> value;
+            if (value == -1) type.value = boost::blank();
+            else type.value = value;
+            return is;
+        }
+
         /** value */
         enum class data_value_kind { Null, Int, String, Float };
         struct data_value {
@@ -76,6 +89,37 @@ namespace Orange {
 
             operator value_type() const { return value; }
         };
+
+        inline std::istream& operator >> (std::istream& is, data_value& value) {
+            int which;
+            is >> which;
+            switch (data_value_kind(which)) {
+                case data_value_kind::Null: // do nothing
+                break;
+                case data_value_kind::Int: is >> value.to_int();
+                break;
+                case data_value_kind::String: is >> value.to_string();
+                break;
+                case data_value_kind::Float: is >> value.to_float();
+                break;
+            }
+            return is;
+        }
+        inline std::ostream& operator << (std::ostream& os, const data_value& value) {
+            os << value.value.which();
+            switch (data_value_kind(value.value.which())) {
+                case data_value_kind::Null: // do  nothing
+                break;
+                case data_value_kind::Int: os << ' ' << value.to_int();
+                break;
+                case data_value_kind::String: os << ' ' << value.to_string();
+                break;
+                case data_value_kind::Float: os << ' ' << value.to_float();
+                break;
+            }
+            return os;
+        }
+
         using data_value_list = std::vector<data_value>;
         using data_value_lists = std::vector<data_value_list>;  // 这个东西多半是假的
 
