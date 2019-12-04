@@ -16,7 +16,6 @@ class SavedTable;
 class Index {
 private:
     SavedTable &table;
-    Column *column;
 
     datatype_t kind;
     // 每个值的在索引中的大小

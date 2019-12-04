@@ -326,7 +326,7 @@ namespace Orange {
                      -('(' >
                        qi::int_[at_c<0>(qi::_val) = ORANGE_INT, at_c<1>(qi::_val) = qi::_1] >
                        ')')) |
-                    (kw(+"CHAR") > '(' > qi::int_[ac_t<0>(qi::_val) = ORANGE_CHAR, at_c<1>(qi::_val) = qi::_1] > ')') > |
+                    (kw(+"CHAR") > '(' > qi::int_[at_c<0>(qi::_val) = ORANGE_CHAR, at_c<1>(qi::_val) = qi::_1] > ')') |
                     (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = ORANGE_VARCHAR,
                                                      at_c<1>(qi::_val) = qi::_1] > ')') |
                     kw(+"DATE")[at_c<0>(qi::_val) = ORANGE_DATE] |

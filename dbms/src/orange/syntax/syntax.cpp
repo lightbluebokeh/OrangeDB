@@ -318,7 +318,7 @@ namespace Orange {
 
     // 懒了
     inline void idx(idx_stmt& stmt) {
-        switch (stmt.kind) {
+        switch (stmt.kind()) {
             case IdxStmtKind::AlterAdd: {
                 ORANGE_UNIMPL
             } break;
@@ -327,7 +327,7 @@ namespace Orange {
             } break;
             case IdxStmtKind::Create: {
                 auto &create = stmt.create();
-                auto table = SavedTable::get(create.tb_name);
+                // SavedTable::get(create.tb_name)->create_index(create.col_list, create.);
             } break;
             case IdxStmtKind::Drop: {
                 ORANGE_UNIMPL

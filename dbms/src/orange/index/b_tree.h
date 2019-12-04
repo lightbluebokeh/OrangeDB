@@ -164,9 +164,8 @@ private:
 
     void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v);
     void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v);
-    void query(node_ptr_t &x, const pred_t& pred, std::vector<rid_t>& ret, rid_t& lim);
-    void check_order(node_ptr_t& x);
     void query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
+    void check_order(node_ptr_t& x);
 public:
     BTree(Index *index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_ensure(t >= 2, "fanout too few"); }
@@ -184,12 +183,6 @@ public:
 
     void insert(const_bytes_t k_raw, rid_t v, const byte_arr_t& k);
     void remove(const_bytes_t k_raw, rid_t v);
-
-    // std::vector<rid_t> query(const pred_t& pred, rid_t lim) {
-    //     std::vector<rid_t> ret;
-    //     query(root, pred, ret, lim);
-    //     return ret;
-    // }
 
     auto query(Orange::parser::op op, const Orange::parser::data_value& value, rid_t lim) {
         using op_t = Orange::parser::op;
