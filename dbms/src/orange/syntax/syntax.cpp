@@ -22,11 +22,11 @@ namespace Orange {
     inline std::string type_string(const data_type& type) {
         // 只有这个的kind不是方法，因为它是在产生式直接赋值的，不是variant（弄成variant=多写4个结构体+5个函数，累了
         switch (type.kind) {
-            case ORANGE_INT:
+            case orange_t::Int:
                 return type.has_value() ? "INT, " + std::to_string(type.int_value()) : "INT";
-            case ORANGE_VARCHAR: return "VARCHAR, " + std::to_string(type.int_value());
-            case ORANGE_DATE: return "DATE";
-            case ORANGE_NUMERIC: return "NUMERIC, " + std::to_string(type.int_value() / 40) + std::to_string(type.int_value() % 40);
+            case orange_t::Varchar: return "VARCHAR, " + std::to_string(type.int_value());
+            case orange_t::Date: return "DATE";
+            case orange_t::Numeric: return "NUMERIC, " + std::to_string(type.int_value() / 40) + std::to_string(type.int_value() % 40);
             default: unexpected();
         }
     }
@@ -115,9 +115,7 @@ namespace Orange {
                                               : "<none>")
                                       << std::endl;
 
-                            // auto dft = def.default_value.has_value() ? Orange::to_bytes(def.default_value.get()) : byte_arr_t{};
-                            auto dft = Orange::to_bytes(def.default_value.get_value_or(Orange::parser::data_value::null_value()));
-                            cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), 0, 0, !def.is_not_null, dft, {}));
+                            cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), !def.is_not_null, def.default_value.get_value_or(data_value::null_value())));
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
@@ -327,7 +325,7 @@ namespace Orange {
             } break;
             case IdxStmtKind::Create: {
                 auto &create = stmt.create();
-                // SavedTable::get(create.tb_name)->create_index(create.col_list, create.);
+                SavedTable::get(create.tb_name)->create_index(create.col_list, create.idx_name);
             } break;
             case IdxStmtKind::Drop: {
                 ORANGE_UNIMPL

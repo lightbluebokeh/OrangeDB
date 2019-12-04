@@ -102,7 +102,8 @@ public:
         } else if constexpr (std::is_same_v<T, pred_t>) {
             write(t.lo, t.lo_eq, t.hi, t.hi_eq);
         } else if constexpr (std::is_same_v<T, Column>) {
-            write(t.name, t.type, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
+            // write(t.name, t.type, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
+            ORANGE_UNREACHABLE
         } else if constexpr (std::is_same_v<T, f_key_t>) {
             write(t.name, t.ref_tbl, t.list, t.ref_list);
         } else {
@@ -150,7 +151,8 @@ public:
         } else if constexpr (std::is_same_v<T, pred_t>) {
             read(t.lo, t.lo_eq, t.hi, t.hi_eq);
         } else if constexpr (std::is_same_v<T, Column>) {
-            read(t.name, t.type, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
+            ORANGE_UNREACHABLE
+            // read(t.name, t.type, t.maxsize, t.p, t.s, t.unique, t.nullable, t.index, t.dft, t.ranges);
         } else if constexpr (std::is_same_v<T, f_key_t>) {
             read(t.name, t.ref_tbl, t.list, t.ref_list);
         } else {

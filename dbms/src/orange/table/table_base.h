@@ -69,7 +69,7 @@ protected:
         return ret;
     }
 public:
-    std::vector<rid_t> where(const Orange::parser::where_clause& where) const {
+    virtual std::vector<rid_t> where(const Orange::parser::where_clause& where) const {
         // 多条 where clause 是与关系，求交
         if (where.empty()) return all();
         std::vector<rid_t> ret = single_where(where.front());
@@ -140,14 +140,14 @@ inline TmpTable Table::select_star(const std::vector<rid_t>& rids) const {
     return select(names, rids);
 }
 
-static String to_string(const byte_arr_t &bytes, datatype_t type) {
+static String to_string(const byte_arr_t &bytes, orange_t type) {
     if (bytes.front() == DATA_NULL) return "null";
     switch (type) {
-        case ORANGE_VARCHAR:
-        case ORANGE_CHAR: return Orange::bytes_to_string(bytes);
-        case ORANGE_INT: return std::to_string(Orange::bytes_to_int(bytes));
-        case ORANGE_NUMERIC:
-        case ORANGE_DATE: ORANGE_UNIMPL
+        case orange_t::Varchar:
+        case orange_t::Char: return Orange::bytes_to_string(bytes);
+        case orange_t::Int: return std::to_string(Orange::bytes_to_int(bytes));
+        case orange_t::Numeric:
+        case orange_t::Date: ORANGE_UNIMPL
         default: ORANGE_UNIMPL
     }
     return "fuck warning";

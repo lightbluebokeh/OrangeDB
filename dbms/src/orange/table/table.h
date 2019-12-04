@@ -22,18 +22,23 @@ private:
 
     SavedTable(int id, const String& name) : id(id), name(name), rid_pool(pool_name()) {}
 
-    // metadata
+    // metadata(还包括 Table::cols)
     rid_t rec_cnt;
     std::vector<String> p_key;
     std::vector<f_key_t> f_keys;
 
     std::vector<Index> indices;
+    // map index by there name
+    std::unordered_map<String, Index*> indexes;
+    // indexes on a column
+    std::unordered_map<String, Index*> col_indexes;
 
     String root() { return get_root(name); }
-    String data_root() { return root() + "data/"; }
-    String col_prefix(const String& col_name) { return data_root() + col_name; }
     String metadata_name() { return root() + "metadata.tbl"; }
     String pool_name() { return root() + "rid.pl"; }
+    String data_root() { return root() + "data/"; }
+    String col_prefix(const String& col_name) { return data_root() + col_name; }
+    String data_name(const String& col_name) { return col_prefix(col_name) + ".data"; };
 
     void write_metadata() {
         // 现在看来确实有点智障，之后有时间再改吧
@@ -43,7 +48,7 @@ private:
         File::open(metadata_name())->seek_pos(0)->read(cols, rec_cnt, p_key, f_keys)->close();
         indices.reserve(MAX_COL_NUM);
         for (auto &col: cols) {
-            indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index());
+            indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()));
             indices.back().load();
         }
     }
@@ -72,9 +77,10 @@ private:
     // rec 万无一失
     void insert_internal(const std::vector<byte_arr_t>& rec) {
         rid_t rid = rid_pool.new_id();
-        for (unsigned i = 0; i < rec.size(); i++) {
-            indices[i].insert(rec[i], rid);
-        }
+
+        // for (unsigned i = 0; i < rec.size(); i++) {
+        //     indices[i].insert(rec[i], rid);
+        // }
         rec_cnt++;
     }
 
@@ -89,7 +95,7 @@ private:
         fs::create_directory(data_root());
         indices.reserve(MAX_COL_NUM);   // 拒绝移动构造
         for (auto col: this->cols) {
-            indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()), col.has_index());
+            indices.emplace_back(*this, col.get_datatype(), col.key_size(), col_prefix(col.get_name()));
         }
     }
 
@@ -172,31 +178,34 @@ public:
     }
 
     // 按列插入，会先尝试把输入的值补全
-    void insert(const std::vector<std::pair<String, byte_arr_t>>& values) {
-        std::unordered_map<String, byte_arr_t> map;
+    void insert(const std::vector<std::pair<String, ast::data_value>>& values) {
+        std::unordered_map<String, ast::data_value> map;
         for (auto [name, val]: values) {
             orange_ensure(has_col(name), "insertion failed: unknown column name");
             map[name] = val;
         }
-        std::vector<byte_arr_t> rec;
+        std::vector<ast::data_value> values_all;
         for (auto &col: cols) {
             auto it = map.find(col.get_name());
             if (it == map.end()) {
-                rec.push_back(col.get_dft());
+                values_all.push_back(col.get_dft());
             } else {
-                rec.push_back(it->second);
+                values_all.push_back(it->second);
             }
         }
-        insert(rec);
+        insert(values_all);
     }
 
     // 直接插入完整的一条
-    void insert(std::vector<byte_arr_t> rec) {
-        orange_ensure(rec.size() == cols.size(), "wrong parameter size");
-        for (unsigned i = 0; i < rec.size(); i++) {
-            orange_ensure(cols[i].test(rec[i]), "column constraints failed");
+    void insert(std::vector<ast::data_value> values) {
+        // 检查参数个数是否等于列数
+        orange_ensure(values.size() == cols.size(), "insertion failed: expected " + std::to_string(cols.size()) + " values while " + std::to_string(values.size()) + "given");
+        rec_t rec;
+        for (unsigned i = 0; i < cols.size(); i++) {
+
         }
-        insert_internal(rec);
+        // for (auto &value: values) rec.push_back(Orange::value_to_bytes(value, col_size));
+        insert_internal(values);
     }
 
     std::vector<rid_t> single_where(const Orange::parser::single_where& where, rid_t lim) const override {
@@ -277,6 +286,10 @@ public:
         orange_ensure(it != cols.end(), "create index failed: unknown column name");
         auto col_id = it - cols.begin();
         indices[col_id].turn_on();
+    }
+
+    void create_index(const std::vector<String>& , const String& ) {
+        ORANGE_UNIMPL
     }
 
     void drop_index(const String& col_name) {

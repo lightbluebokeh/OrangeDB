@@ -151,15 +151,19 @@ int expand(Fn&& func, Args&&... args) {
     return sizeof(arr) / sizeof(int);
 }
 
-enum datatype_t {
-    ORANGE_INT,
-    ORANGE_CHAR,
-    ORANGE_VARCHAR,
-    ORANGE_NUMERIC,
-    ORANGE_DATE,
+enum class orange_t {
+    Int,
+    Char,
+    Varchar,
+    Numeric,
+    Date,
 };
 
 using numeric_t = long double;
+static_assert(sizeof(numeric_t) == 16u);
+
+// 可能换成高精度的
+using int_t = int;
 
 namespace Orange {
     template <typename T>

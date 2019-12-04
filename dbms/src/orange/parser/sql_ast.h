@@ -40,49 +40,39 @@ namespace Orange {
         /** type */
         // enum class DataTypeKind { Int, VarChar, Date, Float };
         struct data_type {
-            datatype_t kind;
-            boost::variant<boost::blank, int> value;
+            orange_t kind;
+            boost::variant<boost::blank, int_t> value;
 
             bool has_value() const { return value.which() != 0; }
 
-            int& int_value() { return boost::get<int>(value); }
-            int int_value() const { return boost::get<int>(value); }
-            int int_value_or(int x) const { return has_value() ? int_value() : x; }
+            int_t& int_value() { return boost::get<int_t>(value); }
+            int_t int_value() const { return boost::get<int_t>(value); }
+            int_t int_value_or(int_t x) const { return has_value() ? int_value() : x; }
         };
 
         /** value */
-        enum class DataValueKind { Null, Int, String, Float };
+        enum class data_value_kind { Null, Int, String, Float };
         struct data_value {
-            using value_type = boost::variant<boost::blank, int, std::string, double>;
+            using value_type = boost::variant<boost::blank, int_t, std::string, numeric_t>;
             value_type value;
 
             bool is_null() const { return value.which() == 0; }
             bool is_int() const { return value.which() == 1; }
             bool is_string() const { return value.which() == 2; }
             bool is_float() const { return value.which() == 3; }
-            DataValueKind kind() const { return (DataValueKind)value.which(); }
+            data_value_kind kind() const { return (data_value_kind)value.which(); }
 
-            int& to_int() { return boost::get<int>(value); }
-            int to_int() const { return boost::get<int>(value); }
+            int_t& to_int() { return boost::get<int_t>(value); }
+            int_t to_int() const { return boost::get<int_t>(value); }
             std::string& to_string() { return boost::get<std::string>(value); }
             const std::string& to_string() const { return boost::get<std::string>(value); }
-            double& to_float() { return boost::get<double>(value); }
-            double to_float() const { return boost::get<double>(value); }
+            numeric_t& to_float() { return boost::get<numeric_t>(value); }
+            numeric_t to_float() const { return boost::get<numeric_t>(value); }
 
-            datatype_t get_datatype() const {
-                // if (is_null()) return ORANGE_INT;
-                switch ((DataValueKind)value.which()) {
-                    case DataValueKind::Null:
-                    case DataValueKind::Int: return ORANGE_INT; // null 的话随便
-                    case DataValueKind::String: return ORANGE_VARCHAR;
-                    case DataValueKind::Float: return ORANGE_NUMERIC;
-                }
-                return ORANGE_INT;
-            }
-
-            static data_value null_value() {
-                return data_value();
-            }
+            static data_value from_null() { return data_value{}; }
+            static data_value from_int(int_t x) { return data_value{x}; }
+            static data_value from_float(numeric_t f) { return data_value{f}; }
+            static data_value from_string(std::string s) { return data_value{s}; }
 
             operator value_type() const { return value; }
         };
@@ -489,14 +479,59 @@ namespace Orange {
     }  // namespace parser
 }  // namespace Orange
 
+namespace ast = Orange::parser;
+
+namespace exception {
+    // value 转为对应类型失败
+    void value_convert(const String& msg) {
+        throw OrangeException("convert value failed: " + msg);
+    }
+}
+
 namespace Orange {
-    inline byte_arr_t to_bytes(const Orange::parser::data_value& value) {
-        if (value.is_null()) return {DATA_NULL};
-        if (value.is_int()) return Orange::to_bytes(value.to_int());
-        if (value.is_string()) return Orange::to_bytes(value.to_string());
-        if (value.is_float()) {
-            ORANGE_UNIMPL
+    // 保证可以转换
+    inline byte_arr_t value_to_bytes(const ast::data_value& value, const ast::data_type& type) {
+        using ast::data_value_kind;
+        switch (value.kind) {
+            case data_value_kind::Null: {
+                byte_arr_t ret = {DATA_NULL};
+                switch (type.kind) {
+                    case orange_t::Char: ret.resize(type.int_value() + 1);
+                    break;
+                    case orange_t::Date: ORANGE_UNIMPL
+                    case orange_t::Int: ret.resize(sizeof(int_t) + 1);
+                    break;
+                    case orange_t::Numeric: ret.resize(sizeof(numeric_t) + 1);
+                    break;
+                }
+                return ret;
+            } break;
+            case data_value_kind::Int: 
+                switch (type.kind) {
+                    case orange_t::Int: return Orange::to_bytes(value.to_int());
+                    case orange_t::Numeric: return Orange::to_bytes<numeric_t>(value.to_int());
+                    default: ORANGE_UNREACHABLE
+                }
+            break;
+            case data_value_kind::Float:
+                if (type.kind == orange_t::Numeric) return Orange::to_bytes(value.to_float());
+                ORANGE_UNREACHABLE
+            break;
+            case data_value_kind::String:
+                switch (type.kind) {
+                    case orange_t::Varchar:
+                    case orange_t::Char: {
+                        auto &str = value.to_string();
+                        if (str.length() > type.int_value()) exception::value_convert("char limit exceeded");
+                        auto ret = to_bytes(str);
+                        if (type.kind == orange_t::Char) ret.resize(type.int_value() + 1);  // 对于 char 补齐
+                        return ret;
+                    } break;
+                    case orange_t::Date: ORANGE_UNIMPL
+                    default: ORANGE_UNREACHABLE
+                }
+            break;
         }
-        return to_bytes("fuck warning");
+        ORANGE_UNREACHABLE
     }
 }

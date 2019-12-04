@@ -324,13 +324,13 @@ namespace Orange {
                 type =
                     (kw(+"INT") >
                      -('(' >
-                       qi::int_[at_c<0>(qi::_val) = ORANGE_INT, at_c<1>(qi::_val) = qi::_1] >
+                       qi::int_[at_c<0>(qi::_val) = orange_t::Int, at_c<1>(qi::_val) = qi::_1] >
                        ')')) |
-                    (kw(+"CHAR") > '(' > qi::int_[at_c<0>(qi::_val) = ORANGE_CHAR, at_c<1>(qi::_val) = qi::_1] > ')') |
-                    (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = ORANGE_VARCHAR,
+                    (kw(+"CHAR") > '(' > qi::int_[at_c<0>(qi::_val) = orange_t::Char, at_c<1>(qi::_val) = qi::_1] > ')') |
+                    (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = orange_t::Varchar,
                                                      at_c<1>(qi::_val) = qi::_1] > ')') |
-                    kw(+"DATE")[at_c<0>(qi::_val) = ORANGE_DATE] |
-                    kw(+"FLOAT")[at_c<0>(qi::_val) = ORANGE_NUMERIC, at_c<1>(qi::_val) = 40 * 18 + 2];
+                    kw(+"DATE")[at_c<0>(qi::_val) = orange_t::Date] |
+                    kw(+"FLOAT")[at_c<0>(qi::_val) = orange_t::Numeric, at_c<1>(qi::_val) = 40 * 18 + 2];
 
                 // <value> := <int> | <string> | <float> | 'NULL'
                 value %=
