@@ -1,6 +1,7 @@
 #pragma once
 
 #include "orange/parser/sql_ast.h"
+#include "fs/allocator/allocator.h"
 
 #include <cstring>
 
@@ -12,50 +13,36 @@ private:
     String name;
     int id; // 所在 table 的列编号
     ast::data_type type;
-    // orange_t type;
-    // int maxsize;    // 对于非 varchar 就是正常的 size
-    // int p = 18, s = 0;  // type == orange_t::Numeric 才有效
     bool nullable;
+    int key_size;
     ast::data_value dft;
     std::vector<std::pair<ast::op, ast::data_value>> checks;
-    
-    bool is_string() const { return type == orange_t::Char || type == orange_t::Varchar; }
-
-    bool test_size(byte_arr_t& val) const {
-        if (int(val.size()) > maxsize) return 0;
-        if (int(val.size()) < maxsize) {
-            // 对于 null 或者字符串才补零
-            if (val.front() != DATA_NULL && !is_string()) return 0;
-            if (type != orange_t::Varchar) val.resize(maxsize);
-        }
-        return 1;
-    }
 public:
     Column() {}
-    Column(const String& name) : name(name), type(orange_t::Varchar) {}
-    // type_value 对于 int 等类型无意义 
+    // 适合打印名称的那种
+    Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
     Column(const String& name, int id, const ast::data_type& type, bool nullable, ast::data_value dft) : name(name), type(type), nullable(nullable), dft(dft) {
         switch (type.kind) {
+            case orange_t::Int: key_size = 1 + sizeof(int_t);
+            break;
             case orange_t::Varchar:
                 orange_ensure(type.int_value() <= MAX_VARCHAR_LEN, "varchar limit too long");
+                key_size = 1 + sizeof(decltype(std::declval<FileAllocator>().allocate(0)));
             break;
             case orange_t::Char:
                 orange_ensure(type.int_value() <= MAX_CHAR_LEN, "char limit too long");
+                key_size = 1 + type.int_value();
             break;
             case orange_t::Date:
-                maxsize = 2 + 1;
+                ORANGE_UNIMPL
             break;
-            case orange_t::Numeric:
-                maxsize = 17 + 1;
-                p = type_value / 40;
-                s = type_value % 40;
+            case orange_t::Numeric: {
+                int p = type.int_value() / 40;
+                int s = type.int_value() % 40;
                 orange_ensure(0 <= s && s <= p && p <= 20, "bad numeric");
-            break;
+                key_size = 1 + sizeof(numeric_t);
+            } break;
         }
-        
-        // for (auto &pred: this->ranges) {
-        //     orange_ensure(test_size(pred.lo) && test_size(pred.hi), "bad constraint parameter");
-        // }
     }
 
     String type_string() {
@@ -70,7 +57,8 @@ public:
     }
 
     // one more bytes for null/valid
-    int key_size() const { return type == orange_t::Varchar ? 1 + sizeof(size_t) : maxsize; }
+    // int key_size() const { return type == orange_t::Varchar ? 1 + sizeof(size_t) : maxsize; }
+    int get_key_size() const { return key_size; }
 
     String get_name() const { return name; }
     ast::data_value get_dft() const {
