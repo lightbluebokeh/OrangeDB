@@ -36,6 +36,13 @@ namespace Orange {
 
         /** op: '=', '<>', '<=', '>=', '<', '>' */
         enum class op { Eq, Neq, Le, Ge, Lt, Gt };
+        using op_t = op;
+        inline bool is_low(const op_t& op) {
+            return op == op_t::Eq || op == op_t::Ge || op == op_t::Gt;
+        }
+        inline bool is_high(const op_t& op) {
+            return op == op_t::Eq || op == op_t::Lt || op == op_t::Le;
+        }
 
         /** type */
         // enum class DataTypeKind { Int, VarChar, Date, Float };
@@ -118,6 +125,17 @@ namespace Orange {
                 break;
             }
             return os;
+        }
+
+        bool operator < (const data_value& v1, const data_value& v2) {
+            orange_assert(v1.kind() == v2.kind(), "comparing value with different type");
+            orange_assert(!v1.is_null(), "no null plz");
+            switch (v1.kind()) {
+                case data_value_kind::Int: return v1.to_int() < v2.to_int();
+                case data_value_kind::Float: return v1.to_float() < v2.to_float();
+                case data_value_kind::String: return v1.to_string() < v2.to_string();
+            }
+            return false;
         }
 
         using data_values = std::vector<data_value>;

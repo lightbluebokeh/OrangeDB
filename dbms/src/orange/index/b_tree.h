@@ -12,7 +12,7 @@ class BTree {
 private:
     Index &index;
     String path;
-    size_t key_size;
+    int key_size;
     File *f_tree;
 
     using bid_t = long long;
@@ -23,7 +23,10 @@ private:
     String pool_name() { return path + "pool"; }
     // String varchar_name() { return path + "vch"; }
 
-    int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const;
+    int cmp(const std::vector<byte_arr_t>& ks1, rid_t v1, const std::vector<byte_arr_t>& ks2, rid_t v2) const;
+
+    using pred_t = std::pair<ast::op, ast::data_value>;
+    using preds_t = std::vector<pred_t>;
 
     struct node_t {
         BTree &tree;
@@ -79,7 +82,7 @@ private:
         auto id = pool.new_id();
         return std::make_unique<node_t>(*this, id);
     }
-    node_ptr_t read_node(bid_t id) {
+    node_ptr_t read_node(bid_t id) const {
         auto node = std::make_unique<node_t>(*this, id);
         f_tree->seek_pos(id * PAGE_SIZE)->read_bytes(node->data, PAGE_SIZE);
         return node;
@@ -104,7 +107,7 @@ private:
     }
 
     // 使用**二分查找**找到最大的 i 使得 (k, v) > (key(j), val(j)) (i > j)
-    int upper_bound(node_ptr_t &x, const byte_arr_t& k, rid_t v);
+    int upper_bound(node_ptr_t &x, const std::vector<byte_arr_t>& ks, rid_t v);
 
     // y 是 x 的 i 号儿子
     void split(node_ptr_t& x, node_ptr_t& y, int i) {
@@ -162,41 +165,45 @@ private:
         return std::make_pair(byte_arr_t(key, key + key_size), x->val(x->key_num() - 1));
     }
 
-    void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v);
-    void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v);
-    void query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
+    void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const std::vector<byte_arr_t>& ks, rid_t v);
+    void remove_nonleast(node_ptr_t& x, const std::vector<byte_arr_t>& ks, rid_t v);
+    // 内部查询，los 和 his 表示第一列的上下界
+    void query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, std::vector<rid_t>& result, rid_t lim) const;
     void check_order(node_ptr_t& x);
 public:
-    BTree(Index &index, size_t key_size, const String& path) : index(index), path(path),
+    BTree(Index &index, int key_size, const String& path) : index(index), path(path),
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_ensure(t >= 2, "btree fanout is too small"); }
     ~BTree() {
         write_root();
         f_tree->close();
     }
 
-    void init(File* f_data);
+    void init() {
+        f_tree = File::create_open(tree_name());
+        pool.init();
+        root = new_node();
+    }
     void load() {
         f_tree = File::open(tree_name());
         read_root();
         pool.load();
     }
-    void drop() {
-        
-    }
 
-    void insert(const_bytes_t k_raw, rid_t v, const byte_arr_t& k);
+    void insert(const_bytes_t k_raw, rid_t v, const std::vector<byte_arr_t>& ks);
     void remove(const_bytes_t k_raw, rid_t v);
 
-    auto query(Orange::parser::op op, const Orange::parser::data_value& value, rid_t lim) {
-        using op_t = Orange::parser::op;
-        std::vector<rid_t> ret;
-        if (op == op_t::Neq) {
-            query_internal(root, op_t::Lt, value, ret, lim);
-            query_internal(root, op_t::Gt, value, ret, lim);
-        } else {
-            query_internal(root, op, value, ret, lim);
-        }
-        orange_assert(ret.size() <= lim, "query limit exeeded");
-        return ret;
-    }
+    std::vector<rid_t> query(const std::vector<preds_t>& preds_list, rid_t lim = MAX_RID) const;
+
+    // auto query(Orange::parser::op op, const Orange::parser::data_value& value, rid_t lim) {
+    //     using op_t = Orange::parser::op;
+    //     std::vector<rid_t> ret;
+    //     if (op == op_t::Neq) {
+    //         query_internal(root, op_t::Lt, value, ret, lim);
+    //         query_internal(root, op_t::Gt, value, ret, lim);
+    //     } else {
+    //         query_internal(root, op, value, ret, lim);
+    //     }
+    //     orange_assert(ret.size() <= lim, "query limit exeeded");
+    //     return ret;
+    // }
 };

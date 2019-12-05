@@ -16,74 +16,70 @@ class SavedTable;
 class Index {
 private:
     SavedTable &table;
-    // 索引所在路径
-    String path;
+    String name;
     std::vector<Column> cols;
+    bool primary, unique;
 
     int key_size;
-    BTree tree;
+    BTree *tree;
 
-    Index(SavedTable& table, const String& path, int key_size, const std::vector<Column>& cols) : 
-    table(table), path(path), cols(cols), key_size(key_size), tree(*this, key_size, path) {}
-public:
-    const std::vector<Column>& get_cols() const { return cols; }
+    Index(SavedTable& table, const String& name) : table(table), name(name) {}
+    ~Index() {
+        write_info();
+        delete tree;
+    }
 
-    static Index* create(SavedTable& table, const std::vector<Column>& cols, const String& name);
-    static Index* load(SavedTable& table, const std::vector<Column>& cols, const String& name);
+    // 获取第 i 个字段
+    byte_arr_t restore(const_bytes_t k_raw, int i) const;
+    // 获取全部字段
+    std::vector<byte_arr_t> restore(const_bytes_t k_raw) const;
+    String get_path() const;
+    String info_name() const { return get_path() + "info"; }
     
-    void load() {
-        tree.load();
+    void write_info() {
+        std::ofstream ofs(info_name());
+        ofs << cols.size();
+        for (auto &col: cols) {
+            ofs << ' ' << col;
+        }
+        ofs << ' ' << primary << ' ' << unique << std::endl;
+    }
+    void read_info() {
+        std::ifstream ifs(info_name());
+        unsigned cols_num;
+        ifs >> cols_num;
+        cols.resize(cols_num);
+        for (auto &col: cols) ifs >> col;
+        ifs >> primary >> unique;
+    }
+
+public:
+    String get_name() const { return name; }
+    const std::vector<Column>& get_cols() const { return cols; }
+    bool is_primary() const { return primary; }
+
+    static Index* create(SavedTable& table, const String& name, const std::vector<Column>& cols, bool primary, bool unique);
+    static Index* load(SavedTable& table, const String& name);
+    static void drop(const Index* index) {
+        auto path = index->get_path();
+        delete index;
+        fs::remove_all(path);
     }
 
     // raw: 索引值；val：真实值
-    void insert(const byte_arr_t& raw, rid_t rid, const byte_arr_t& val) {
-        tree.insert(raw.data(), rid, val);
-        // f_data->seek_pos(rid * size)->write_bytes(raw.data(), size);
+    void insert(const byte_arr_t& raw, rid_t rid, const std::vector<byte_arr_t>& val) {
+        tree->insert(raw.data(), rid, val);
     }
 
     // 调用合适应该不会有问题8
     void remove(const byte_arr_t &raw, rid_t rid) {
-        tree.remove(raw.data(), rid);
-        // f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
+        tree->remove(raw.data(), rid);
     }
 
-    void update(const byte_arr_t &raw, rid_t rid, const byte_arr_t& val) {
+    void update(const byte_arr_t &raw, rid_t rid, const std::vector<byte_arr_t>& val) {
         remove(raw, rid);
         insert(raw, rid, val);
     }
-
-    // std::vector<rid_t> get_rids_value(const Orange::parser::op &op, const Orange::parser::data_value &value, rid_t lim) const {
-    //     if (value.is_null()) return {};
-    //     if (on) {
-    //         return tree->query(op, value, lim);
-    //     } else {
-    //         std::vector<rid_t> ret;
-    //         auto bytes = new byte_t[size];
-    //         for (auto i: get_all()) {
-    //             if (ret.size() >= lim) break;
-    //             f_data->seek_pos(i * size)->read_bytes(bytes, size);
-    //             if (Orange::cmp(restore(bytes), kind, op, value)) {
-    //                 ret.push_back(i);
-    //             }
-    //         }            
-    //         delete[] bytes;
-    //         return ret;
-    //     }
-    // }
-
-    // auto get_rids_null(bool not_null, rid_t lim) const {
-    //     auto bytes = new byte_t[size];
-    //     std::vector<rid_t> ret;
-    //     for (auto i: get_all()) {
-    //         if (ret.size() >= lim) break;
-    //         f_data->seek_pos(i * size)->read_bytes(bytes, size);
-    //         if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
-    //             ret.push_back(i);
-    //         }
-    //     }
-    //     delete[] bytes;
-    //     return ret;
-    // }
 
     friend class BTree;
 };

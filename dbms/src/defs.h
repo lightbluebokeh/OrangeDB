@@ -241,12 +241,15 @@ std::enable_if_t<is_pair_v<T>, std::istream&> operator >> (std::istream& is, T& 
     return is;
 }
 
-// 用 div 字符分隔
-template<typename T, typename... Ts>
-void print(std::ostream& os, char div, const T& t, const Ts&... ts) {
-    os << t;
-    if constexpr (sizeof...(Ts) != 0) {
-        os << div; 
-        print(os, ts, div);
-    }
-}
+// primary key 默认名称，保留
+constexpr char PRIMARY_KEY_NAME[] = "primary_key";
+
+// // 用 div 字符分隔
+// template<typename T, typename... Ts>
+// void print(std::ostream& os, char div, const T& t, const Ts&... ts) {
+//     os << t;
+//     if constexpr (sizeof...(Ts) != 0) {
+//         os << div; 
+//         print(os, ts, div);
+//     }
+// }

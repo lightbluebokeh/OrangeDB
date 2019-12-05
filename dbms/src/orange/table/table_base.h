@@ -19,13 +19,14 @@ private:
         } else if (where.is_op()) {
             auto &op = where.op();
             auto col1_id = get_col_id(op.col_name);
-            if (op.expression.is_column()) {
-                auto &col2 = op.expression.col();
+            auto &expr = op.expression;
+            if (expr.is_column()) {
+                auto &col2 = expr.col();
                 orange_ensure(!col2.table_name.has_value(), "cannot specify table name here");
                 int col2_id = get_col_id(col2.col_name);
                 return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype().kind, op.operator_, get_field(col2_id, rid), cols[col2_id].get_datatype().kind);
-            } else if (op.expression.is_value()) {
-                auto &value = op.expression.value();
+            } else if (expr.is_value()) {
+                auto &value = expr.value();
                 return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype_kind(), op.operator_, value);
             } else {
                 ORANGE_UNIMPL
@@ -60,6 +61,13 @@ protected:
         orange_ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
         return it - cols.begin(); 
     }
+    std::vector<int> get_col_ids(const std::vector<String>& col_names) const {
+        std::vector<int> ret;
+        for (auto &col_name: col_names) {
+            ret.push_back(get_col_id(col_name));
+        }
+        return ret;
+    }
     bool has_col(const String& col_name) const { 
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
@@ -67,17 +75,14 @@ protected:
     }
 
     virtual byte_arr_t get_field(int col_id, rid_t rid) const = 0;
+    auto get_fields(const std::vector<Column>& cols, rid_t rid) const {
+        std::vector<byte_arr_t> ret;
+        for (auto &col: cols) ret.push_back(get_field(col.get_id(), rid));
+        return ret;
+    }
 
     // 返回所有合法 rid
     virtual std::vector<rid_t> all() const = 0;
-    // default brute force
-    virtual std::vector<rid_t> single_where(const ast::single_where& where) const {
-        std::vector<rid_t> ret;
-        for (auto rid: all()) {
-            if (check_where(rid, where)) ret.push_back(rid);
-        }
-        return ret;
-    }
     // 用 where 进行筛选
     virtual std::vector<rid_t> filt(const std::vector<rid_t>& rids, const ast::single_where& where) const {
         std::vector<rid_t> ret;
@@ -88,14 +93,26 @@ protected:
     }
     // 返回满足 where clause 的所有 rid
     virtual std::vector<rid_t> where(const ast::where_clause& where, rid_t lim = MAX_RID) const {
+        if (op_null(where)) return {};
         // 多条 where clause 是与关系，求交
         auto ret = all();
         for (auto &single_where: where) ret = filt(ret, single_where);
         return ret;
     }
+    // where 中含有和 null 的比较
+    bool op_null(const ast::where_clause& where_clause) const {
+        for (auto &where: where_clause) {
+            if (where.is_op()) {
+                // auto &op = where.op();
+                auto &expr = where.op().expression;
+                if (expr.is_value() && expr.value().is_null()) return 1; 
+            }
+        }
+        return 0;
+    }
 public:
-    virtual TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) const;
-    TmpTable select_star(const std::vector<rid_t>& rids) const;
+    virtual TmpTable select(const std::vector<String>& names, const ast::where_clause& where) const = 0;
+    TmpTable select_star(const ast::where_clause& where) const;
 };
 
 class SavedTable;
@@ -123,28 +140,29 @@ public:
         return ret;
     }
 
+    virtual TmpTable select(const std::vector<String>& names, const ast::where_clause& where) const override {
+        TmpTable ret;
+        auto rids = this->where(where);
+        auto col_ids = get_col_ids(names);
+        ret.recs.resize(rids.size());
+        for (auto col_id: col_ids) {
+            ret.cols.push_back(cols[col_id]);
+            for (auto rid: rids) {
+                ret.recs[rid].push_back(get_field(rid, col_id));
+            }
+        }
+        return ret; 
+    }
+
     friend class Table;
     friend class SavedTable;
     friend std::ostream& operator << (std::ostream& os, const TmpTable& table);
 };
 
-inline TmpTable Table::select(std::vector<String> names, const std::vector<rid_t>& rids) const {
-    TmpTable ret;
-    ret.recs.resize(rids.size());
-    for (auto name: names) {
-        auto col_id = get_col_id(name);
-        ret.cols.push_back(cols[col_id]);
-        for (auto rid: rids) {
-            ret.recs[rid].push_back(get_field(rid, col_id));
-        }
-    }
-    return ret;          
-}
-
-inline TmpTable Table::select_star(const std::vector<rid_t>& rids) const {
+inline TmpTable Table::select_star(const ast::where_clause& where) const {
     std::vector<String> names;
     for (auto &col: cols) names.push_back(col.get_name());
-    return select(names, rids);
+    return select(names, where);
 }
 
 
@@ -188,7 +206,7 @@ inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
 
     // 上边线
     print_divide();
-    
+
     for (unsigned i = 0; i < data.size(); i++) data[i] = table.cols[i].get_name();
     // 打印列名
     print_line(data);
