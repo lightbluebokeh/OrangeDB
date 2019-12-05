@@ -16,64 +16,33 @@ class SavedTable;
 class Index {
 private:
     SavedTable &table;
-    String name;
+    // 索引所在路径
+    String path;
     std::vector<Column> cols;
-    
+
+    int key_size;
     BTree tree;
 
-    // // 返回所在表的所有正在使用的 rid
-    // std::vector<rid_t> get_all() const;
-
+    Index(SavedTable& table, const String& path, int key_size, const std::vector<Column>& cols) : 
+    table(table), path(path), cols(cols), key_size(key_size), tree(*this, key_size, path) {}
 public:
     const std::vector<Column>& get_cols() const { return cols; }
-    Index(SavedTable& table, const String& name, const std::vector<Column>& cols);
 
-    void drop() {
-        ORANGE_UNIMPL
-    }
-
-    // Index(SavedTable& table, orange_t kind, size_t size, const String& prefix, bool on) : table(table), kind(kind), size(size), prefix(prefix), on(on) {
-    //     if (!fs::exists(data_name())) File::create(data_name());
-    //     f_data = File::open(data_name());
-    //     if (kind == orange_t::Varchar) allocator = new FileAllocator(vchar_name());
-    // }
-    // // 拒绝移动构造
-    // Index(Index&& index) : table(index.table) { ORANGE_UNREACHABLE }
-    // ~Index() {
-    //     if (on) delete tree;
-    //     if (f_data) f_data->close();
-    //     delete allocator;
-    // }
-
+    static Index* create(SavedTable& table, const std::vector<Column>& cols, const String& name);
+    static Index* load(SavedTable& table, const std::vector<Column>& cols, const String& name);
+    
     void load() {
         tree.load();
     }
 
-    // void turn_on() {
-    //     if (!on) {
-    //         on = 1;
-    //         tree = new BTree(this, size, prefix);
-    //         tree->init(f_data);
-    //     }
-    // }
-
-    // void turn_off() {
-    //     if (on) {
-    //         on = 0;
-    //         delete tree;
-    //     }
-    // }
-
     // raw: 索引值；val：真实值
     void insert(const byte_arr_t& raw, rid_t rid, const byte_arr_t& val) {
-        // auto raw = store(val);
         tree.insert(raw.data(), rid, val);
         // f_data->seek_pos(rid * size)->write_bytes(raw.data(), size);
     }
 
     // 调用合适应该不会有问题8
     void remove(const byte_arr_t &raw, rid_t rid) {
-        // auto raw = get_raw(rid);
         tree.remove(raw.data(), rid);
         // f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
     }

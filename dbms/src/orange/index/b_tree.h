@@ -11,7 +11,7 @@ class Index;
 class BTree {
 private:
     Index &index;
-    String prefix;
+    String path;
     size_t key_size;
     File *f_tree;
 
@@ -19,9 +19,9 @@ private:
     IdPool<bid_t> pool;
     const int t;
 
-    String tree_name() { return prefix + ".bt"; }
-    String pool_name() { return prefix + ".pl"; }
-    // String varchar_name() { return prefix + "vch"; }
+    String tree_name() { return path + "tree"; }
+    String pool_name() { return path + "pool"; }
+    // String varchar_name() { return path + "vch"; }
 
     int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const;
 
@@ -87,14 +87,14 @@ private:
 
     node_ptr_t root;
     void read_root() {
-        std::ifstream is(prefix + ".root");
+        std::ifstream ifs(path + "root");
         bid_t id;
-        is >> id;
+        ifs >> id;
         root = read_node(id);
     }
     void write_root() {
-        std::ofstream os(prefix + ".root");
-        os << root->id;
+        std::ofstream ofs(path + "root");
+        ofs << root->id;
         root.release();
     }
 
@@ -167,7 +167,7 @@ private:
     void query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
     void check_order(node_ptr_t& x);
 public:
-    BTree(Index &index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
+    BTree(Index &index, size_t key_size, const String& path) : index(index), path(path),
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_ensure(t >= 2, "btree fanout is too small"); }
     ~BTree() {
         write_root();
@@ -179,6 +179,9 @@ public:
         f_tree = File::open(tree_name());
         read_root();
         pool.load();
+    }
+    void drop() {
+        
     }
 
     void insert(const_bytes_t k_raw, rid_t v, const byte_arr_t& k);
@@ -196,6 +199,4 @@ public:
         orange_assert(ret.size() <= lim, "query limit exeeded");
         return ret;
     }
-
-    // friend Index;
 };

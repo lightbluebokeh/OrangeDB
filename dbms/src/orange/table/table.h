@@ -22,12 +22,13 @@ private:
     struct ColumnDataHelper {
         File *f_data;
         int size;   // 每个值的大小
-        orange_t kind;
+        // orange_t kind;
+        ast::data_type type;
         FileAllocator *alloc;
 
         // root 为数据文件夹目录
-        ColumnDataHelper(File* f_data, const Column& col, const String &root) : f_data(f_data), size(col.get_key_size()), kind(col.get_datatype().kind) {
-            if (kind == orange_t::Varchar) {
+        ColumnDataHelper(File* f_data, const Column& col, const String &root) : f_data(f_data), size(col.get_key_size()), type(col.get_datatype()) {
+            if (type.kind == orange_t::Varchar) {
                 alloc = new FileAllocator(root + col.get_name());
             } else {
                 alloc = nullptr;
@@ -40,13 +41,13 @@ private:
 
         // 对于 vchar 返回指针，其它直接返回真实值
         auto store(const byte_arr_t& key) const {
-            switch (kind) {
+            switch (type.kind) {
                 case orange_t::Varchar: return alloc->allocate_byte_arr(key);
                 default: return key;
             }
         }
         auto restore(const_bytes_t k_raw) const {
-            switch (kind) {
+            switch (type.kind) {
                 case orange_t::Varchar: return alloc->read_byte_arr(*(size_t*)(k_raw + 1));
                 default: return byte_arr_t(k_raw, k_raw + size);
             }
@@ -79,6 +80,11 @@ private:
             return ret;
         }
 
+        void insert(rid_t rid, const ast::data_value& value) {
+            auto raw = store(Orange::value_to_bytes(value, type));
+            f_data->seek_pos(rid * size)->write_bytes(raw.data(), size);
+        }
+
         auto filt_null(const std::vector<rid_t>& rids, bool not_null) const {
             auto bytes = new byte_t[size];
             std::vector<rid_t> ret;
@@ -97,7 +103,7 @@ private:
                 auto bytes = new byte_t[size];
                 for (auto i: rids) {
                     f_data->seek_pos(i * size)->read_bytes(bytes, size);
-                    if (Orange::cmp(restore(bytes), kind, op, value)) {
+                    if (Orange::cmp(restore(bytes), type.kind, op, value)) {
                         ret.push_back(i);
                     }
                 }
@@ -232,9 +238,9 @@ private:
         return {0, {}};
     }
     std::vector<rid_t> filt(const std::vector<rid_t>& rids, const ast::single_where& where) const override {
+        // 尝试用单列索引
         auto [ok, ret] = filt_index(rids, where);
         if (ok) return ret;
-        ret.clear();
         if (where.is_null_check()) {
             auto &null = where.null_check();
             return col_data[get_col_id(null.col_name)]->filt_null(rids, !null.is_not_null);
@@ -248,11 +254,12 @@ private:
                 // orange_ensure(!col.table_name.has_value(), "no table name in where clause");
                 if (col.table_name.has_value()) {
                     auto &table_name = col.table_name.get();
-                    orange_ensure(table_name == name, "unknown name: `" + table_name);
+                    orange_ensure(table_name == name, "unknown table name in selector: `" + table_name);
                 }
                 auto &col1 = get_col(op.col_name), &col2 = get_col(col.col_name);
                 auto kind1 = col1.get_datatype_kind(), kind2 = col2.get_datatype_kind();
                 auto data1 = col_data[col1.get_id()], data2 = col_data[col2.get_id()];
+                ret.clear();
                 for (auto rid: rids) {
                     if (Orange::cmp(data1->get_val(rid), kind1, op.operator_, data2->get_val(rid), kind2)) {
                         ret.push_back(rid);
@@ -275,6 +282,21 @@ private:
     }
 
     byte_arr_t get_field(int col_id, rid_t rid) const override { return col_data[col_id]->get_val(rid); }
+
+    void check_insert(const ast::data_values& values) const {
+        ORANGE_UNIMPL
+    }
+    void check_delete(rid_t rid) const {
+        ORANGE_UNIMPL
+    }
+    // 获取一列所有默认值
+    auto get_dft_vals() const {
+        ast::data_values ret;
+        for (auto &col: cols) {
+            ret.push_back(col.get_dft());
+        }
+        return ret;
+    }
 public:
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_keys) {
@@ -369,47 +391,41 @@ public:
         // insert_internal(values);
     }
 
-    // std::vector<rid_t> single_where(const Orange::parser::single_where& where) const override {
-    //     std::vector<rid_t> ret;
-    //     if(where.is_null_check()) {
-    //         auto &null = where.null_check();
-    //         auto data = col_data[get_col_id(null.col_name)];
-    //         // ret = indices[get_col_id(null.col_name)].get_rids_null(null.is_not_null, lim);
-    //         for (rid_t i: all()) {
+    void insert(const std::vector<String>& col_names, ast::data_values_list values_list) {
+        for (auto &values: values_list) {
+            orange_ensure(col_names.size() == values.size(), "expected " + std::to_string(col_names.size()) + " values, while " + std::to_string(values.size()) + " given");
+        }
+        std::vector<int> col_ids;
+        for (auto col_name: col_names) col_ids.push_back(get_col_id(col_name));
+        auto insert_vals = get_dft_vals();
+        for (auto &values: values_list) {
+            for (int i = 0; i < col_ids.size(); i++) {
+                auto col_id = col_ids[i];
+                insert_vals[col_id] = values[i];    // 如果有重复列，后面的会覆盖前面的
+            }
+            values = insert_vals;
+        }
+        insert(values_list);
+    }
+    void insert(const ast::data_values_list& values_list) {
+        for (auto &values: values_list) {
+            orange_ensure(cols.size() == values.size(), "expected " + std::to_string(cols.size()) + " values, while " + std::to_string(values.size()) + " given");
+            check_insert(values);
+        }
+        for (auto &values: values_list) {
+            for (int i = 0; i < cols.size(); i++) {
+                col_data[i]->insert(rid_pool.new_id(), values[i]);
+            }
+        }
+        for (auto &[name, index]: indexes) {
 
-    //         }
-    //         if (Orange::cmp(restore(bytes), kind, op, value)) {
-    //             ret.push_back(i);
-    //         }
-            
-    //     } else if (where.is_op()) {
-    //         auto &op = where.op();
-    //         if (op.expression.is_value()) {
-    //             ret = indices[get_col_id(op.col_name)].get_rids_value(op.operator_, op.expression.value(), lim);
-    //         } else if (op.expression.is_column()) { // 只会暴力
-    //             auto &col = op.expression.col();
-    //             orange_ensure(!col.table_name.has_value(), "no table name in where clause");
-    //             auto &idx1 = indices[get_col_id(op.col_name)], &idx2 = indices[get_col_id(col.col_name)];
-    //             auto kind1 = find_col(op.col_name)->get_datatype(), kind2 = find_col(col.col_name)->get_datatype();
-    //             for (auto rid: all()) {
-    //                 if (ret.size() >= lim) break;
-    //                 if (Orange::cmp(idx1.get_val(rid), kind1, op.operator_, idx2.get_val(rid), kind2)) {
-    //                     ret.push_back(rid);
-    //                 }
-    //             }
-    //         } else {
-    //             ORANGE_UNREACHABLE
-    //             ret = {};
-    //         }
-    //     } else {
-    //         ORANGE_UNREACHABLE
-    //         ret = {};
-    //     }
-    //     for (auto rid: ret) {
-    //         orange_assert(check_where(where, rid), "where failed");
-    //     }
-    //     return ret;
-    // }
+        }
+    }
+
+    void delete_where(const ast::where_clause& where) {
+        auto rids = this->where(where);
+        for (auto rid: rids) check_delete(rid);
+    }
 
     void remove(const std::vector<rid_t>& rids) {
         for (auto &index: indices) {

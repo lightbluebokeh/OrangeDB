@@ -120,8 +120,8 @@ namespace Orange {
             return os;
         }
 
-        using data_value_list = std::vector<data_value>;
-        using data_value_lists = std::vector<data_value_list>;  // 这个东西多半是假的
+        using data_values = std::vector<data_value>;
+        using data_values_list = std::vector<data_values>;  // 这个东西多半是假的
 
         /** expr */
         struct expr {
@@ -278,7 +278,7 @@ namespace Orange {
         struct insert_into_tb_stmt {
             std::string name;
             boost::optional<column_list> columns;
-            data_value_lists value_lists;
+            data_values_list value_lists;
         };
 
         struct delete_from_tb_stmt {
