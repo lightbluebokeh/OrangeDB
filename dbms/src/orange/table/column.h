@@ -48,7 +48,7 @@ public:
 
     int get_id() const { return id; }
 
-    String type_string() {
+    String type_string() const {
         switch (type.kind) {
             case orange_t::Int: return "int";
             case orange_t::Char: return "char(" + std::to_string(type.int_value()) + ")";
@@ -63,6 +63,7 @@ public:
 
     String get_name() const { return name; }
     ast::data_value get_dft() const { dft; }
+    bool is_nullable() const { return nullable; }
 
     // 列完整性约束，返回是否成功和错误消息
     std::pair<bool, String> check(const ast::data_value& value) const {
@@ -88,6 +89,7 @@ public:
     }
 
     ast::data_type get_datatype() const { return type; }
+    orange_t get_datatype_kind() const { return type.kind; }
 
     static int key_size_sum(const std::vector<Column> cols) {
         int ret = 0;
@@ -95,7 +97,6 @@ public:
         return ret;
     }
 
-    friend class SavedTable;
     friend std::istream& operator >> (std::istream& is, Column& col);
     friend std::ostream& operator << (std::ostream& os, const Column& col);
 };

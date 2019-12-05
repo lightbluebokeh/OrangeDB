@@ -6,11 +6,11 @@
 #include <type_traits>
 #include <vector>
 
-#include <defs.h>
-#include <fs/bufpage/bufpage.h>
-#include <fs/bufpage/bufpage_manage.h>
-#include <fs/bufpage/bufpage_stream.h>
-#include <fs/file/file_manage.h>
+#include "defs.h"
+#include "fs/bufpage/bufpage.h"
+#include "fs/bufpage/bufpage_manage.h"
+#include "fs/bufpage/bufpage_stream.h"
+#include "fs/file/file_manage.h"
 #include "orange/common.h"
 
 class Column;
@@ -25,7 +25,6 @@ private:
 
     File(int id, const String& name) : id(id), name(name) {}
     File(const File&) = delete;
-
     ~File() {}
 
     Bufpage get_bufpage(int page_id) { return Bufpage(id, page_id); }
@@ -34,14 +33,14 @@ private:
 
 public:
     static bool create(const String& name) {
-        orange_ensure(FileManage::create_file(name.c_str()) == 0, "file create fail");
+        orange_assert(FileManage::create_file(name.c_str()) == 0, "file create fail");
         return true;
     }
 
     // 不存在就错误了
     static File* open(const String& name) {
         int id, fd;
-        orange_ensure(FileManage::open_file(name.c_str(), id, fd) == 0, "file open failed");
+        orange_assert(FileManage::open_file(name.c_str(), id, fd) == 0, "file open failed");
         if (files[id] == nullptr) files[id] = new File(id, name);
         return files[id];
     }
@@ -52,17 +51,15 @@ public:
     }
 
     bool close() {
-        orange_ensure(FileManage::close_file(id) == 0, "close file fail");
-        orange_ensure(this == files[id], "this is magic");
+        orange_assert(FileManage::close_file(id) == 0, "close file fail");
+        orange_assert(this == files[id], "this is magic");
         files[id] = nullptr;
         delete this;
         return true;
     }
 
     static bool remove(const String& name) {
-        // 偷懒.jpg
-        // if (FileManage::file_opened(name)) open(name)->close();
-        orange_ensure(FileManage::remove_file(name) == 0, "remove file failed");
+        orange_assert(FileManage::remove_file(name) == 0, "remove file failed");
         return true;
     }
 

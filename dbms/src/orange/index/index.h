@@ -21,33 +21,8 @@ private:
     
     BTree tree;
 
-    // 用于 vchar
-    // FileAllocator *allocator = nullptr;
-
-    // // 对于 vchar 返回指针，其它直接返回真实值
-    // byte_arr_t store(const byte_arr_t& key) const {
-    //     switch (kind) {
-    //         case orange_t::Varchar: return allocator->allocate_byte_arr(key);
-    //         default: return key;
-    //     }
-    // }
-    // byte_arr_t restore(const_bytes_t k_raw) const {
-    //     switch (kind) {
-    //         case orange_t::Varchar: return allocator->read_byte_arr(*(size_t*)(k_raw + 1));
-    //         default: return byte_arr_t(k_raw, k_raw + size);
-    //     }
-    // }
-
     // // 返回所在表的所有正在使用的 rid
     // std::vector<rid_t> get_all() const;
-
-    // byte_arr_t get_raw(rid_t rid) const {
-    //     auto bytes = new byte_t[size];
-    //     f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-    //     auto ret = byte_arr_t(bytes, bytes + size);
-    //     delete[] bytes;
-    //     return ret;
-    // }
 
 public:
     const std::vector<Column>& get_cols() const { return cols; }
@@ -68,26 +43,6 @@ public:
     //     if (on) delete tree;
     //     if (f_data) f_data->close();
     //     delete allocator;
-    // }
-
-    // //　返回 rid　记录此列的值
-    // auto get_val(rid_t rid) const {
-    //     auto bytes = new byte_t[size];
-    //     f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-    //     auto ret = restore(bytes);
-    //     delete[] bytes;
-    //     return ret;
-    // }
-
-    // // 返回一系列 rid 对应的该列值
-    // auto get_vals(std::vector<rid_t> rids) const {
-    //     auto bytes = new byte_t[size];
-    //     std::vector<byte_arr_t> ret;
-    //     for (auto rid: rids) {
-    //         f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-    //         ret.push_back(restore(bytes));
-    //     }
-    //     return ret;
     // }
 
     void load() {

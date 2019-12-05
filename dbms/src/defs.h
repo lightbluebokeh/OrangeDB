@@ -19,6 +19,7 @@ static_assert(sizeof(std::size_t) == 8, "x64 only");
 namespace fs = std::filesystem;
 
 using rid_t = uint64_t;
+constexpr rid_t MAX_RID = std::numeric_limits<rid_t>::max();    // save some typing
 using String = std::string;
 
 using byte_t = uint8_t;

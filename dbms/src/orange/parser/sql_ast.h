@@ -50,11 +50,11 @@ namespace Orange {
             int_t int_value_or(int_t x) const { return has_value() ? int_value() : x; }
         };
 
-        inline std::ostream& operator << (ostream& os, const data_type& type) {
+        inline std::ostream& operator << (std::ostream& os, const data_type& type) {
             os << type.kind << ' ' << type.int_value_or(-1);    // cannot be negative
             return os;
         }
-        inline std::istream& operator >> (istream& is, data_type& type) {
+        inline std::istream& operator >> (std::istream& is, data_type& type) {
             is >> type.kind;
             int value;
             is >> value;

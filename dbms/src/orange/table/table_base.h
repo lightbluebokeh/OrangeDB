@@ -9,12 +9,39 @@
 class TmpTable;
 
 class Table {
+private:
+    // 慢是慢了点，不过用暴力的话已经在内存里了，真慢了再说
+    bool check_where(rid_t rid, const ast::single_where& where) const {
+        if (where.is_null_check()) {
+            auto &null = where.null_check();
+            auto flag = get_field(get_col_id(null.col_name), rid).front();
+            return null.is_not_null && flag != DATA_NULL || !null.is_not_null && flag == DATA_NULL;
+        } else if (where.is_op()) {
+            auto &op = where.op();
+            auto col1_id = get_col_id(op.col_name);
+            if (op.expression.is_column()) {
+                auto &col2 = op.expression.col();
+                orange_ensure(!col2.table_name.has_value(), "cannot specify table name here");
+                int col2_id = get_col_id(col2.col_name);
+                return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype().kind, op.operator_, get_field(col2_id, rid), cols[col2_id].get_datatype().kind);
+            } else if (op.expression.is_value()) {
+                auto &value = op.expression.value();
+                return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype_kind(), op.operator_, value);
+            } else {
+                ORANGE_UNIMPL
+                return 0;
+            }
+        } else {
+            ORANGE_UNREACHABLE
+            return 0;
+        }
+    }
 protected:
     std::vector<Column> cols;
 
     virtual ~Table() {}
 
-    auto get_col(const String& col_name) const {
+    const auto& get_col(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
         orange_ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
@@ -39,65 +66,34 @@ protected:
         return it != cols.end();
     }
 
+    virtual byte_arr_t get_field(int col_id, rid_t rid) const = 0;
+
     // 返回所有合法 rid
     virtual std::vector<rid_t> all() const = 0;
-    virtual byte_arr_t get_field(rid_t rid, int col_id) const = 0;
-
-    // 慢是慢了点，不过用暴力的话已经在内存里了，真慢了再说
-    bool check_where(const Orange::parser::single_where& where, rid_t rid) const {
-        if (where.is_null_check()) {
-            auto &null = where.null_check();
-            auto flag = get_field(rid, get_col_id(null.col_name)).front();
-            return null.is_not_null && flag != DATA_NULL || !null.is_not_null && flag == DATA_NULL;
-        } else if (where.is_op()) {
-            auto &op = where.op();
-            auto col1_id = get_col_id(op.col_name);
-            // auto &col1 = cols[col1_id];
-            if (op.expression.is_column()) {
-                auto &col2 = op.expression.col();
-                orange_ensure(!col2.table_name.has_value(), "cannot specify table name here");
-                int col2_id = get_col_id(col2.col_name);
-                return Orange::cmp(get_field(rid, col1_id), cols[col1_id].get_datatype(), op.operator_, get_field(rid, col2_id), cols[col2_id].get_datatype());
-            } else if (op.expression.is_value()) {
-                auto &value = op.expression.value();
-                return Orange::cmp(get_field(rid, col1_id), cols[col1_id].get_datatype(), op.operator_, Orange::to_bytes(value), value.get_datatype());
-            } else {
-                ORANGE_UNIMPL
-                return 0;
-            }
-        } else {
-            ORANGE_UNIMPL
-            return 0;
-        }
-    }
-
     // default brute force
-    virtual std::vector<rid_t> single_where(const Orange::parser::single_where& where, rid_t lim = std::numeric_limits<rid_t>::max()) const {
+    virtual std::vector<rid_t> single_where(const ast::single_where& where) const {
         std::vector<rid_t> ret;
         for (auto rid: all()) {
-            if (ret.size() >= lim) break;
-            if (check_where(where, rid)) ret.push_back(rid);
+            if (check_where(rid, where)) ret.push_back(rid);
         }
+        return ret;
+    }
+    // 用 where 进行筛选
+    virtual std::vector<rid_t> filt(const std::vector<rid_t>& rids, const ast::single_where& where) const {
+        std::vector<rid_t> ret;
+        for (auto rid: rids) {
+            if (check_where(rid, where)) ret.push_back(rid);
+        }
+        return ret;
+    }
+    // 返回满足 where clause 的所有 rid
+    virtual std::vector<rid_t> where(const ast::where_clause& where, rid_t lim = MAX_RID) const {
+        // 多条 where clause 是与关系，求交
+        auto ret = all();
+        for (auto &single_where: where) ret = filt(ret, single_where);
         return ret;
     }
 public:
-    virtual std::vector<rid_t> where(const Orange::parser::where_clause& where) const {
-        // 多条 where clause 是与关系，求交
-        if (where.empty()) return all();
-        std::vector<rid_t> ret = single_where(where.front());
-        for (auto i = 1u; i < where.size(); i++) {
-            std::set<rid_t> set(ret.begin(), ret.end());
-            ret.clear();
-            auto cur = single_where(where[i]);
-            for (auto rid: cur) {
-                if (set.count(rid)) {
-                    ret.push_back(rid);
-                }
-            }
-        }
-        return ret;
-    }
-
     virtual TmpTable select(std::vector<String> names, const std::vector<rid_t>& rids) const;
     TmpTable select_star(const std::vector<rid_t>& rids) const;
 };
@@ -107,7 +103,6 @@ class SavedTable;
 class TmpTable : public Table {
 private:
     std::vector<rec_t> recs;
-public:
     std::vector<rid_t> all() const {
         std::vector<rid_t> ret;
         for (rid_t i = 0; i < recs.size(); i++) {
@@ -115,8 +110,8 @@ public:
         }
         return ret;
     }
-
-    byte_arr_t get_field(rid_t rid, int col_id) const override { return recs[rid][col_id]; }
+public:
+    byte_arr_t get_field(int col_id, rid_t rid) const override { return recs[rid][col_id]; }
 
     static TmpTable from_strings(const String& title, const std::vector<String>& strs) {
         TmpTable ret;
@@ -152,24 +147,12 @@ inline TmpTable Table::select_star(const std::vector<rid_t>& rids) const {
     return select(names, rids);
 }
 
-static String to_string(const byte_arr_t &bytes, orange_t type) {
-    if (bytes.front() == DATA_NULL) return "null";
-    switch (type) {
-        case orange_t::Varchar:
-        case orange_t::Char: return Orange::bytes_to_string(bytes);
-        case orange_t::Int: return std::to_string(Orange::bytes_to_int(bytes));
-        case orange_t::Numeric:
-        case orange_t::Date: ORANGE_UNIMPL
-        default: ORANGE_UNIMPL
-    }
-    return "fuck warning";
-}
-
-// 最后三个字符留作省略号
-constexpr static int width = 12 + 3;
 
 inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
     using std::endl;
+
+    // 最后三个字符留作省略号
+    constexpr int width = 12 + 3;
 
     // 分割线
     auto print_divide = [&] {
@@ -213,8 +196,21 @@ inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
     // 中间线
     print_divide();
 
+    auto to_string = [] (const byte_arr_t &bytes, orange_t type) -> String {
+        if (bytes.front() == DATA_NULL) return "null";
+        switch (type) {
+            case orange_t::Varchar:
+            case orange_t::Char: return Orange::bytes_to_string(bytes);
+            case orange_t::Int: return std::to_string(Orange::bytes_to_int(bytes));
+            case orange_t::Numeric:
+            case orange_t::Date: ORANGE_UNIMPL
+            default: ORANGE_UNIMPL
+        }
+        return "fuck warning";
+    };
+
     for (auto &rec: table.recs) {
-        for (unsigned i = 0; i < data.size(); i++) data[i] = ::to_string(rec[i], table.cols[i].get_datatype());
+        for (unsigned i = 0; i < data.size(); i++) data[i] = to_string(rec[i], table.cols[i].get_datatype().kind);
         // 打印表的每一列
         print_line(data);
     }
