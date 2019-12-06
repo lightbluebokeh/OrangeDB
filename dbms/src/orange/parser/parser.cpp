@@ -45,7 +45,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::tb_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_tb_stmt, name, fields)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_tb_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::desc_tb_stmt, name)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, columns, value_lists)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, columns, values_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::delete_from_tb_stmt, name, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::update_tb_stmt, name, set, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::select_tb_stmt, select, tables, where)
@@ -156,8 +156,8 @@ namespace Orange {
             rule<data_type()> type;
 
             rule<data_value()> value;
-            rule<data_value_list()> value_list;
-            rule<data_value_lists()> value_lists;
+            rule<data_values()> values;
+            rule<data_values_list()> values_list;
 
             rule<expr()> expression;
 
@@ -215,9 +215,9 @@ namespace Orange {
                 // <desc_tb> := 'DESC' [tb_name]
                 desc_tb %= kw(+"DESC") > identifier;
                 // <insert_into_tb> := 'INSERT' 'INTO' [tb_name] ('(' <column_list> ')')?
-                //                     'VALUES' '(' <value_list> ')'
+                //                     'VALUES' '(' <values> ')'
                 insert_into_tb %= kw(+"INSERT") > kw(+"INTO") > identifier >
-                                  -('(' > columns > ')') > kw(+"VALUES") > value_lists;
+                                  -('(' > columns > ')') > kw(+"VALUES") > values_list;
                 // <delete_from_tb> := 'DELETE' 'FROM' [tb_name] 'WHERE' <where_clause>
                 delete_from_tb %=
                     kw(+"DELETE") > kw(+"FROM") > identifier > kw(+"WHERE") > where_list;
@@ -326,21 +326,26 @@ namespace Orange {
                      -('(' >
                        qi::int_[at_c<0>(qi::_val) = orange_t::Int, at_c<1>(qi::_val) = qi::_1] >
                        ')')) |
-                    (kw(+"CHAR") > '(' > qi::int_[at_c<0>(qi::_val) = orange_t::Char, at_c<1>(qi::_val) = qi::_1] > ')') |
-                    (kw(+"VARCHAR") > '(' > qi::int_[at_c<0>(qi::_val) = orange_t::Varchar,
-                                                     at_c<1>(qi::_val) = qi::_1] > ')') |
+                    (kw(+"CHAR") > '(' >
+                     qi::int_[at_c<0>(qi::_val) = orange_t::Char, at_c<1>(qi::_val) = qi::_1] >
+                     ')') |
+                    (kw(+"VARCHAR") > '(' >
+                     qi::int_[at_c<0>(qi::_val) = orange_t::Varchar, at_c<1>(qi::_val) = qi::_1] >
+                     ')') |
                     kw(+"DATE")[at_c<0>(qi::_val) = orange_t::Date] |
-                    kw(+"FLOAT")[at_c<0>(qi::_val) = orange_t::Numeric, at_c<1>(qi::_val) = 40 * 18 + 2];
+                    kw(+"FLOAT")[at_c<0>(qi::_val) = orange_t::Numeric,
+                                 at_c<1>(qi::_val) = 40 * 18 + 2];
 
                 // <value> := <int> | <string> | <float> | 'NULL'
-                value %=
-                    (qi::int_ >> &!qi::no_skip['.']) | value_string | qi::double_ | kw(+"NULL");
+                value = (qi::int_[at_c<0>(qi::_val) = qi::_1] >> &!qi::no_skip['.']) |
+                        value_string[at_c<0>(qi::_val) = qi::_1] |
+                        qi::double_[at_c<0>(qi::_val) = construct<numeric_t>(qi::_1)] | kw(+"NULL");
 
-                // <value_list> := <value> (',' <value>)*
-                value_list %= value % ',';
+                // <values> := <value> (',' <value>)*
+                values %= value % ',';
 
-                // <value_lists> := '(' <value_list> ')' (',' '(' <value_list> ')')*
-                value_lists %= ('(' > value_list > ')') % ',';
+                // <values_list> := '(' <values> ')' (',' '(' <values> ')')*
+                values_list %= ('(' > values > ')') % ',';
 
                 // <expr> := <value> | <col>
                 expression %= value | col;
@@ -390,8 +395,7 @@ namespace Orange {
                     add_constraint_foreign_key)(drop_foreign_key));
                 BOOST_SPIRIT_DEBUG_NODES((kw)(identifier)(value_string));
                 BOOST_SPIRIT_DEBUG_NODES((col)(columns)(tables)(selectors));
-                BOOST_SPIRIT_DEBUG_NODES(
-                    (operator_)(type)(value)(value_list)(value_lists)(expression));
+                BOOST_SPIRIT_DEBUG_NODES((operator_)(type)(value)(values)(values_list)(expression));
                 BOOST_SPIRIT_DEBUG_NODES((where)(where_op)(where_null)(where_list));
                 BOOST_SPIRIT_DEBUG_NODES((set)(set_list));
                 BOOST_SPIRIT_DEBUG_NODES(

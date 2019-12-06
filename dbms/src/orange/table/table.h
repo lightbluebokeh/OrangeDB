@@ -56,7 +56,7 @@ private:
         // 对于 varchar 返回指针
         auto get_raw(rid_t rid) const {
             auto bytes = new byte_t[size];
-            f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+            f_data->read_bytes(rid * size, bytes, size);
             auto ret = byte_arr_t(bytes, bytes + size);
             delete[] bytes;
             return ret;
@@ -64,7 +64,7 @@ private:
         //　返回 rid　记录此列的真实值
         auto get_val(rid_t rid) const {
             auto bytes = new byte_t[size];
-            f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+            f_data->read_bytes(rid * size, bytes, size);
             auto ret = restore(bytes);
             delete[] bytes;
             return ret;
@@ -74,7 +74,7 @@ private:
             auto bytes = new byte_t[size];
             std::vector<byte_arr_t> ret;
             for (auto rid: rids) {
-                f_data->seek_pos(rid * size)->read_bytes(bytes, size);
+                f_data->read_bytes(rid * size, bytes, size);
                 ret.push_back(restore(bytes));
             }
             return ret;
@@ -82,14 +82,17 @@ private:
 
         void insert(rid_t rid, const ast::data_value& value) {
             auto raw = store(Orange::value_to_bytes(value, type));
-            f_data->seek_pos(rid * size)->write_bytes(raw.data(), size);
+            f_data->write_bytes(rid * size, raw.data(), size);
+        }
+        void remove(rid_t rid) {
+            f_data->write<byte_t>(rid * size, DATA_INVALID);
         }
 
         auto filt_null(const std::vector<rid_t>& rids, bool not_null) const {
             auto bytes = new byte_t[size];
             std::vector<rid_t> ret;
             for (auto i: rids) {
-                f_data->seek_pos(i * size)->read_bytes(bytes, size);
+                f_data->read_bytes(i * size, bytes, size);
                 if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
                     ret.push_back(i);
                 }
@@ -102,7 +105,7 @@ private:
             if (!value.is_null()) { // null 直接返回空
                 auto bytes = new byte_t[size];
                 for (auto i: rids) {
-                    f_data->seek_pos(i * size)->read_bytes(bytes, size);
+                    f_data->read_bytes(i * size, bytes, size);
                     if (Orange::cmp(restore(bytes), type.kind, op, value)) {
                         ret.push_back(i);
                     }
@@ -218,6 +221,7 @@ private:
     // 获取所有 rid
     std::vector<rid_t> all() const override { return rid_pool.all(); }
 
+    // 尝试用单列索引
     std::pair<bool, std::vector<rid_t>> filt_index(const std::vector<rid_t>& rids, const ast::op& op, const ast::data_value& value) const {
         return {0, {}};
     }
@@ -262,8 +266,9 @@ private:
     std::pair<bool, std::vector<rid_t>> where_index(const ast::where_clause &where, rid_t lim = MAX_RID) const {
         return {0, {}};
     }
+
     std::vector<rid_t> where(const ast::where_clause &where, rid_t lim = MAX_RID) const override {
-        if (op_null(where)) return {};
+        if (check_op_null(where)) return {};
         auto [ok, ret] = where_index(where, lim);
         return ok ? ret : Table::where(where, lim);
     }
@@ -411,37 +416,6 @@ public:
         }
     }
 
-    // 按列插入，会先尝试把输入的值补全
-    void insert(const std::vector<std::pair<String, ast::data_value>>& values) {
-        std::unordered_map<String, ast::data_value> map;
-        for (auto [name, val]: values) {
-            orange_ensure(has_col(name), "insertion failed: unknown column name");
-            map[name] = val;
-        }
-        std::vector<ast::data_value> values_all;
-        for (auto &col: cols) {
-            auto it = map.find(col.get_name());
-            if (it == map.end()) {
-                values_all.push_back(col.get_dft());
-            } else {
-                values_all.push_back(it->second);
-            }
-        }
-        insert(values_all);
-    }
-
-    // 直接插入完整的一条
-    void insert(std::vector<ast::data_value> values) {
-        // 检查参数个数是否等于列数
-        orange_ensure(values.size() == cols.size(), "insertion failed: expected " + std::to_string(cols.size()) + " values while " + std::to_string(values.size()) + "given");
-        rec_t rec;
-        for (unsigned i = 0; i < cols.size(); i++) {
-
-        }
-        // for (auto &value: values) rec.push_back(Orange::value_to_bytes(value, col_size));
-        // insert_internal(values);
-    }
-
     void insert(const std::vector<String>& col_names, ast::data_values_list values_list) {
         for (auto &values: values_list) {
             orange_ensure(col_names.size() == values.size(), "expected " + std::to_string(col_names.size()) + " values, while " + std::to_string(values.size()) + " given");
@@ -450,7 +424,7 @@ public:
         for (auto col_name: col_names) col_ids.push_back(get_col_id(col_name));
         auto insert_vals = get_dft_vals();
         for (auto &values: values_list) {
-            for (int i = 0; i < col_ids.size(); i++) {
+            for (unsigned i = 0; i < col_ids.size(); i++) {
                 auto col_id = col_ids[i];
                 insert_vals[col_id] = values[i];    // 如果有重复列，后面的会覆盖前面的
             }
@@ -463,20 +437,40 @@ public:
             orange_ensure(cols.size() == values.size(), "expected " + std::to_string(cols.size()) + " values, while " + std::to_string(values.size()) + " given");
             check_insert(values);
         }
+
+        std::vector<rid_t> new_ids;
+        // 接下来已经可以确保可以插入
         for (auto &values: values_list) {
-            for (int i = 0; i < cols.size(); i++) {
-                col_data[i]->insert(rid_pool.new_id(), values[i]);
+            for (unsigned i = 0; i < cols.size(); i++) {
+                auto new_id = rid_pool.new_id();
+                new_ids.push_back(new_id);
+                col_data[i]->insert(new_id, values[i]);
             }
         }
-        for (auto &[name, index]: indexes) {
 
+        for (auto &[name, index]: indexes) {
+            for (auto rid: new_ids) {
+                index->insert(get_raws(index->get_cols(), rid), rid, get_fields(index->get_cols(), rid));
+            }
         }
     }
-    void delete_where(const ast::where_clause& where) {
+
+    // 返回被删除的数据条数
+    rid_t delete_where(const ast::where_clause& where) {
         auto rids = this->where(where);
         for (auto rid: rids) check_delete(rid);
+        // 接下来可以确保能够删除
+        for (auto rid: rids) {
+            for (auto &[name, index]: indexes) {
+                index->remove(get_raws(index->get_cols(), rid), rid);
+            }
+        }
+        for (auto rid: rids) {
+            for (auto data: col_data) data->remove(rid);
+            rid_pool.free_id(rid);
+        }
+        return rids.size();
     }
-    // TmpTable select_where(std::vector<String>& names, ast::where_clause& where) const 
 
     TmpTable select(const std::vector<String>& names, const ast::where_clause& where) const override {
         TmpTable ret;
@@ -520,6 +514,7 @@ public:
         Index::drop(index);
         indexes.erase(idx_name);
     }
+
     void add_p_key(String name, const std::vector<String>& col_names) {
         orange_ensure(get_p_key() == nullptr, "already has primary key");
         if (name.empty()) name = PRIMARY_KEY_NAME;
@@ -532,6 +527,7 @@ public:
         ORANGE_UNIMPL
         Index::drop(p_key);
     }
+
     void add_f_key(const f_key_t& f_key) {
         auto ref_tbl = SavedTable::get(f_key.ref_tbl);
         auto ref_p_key = ref_tbl->get_p_key();

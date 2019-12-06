@@ -22,7 +22,7 @@ public:
     Column() {}
     // 适合打印名称的那种
     Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
-    Column(const String& name, int id, const ast::data_type& type, bool nullable, ast::data_value dft) : name(name), type(type), nullable(nullable), dft(dft) {
+    Column(const String& name, int id, const ast::data_type& type, bool nullable, ast::data_value dft) : name(name), id(id), type(type), nullable(nullable), dft(dft) {
         switch (type.kind) {
             case orange_t::Int: key_size = 1 + sizeof(int_t);
             break;
@@ -62,13 +62,13 @@ public:
     int get_key_size() const { return key_size; }
 
     String get_name() const { return name; }
-    ast::data_value get_dft() const { dft; }
+    ast::data_value get_dft() const { return dft; }
     bool is_nullable() const { return nullable; }
 
     // 列完整性约束，返回是否成功和错误消息
     std::pair<bool, String> check(const ast::data_value& value) const {
         using ast::data_value_kind;
-        switch (value.kind) {
+        switch (value.kind()) {
             case data_value_kind::Null: return std::make_pair(nullable, "null value given to not null column"); // 懒了，都返回消息
             case data_value_kind::Int: return std::make_pair(type.kind == orange_t::Int || type.kind == orange_t::Numeric, "incompatible type");
             case data_value_kind::Float: return std::make_pair(type.kind == orange_t::Numeric, "incompatible type");
@@ -77,7 +77,7 @@ public:
                     case orange_t::Varchar:
                     case orange_t::Char: {
                         auto &str = value.to_string();
-                        if (str.length() > type.int_value()) return std::make_pair(0, type.kind == orange_t::Char ? "char" : "varchar" + String("limit exceeded"));
+                        if (int(str.length()) > type.int_value()) return std::make_pair(0, type.kind == orange_t::Char ? "char" : "varchar" + String("limit exceeded"));
                         return std::make_pair(0, "incompatible type");
                     } break;
                     case orange_t::Date: ORANGE_UNIMPL
@@ -102,7 +102,8 @@ public:
 };
 
 inline std::ostream& operator << (std::ostream& os, const Column& col) {
-    print(os, ' ', col.name, col.id, col.type, col.nullable, col.dft, col.checks, col.key_size);
+    // print(os, ' ', col.name, col.id, col.type, col.nullable, col.dft, col.checks, col.key_size);
+    os << col.name << ' ' << col.id << ' ' << col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks << ' ' << col.key_size << std::endl;
     return os;
 }
 inline std::istream& operator >> (std::istream& is, Column& col) {

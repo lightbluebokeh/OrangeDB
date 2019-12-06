@@ -55,6 +55,9 @@ namespace Orange {
             int_t& int_value() { return boost::get<int_t>(value); }
             int_t int_value() const { return boost::get<int_t>(value); }
             int_t int_value_or(int_t x) const { return has_value() ? int_value() : x; }
+
+            static data_type int_type() { return {orange_t::Int, {}}; }
+            static data_type varchar_type(int len) { return {orange_t::Varchar, len}; }
         };
 
         inline std::ostream& operator << (std::ostream& os, const data_type& type) {
@@ -127,13 +130,14 @@ namespace Orange {
             return os;
         }
 
-        bool operator < (const data_value& v1, const data_value& v2) {
+        inline bool operator < (const data_value& v1, const data_value& v2) {
             orange_assert(v1.kind() == v2.kind(), "comparing value with different type");
             orange_assert(!v1.is_null(), "no null plz");
             switch (v1.kind()) {
                 case data_value_kind::Int: return v1.to_int() < v2.to_int();
                 case data_value_kind::Float: return v1.to_float() < v2.to_float();
                 case data_value_kind::String: return v1.to_string() < v2.to_string();
+                case data_value_kind::Null: ORANGE_UNREACHABLE
             }
             return false;
         }
@@ -296,7 +300,7 @@ namespace Orange {
         struct insert_into_tb_stmt {
             std::string name;
             boost::optional<column_list> columns;
-            data_values_list value_lists;
+            data_values_list values_list;
         };
 
         struct delete_from_tb_stmt {
@@ -542,19 +546,11 @@ namespace Orange {
 }  // namespace Orange
 
 namespace ast = Orange::parser;
-
-namespace exception {
-    // value 转为对应类型失败
-    void value_convert(const String& msg) {
-        throw OrangeException("convert value failed: " + msg);
-    }
-}
-
 namespace Orange {
     // 保证可以转换
     inline byte_arr_t value_to_bytes(const ast::data_value& value, const ast::data_type& type) {
         using ast::data_value_kind;
-        switch (value.kind) {
+        switch (value.kind()) {
             case data_value_kind::Null: {
                 byte_arr_t ret = {DATA_NULL};
                 switch (type.kind) {
@@ -564,6 +560,8 @@ namespace Orange {
                     case orange_t::Int: ret.resize(sizeof(int_t) + 1);
                     break;
                     case orange_t::Numeric: ret.resize(sizeof(numeric_t) + 1);
+                    break;
+                    case orange_t::Varchar: // do nothing
                     break;
                 }
                 return ret;
@@ -584,7 +582,8 @@ namespace Orange {
                     case orange_t::Varchar:
                     case orange_t::Char: {
                         auto &str = value.to_string();
-                        if (str.length() > type.int_value()) exception::value_convert("char limit exceeded");
+                        // if (int(str.length()) > type.int_value()) ORANGE_UNREACHABLE
+                        orange_assert(int(str.length()) <= type.int_value(), "string value too long");
                         auto ret = to_bytes(str);
                         if (type.kind == orange_t::Char) ret.resize(type.int_value() + 1);  // 对于 char 补齐
                         return ret;

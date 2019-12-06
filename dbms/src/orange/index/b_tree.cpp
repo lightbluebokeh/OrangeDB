@@ -129,7 +129,7 @@ void BTree::remove(const_bytes_t k_raw, rid_t v) {
 
 int BTree::cmp(const std::vector<byte_arr_t>& ks1, rid_t v1, const std::vector<byte_arr_t>& ks2, rid_t v2) const {
     orange_assert(ks1.size() == ks2.size(), "???");
-    for (int i = 0; i < ks1.size(); i++) {
+    for (unsigned i = 0; i < ks1.size(); i++) {
         auto &k1 = ks1[i], &k2 = ks2[i];
         int code = Orange::cmp(k1, k2, index.cols[i].get_datatype_kind());
         if (code != 0) return code;
@@ -206,7 +206,7 @@ void BTree::query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, s
     };
     auto check_others = [&] (int i) {
         auto k_raw = x->key(i);
-        for (int j = 1; j < preds_list.size(); j++) {
+        for (unsigned j = 1; j < preds_list.size(); j++) {
             auto &preds = preds_list[j];
             for (auto &[op, value]: preds) {
                 if (!Orange::cmp(index.restore(k_raw, j), index.cols[j].get_datatype_kind(), op, value)) return 0;
@@ -229,26 +229,3 @@ void BTree::query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, s
         }
     }
 }
-
-// void BTree::query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim) {
-//     if (ret.size() >= lim) return;
-//     orange_assert(op != op_t::Neq, "btree is not able to query neq directly");
-//     int i = 0;
-//     // 有下界
-//     if (op == op_t::Ge || op == op_t::Gt || op == op_t::Eq) {
-//         while (i < x->key_num() && !Orange::cmp(index.restore(x->key(i)), index, op, value)) i++;
-//     }
-//     node_ptr_t y;
-//     if (!x->leaf()) {
-//         y = read_node(x->ch(i));
-//         query_internal(y, op, value, ret, lim);
-//     }
-//     while (ret.size() < lim && Orange::cmp(index.restore(x->key(i)), index.kind, op, value)) {
-//         ret.push_back(x->val(i));
-//         if (!x->leaf()) {
-//             y = read_node(x->ch(i + 1));
-//             query_internal(y, op, value, ret, lim);
-//         }
-//         i++;
-//     }
-// }

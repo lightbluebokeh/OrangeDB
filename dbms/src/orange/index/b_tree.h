@@ -29,13 +29,13 @@ private:
     using preds_t = std::vector<pred_t>;
 
     struct node_t {
-        BTree &tree;
+        const BTree &tree;
 
         byte_t data[PAGE_SIZE];
         bid_t id;
 
-        node_t(BTree &tree, bid_t id) : tree(tree), id(id) { memset(data, 0, sizeof(data)); }
-        ~node_t() { tree.f_tree->seek_pos(id * PAGE_SIZE)->write_bytes(data, PAGE_SIZE); }
+        node_t(const BTree &tree, bid_t id) : tree(tree), id(id) { memset(data, 0, sizeof(data)); }
+        ~node_t() { tree.f_tree->write_bytes(id * PAGE_SIZE, data, PAGE_SIZE); }
 
         int& key_num() { return *(int*)data; }
         const int& key_num() const { return *(int*)data; }
@@ -84,7 +84,7 @@ private:
     }
     node_ptr_t read_node(bid_t id) const {
         auto node = std::make_unique<node_t>(*this, id);
-        f_tree->seek_pos(id * PAGE_SIZE)->read_bytes(node->data, PAGE_SIZE);
+        f_tree->read_bytes(id * PAGE_SIZE, node->data, PAGE_SIZE);
         return node;
     }
 
@@ -97,7 +97,7 @@ private:
     }
     void write_root() {
         std::ofstream ofs(path + "root");
-        ofs << root->id;
+        ofs << root->id << std::endl;
         root.release();
     }
 
@@ -193,17 +193,4 @@ public:
     void remove(const_bytes_t k_raw, rid_t v);
 
     std::vector<rid_t> query(const std::vector<preds_t>& preds_list, rid_t lim = MAX_RID) const;
-
-    // auto query(Orange::parser::op op, const Orange::parser::data_value& value, rid_t lim) {
-    //     using op_t = Orange::parser::op;
-    //     std::vector<rid_t> ret;
-    //     if (op == op_t::Neq) {
-    //         query_internal(root, op_t::Lt, value, ret, lim);
-    //         query_internal(root, op_t::Gt, value, ret, lim);
-    //     } else {
-    //         query_internal(root, op, value, ret, lim);
-    //     }
-    //     orange_assert(ret.size() <= lim, "query limit exeeded");
-    //     return ret;
-    // }
 };

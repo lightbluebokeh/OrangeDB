@@ -9,7 +9,6 @@
 #include "defs.h"
 #include "fs/bufpage/bufpage.h"
 #include "fs/bufpage/bufpage_manage.h"
-#include "fs/bufpage/bufpage_stream.h"
 #include "fs/file/file_manage.h"
 #include "orange/common.h"
 
@@ -21,13 +20,13 @@ class File {
 private:
     int id;
     String name;
-    size_t offset;
+    // size_t offset;
 
     File(int id, const String& name) : id(id), name(name) {}
     File(const File&) = delete;
     ~File() {}
 
-    Bufpage get_bufpage(int page_id) { return Bufpage(id, page_id); }
+    Bufpage get_bufpage(int page_id) const { return Bufpage(id, page_id); }
 
     static File* files[MAX_FILE_NUM];
 
@@ -63,105 +62,120 @@ public:
         return true;
     }
 
-    File* write_bytes(const_bytes_t bytes, size_t n) {
+    size_t write_bytes(size_t offset, const_bytes_t bytes, size_t n) const {
         int page_id = int(offset >> PAGE_SIZE_IDX);
-        BufpageStream bps(Bufpage(id, page_id));
-        bps.seekpos(offset & (PAGE_SIZE - 1));
-        auto rest = bps.rest(), tot = n;
+        // BufpageStream bps(Bufpage(id, page_id));
+        // Bufpage page(id, page_id);
+        auto page = get_bufpage(page_id);
+        page.ensure_buf();
+        // bps.seekpos(offset & (PAGE_SIZE - 1));
+        auto pos = (offset & (PAGE_SIZE - 1));
+        // auto rest = bps.rest(), tot = n;
+        auto rest = PAGE_SIZE - pos, tot = n;
         if (rest >= tot) {
-            bps.write_bytes(bytes, tot);
+            // bps.write_bytes(bytes, tot);
+            memcpy(page.buf.bytes + pos, bytes, tot);
         } else {
-            bps.write_bytes(bytes, bps.rest());
+            // bps.write_bytes(bytes, bps.rest());
+            memcpy(page.buf.bytes, bytes, rest);
             bytes += rest;
             tot -= rest;
             page_id++;
             while (tot >= PAGE_SIZE) {
-                bps = BufpageStream(Bufpage(id, page_id));
-                bps.write_bytes(bytes, PAGE_SIZE);
+                // bps = BufpageStream(Bufpage(id, page_id));
+                page = get_bufpage(page_id);
+                // bps.write_bytes(bytes, PAGE_SIZE);
+                memcpy(page.buf.bytes, bytes, PAGE_SIZE);
                 bytes += PAGE_SIZE;
                 tot -= PAGE_SIZE;
                 page_id++;
             }
             if (tot) {
-                bps = BufpageStream(Bufpage(id, page_id));
-                bps.write_bytes(bytes, tot);
+                // bps = BufpageStream(Bufpage(id, page_id));
+                page = get_bufpage(page_id);
+                page.ensure_buf();
+                // bps.write_bytes(bytes, tot);
+                memcpy(page.buf.bytes, bytes, tot);
             }
         }
-        offset += tot;
-        return this;
+        return n;
+        // offset += tot;
+        // return this;
     }
 
     template <typename T, typename... Ts>
-    File* write(const T& t, const Ts&... ts) {
+    size_t write(size_t offset, const T& t, const Ts&... ts) const {
+        size_t ret = 0;
         if constexpr (is_std_vector_v<T> || is_basic_string_v<T>) {
-            write(t.size());
-            for (auto x : t) write(x);
-        } else if constexpr (std::is_same_v<T, pred_t>) {
-            write(t.lo, t.lo_eq, t.hi, t.hi_eq);
-        } else if constexpr (std::is_same_v<T, f_key_t>) {
-            write(t.name, t.ref_tbl, t.list, t.ref_list);
+            ret = write(offset, t.size());
+            for (auto x : t) ret += write(offset + ret, x);
         } else {
-            write_bytes((bytes_t)&t, sizeof(T));
+            ret = write_bytes(offset, (bytes_t)&t, sizeof(T));
         }
-        if constexpr (sizeof...(Ts) != 0) write(ts...);
-        return this;
+        if constexpr (sizeof...(Ts) != 0) ret += write(offset + ret, ts...);
+        return ret;
     }
 
-    File* read_bytes(bytes_t bytes, size_t n) {
+    size_t read_bytes(size_t offset, bytes_t bytes, size_t n) const {
         int page_id = int(offset >> PAGE_SIZE_IDX);
-        BufpageStream bps(Bufpage(id, page_id));
-        bps.seekpos(offset & (PAGE_SIZE - 1));
-        auto rest = bps.rest(), tot = n;
+        // BufpageStream bps(Bufpage(id, page_id));
+        auto page = get_bufpage(page_id);
+        page.ensure_buf();
+        // bps.seekpos(offset & (PAGE_SIZE - 1));
+        size_t pos = offset & (PAGE_SIZE - 1);
+        // auto rest = bps.rest(), tot = n;
+        auto rest = PAGE_SIZE - pos, tot = n;
         if (rest >= tot) {
-            bps.read_bytes(bytes, tot);
+            // bps.read_bytes(bytes, tot);
+            memcpy(bytes, page.buf.bytes + pos, tot);
         } else {
-            bps.read_bytes(bytes, bps.rest());
+            // bps.read_bytes(bytes, bps.rest());
+            memcpy(bytes, page.buf.bytes, rest);
             bytes += rest;
             tot -= rest;
             page_id++;
             while (tot >= PAGE_SIZE) {
-                bps = BufpageStream(Bufpage(id, page_id));
-                bps.read_bytes(bytes, PAGE_SIZE);
+                // bps = BufpageStream(Bufpage(id, page_id));
+                page = get_bufpage(page_id);
+                page.ensure_buf();
+                // bps.read_bytes(bytes, PAGE_SIZE);
+                memcpy(bytes, page.buf.bytes, PAGE_SIZE);
                 bytes += PAGE_SIZE;
                 tot -= PAGE_SIZE;
                 page_id++;
             }
             if (tot) {
-                bps = BufpageStream(Bufpage(id, page_id));
-                bps.read_bytes(bytes, tot);
+                // bps = BufpageStream(Bufpage(id, page_id));
+                page = get_bufpage(page_id);
+                page.ensure_buf();
+                // bps.read_bytes(bytes, tot);
+                memcpy(bytes, page.buf.bytes, tot);
             }
         }
-        offset += n;
-        return this;
+        return n;
+        // offset += n;
+        // return this;
     }
 
     template <typename T, typename... Ts>
-    File* read(T& t, Ts&... ts) {
+    size_t read(size_t offset, T& t, Ts&... ts) const {
+        size_t ret = 0;
         if constexpr (is_std_vector_v<T> || is_basic_string_v<T>) {
             size_t size;
-            read(size);
+            ret = read(offset, size);
             t.resize(size);
-            for (auto& x : t) read(x);
-        } else if constexpr (std::is_same_v<T, pred_t>) {
-            read(t.lo, t.lo_eq, t.hi, t.hi_eq);
-        } else if constexpr (std::is_same_v<T, f_key_t>) {
-            read(t.name, t.ref_tbl, t.list, t.ref_list);
+            for (auto& x : t) ret += read(offset + ret, x);
         } else {
-            read_bytes((bytes_t)&t, sizeof(T));
+            ret = read_bytes(offset + ret, (bytes_t)&t, sizeof(T));
         }
-        if constexpr (sizeof...(Ts) != 0) read(ts...);
-        return this;
+        if constexpr (sizeof...(Ts) != 0) ret += read(offset + ret, ts...);
+        return ret;
     }
 
     template <typename T>
-    T read() {
+    T read(size_t offset) const {
         T t;
-        read(t);
+        read(offset, t);
         return t;
-    }
-
-    File* seek_pos(size_t pos) {
-        offset = pos;
-        return this;
     }
 };

@@ -91,19 +91,10 @@ protected:
         }
         return ret;
     }
-    // 返回满足 where clause 的所有 rid
-    virtual std::vector<rid_t> where(const ast::where_clause& where, rid_t lim = MAX_RID) const {
-        if (op_null(where)) return {};
-        // 多条 where clause 是与关系，求交
-        auto ret = all();
-        for (auto &single_where: where) ret = filt(ret, single_where);
-        return ret;
-    }
     // where 中含有和 null 的比较
-    bool op_null(const ast::where_clause& where_clause) const {
+    bool check_op_null(const ast::where_clause& where_clause) const {
         for (auto &where: where_clause) {
             if (where.is_op()) {
-                // auto &op = where.op();
                 auto &expr = where.op().expression;
                 if (expr.is_value() && expr.value().is_null()) return 1; 
             }
@@ -111,6 +102,16 @@ protected:
         return 0;
     }
 public:
+    // 返回满足 where clause 的所有 rid
+    // 为了测试放到了 public
+    virtual std::vector<rid_t> where(const ast::where_clause& where, rid_t lim = MAX_RID) const {
+        if (check_op_null(where)) return {};
+        // 多条 where clause 是与关系，求交
+        auto ret = all();
+        for (auto &single_where: where) ret = filt(ret, single_where);
+        if (ret.size() > lim) ret.resize(lim);
+        return ret;
+    }
     virtual TmpTable select(const std::vector<String>& names, const ast::where_clause& where) const = 0;
     TmpTable select_star(const ast::where_clause& where) const;
 };
@@ -183,11 +184,11 @@ inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
     };
     // 带截断的打印字符串
     auto print = [&] (const String& str) {
-        if (str.length() + 3 > width) {
+        if (int(str.length()) + 3 > width) {
             os << str.substr(0, width - 3) + "...";
         } else {
             os << str;
-            for (unsigned i = 0; i + str.length() < width; i++) {
+            for (int i = 0; int(i + str.length()) < width; i++) {
                 os.put(' ');
             }
         }

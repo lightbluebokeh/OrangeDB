@@ -2,14 +2,7 @@
 
 #include <defs.h>
 
-// struct p_key_t {
-//     col_name_list_t list;
-//     bool valid;
-// };
-
-// // 我就看看
-// constexpr int p_key_size = sizeof(p_key_t);
-
+// foreign key type
 struct f_key_t {
     String name;
     String ref_tbl;
@@ -18,5 +11,17 @@ struct f_key_t {
     f_key_t() {}
     f_key_t(const String& name, const String& ref_tbl, const std::vector<String>& list, const std::vector<String>& ref_list) : name(name), ref_tbl(ref_tbl), list(list), ref_list(ref_list) {}
 };
+
+
+template<typename T>
+std::enable_if_t<std::is_same_v<T, f_key_t>, std::ostream&> operator << (std::ostream& os, const T& t) {
+    os << t.name << ' ' << t.ref_tbl << ' ' << t.list << ' ' << t.ref_list;
+    return os;
+}
+template<typename T>
+std::enable_if_t<std::is_same_v<T, f_key_t>, std::istream&> operator >> (std::istream& is, T& t) {
+    is >> t.name >> t.ref_tbl >> t.list >> t.ref_list;
+    return is;
+}
 
 // constexpr size_t f_key_size = sizeof(f_key_t);

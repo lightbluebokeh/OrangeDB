@@ -1,7 +1,6 @@
-#include <defs.h>
-#include <fs/bufpage/bufpage.h>
-#include <fs/bufpage/bufpage_stream.h>
-#include <fs/file/file.h>
+#include "defs.h"
+#include "fs/file/file.h"
+#include "fs/bufpage/bufpage.h"
 #include <fs/file/file_manage.h>
 #include <orange/table/table.h>
 
@@ -27,34 +26,42 @@ TEST_CASE("test fs io", "[fs]") {
     cerr << "writing..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
         printf("\r page id: %d", page_id);
-        f1->seek_pos(page_id << PAGE_SIZE_IDX)
-            ->write(page_id + 666, std::vector<int>{page_id + 233, page_id + 2333});
-        f2->seek_pos(page_id << PAGE_SIZE_IDX)
-            ->write(page_id - 777, std::vector<int>{page_id - 62, page_id - 233, page_id - 2333});
+        f1->write(page_id << PAGE_SIZE_IDX, page_id + 666, std::vector<int>{page_id + 233, page_id + 2333});
+        f2->write(page_id << PAGE_SIZE_IDX, page_id - 777, std::vector<int>{page_id - 62, page_id - 233, page_id - 2333});
     }
 
     cerr << "\nchecking buf..." << endl;
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        f1->seek_pos(page_id << PAGE_SIZE_IDX);
-        REQUIRE(f1->read<int>() == page_id + 666);
-        REQUIRE(f1->read<std::vector<int>>() == std::vector<int>{page_id + 233, page_id + 2333});
-        f2->seek_pos(page_id << PAGE_SIZE_IDX);
-        REQUIRE(f2->read<int>() == page_id - 777);
-        REQUIRE(f2->read<std::vector<int>>() ==
-                std::vector<int>{page_id - 62, page_id - 233, page_id - 2333});
+        size_t offset = page_id << PAGE_SIZE_IDX;
+        int x;
+        offset += f1->read(offset, x);
+        REQUIRE(x == page_id + 666);
+        std::vector<int> v;
+        f1->read(offset, v);
+        REQUIRE(v == std::vector<int>{page_id + 233, page_id + 2333});
+        offset = page_id << PAGE_SIZE_IDX;
+        offset += f2->read(offset, x);
+        REQUIRE(x == page_id - 777);
+        f2->read(offset, v);
+        REQUIRE(v == std::vector<int>{page_id - 62, page_id - 233, page_id - 2333});
     }
     cerr << GREEN << "success" << RESET << endl;
 
     cerr << "checking write back..." << endl;
     BufpageManage::write_back_all();
     for (int page_id = 0; page_id < TEST_PAGE_NUM; ++page_id) {
-        f1->seek_pos(page_id << PAGE_SIZE_IDX);
-        REQUIRE(f1->read<int>() == page_id + 666);
-        REQUIRE(f1->read<std::vector<int>>() == std::vector<int>{page_id + 233, page_id + 2333});
-        f2->seek_pos(page_id << PAGE_SIZE_IDX);
-        REQUIRE(f2->read<int>() == page_id - 777);
-        REQUIRE(f2->read<std::vector<int>>() ==
-                std::vector<int>{page_id - 62, page_id - 233, page_id - 2333});
+        size_t offset = page_id << PAGE_SIZE_IDX;
+        int x;
+        offset += f1->read(offset, x);
+        REQUIRE(x == page_id + 666);
+        std::vector<int> v;
+        f1->read(offset, v);
+        REQUIRE(v == std::vector<int>{page_id + 233, page_id + 2333});
+        offset = page_id << PAGE_SIZE_IDX;
+        offset += f2->read(offset, x);
+        REQUIRE(x == page_id - 777);
+        f2->read(offset, v);
+        REQUIRE(v == std::vector<int>{page_id - 62, page_id - 233, page_id - 2333});
     }
     cerr << GREEN << "success" << RESET << endl;
 
@@ -73,7 +80,7 @@ TEST_CASE("table", "[fs]") {
     Orange::create("test");
     Orange::use("test");
 
-    SavedTable::create("test", {Column("test", orange_t::Int, 0, 1, ast::data_value::int_value(5))}, {}, {});
+    SavedTable::create("test", {Column("test", 0, ast::data_type::int_type(), 0, ast::data_value::from_int(5))}, {}, {});
     cerr << "create table test" << endl;
     auto table = SavedTable::get("test");
 
@@ -89,18 +96,16 @@ TEST_CASE("table", "[fs]") {
     table->drop_index("test");
     std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
-        table->insert({{"test", Orange::to_bytes(a[i])}});
+        table->insert({"test"}, {{ast::data_value::from_int(a[i])}});
     }
 
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
         parser::single_where where = {parser::single_where_op{"test", parser::op::Eq, parser::data_value{x}}};
-        auto pos = table->single_where(where, lim);
-
-        REQUIRE(pos.size() == all.count(x));
+        auto delete_size = table->delete_where({where});
+        REQUIRE(delete_size == all.count(x));
         all.erase(all.find(x));
-        table->remove({pos.front()});
         i++;
         std::cerr << '\r' << i << '/' << rm.size();
     }
@@ -122,41 +127,41 @@ TEST_CASE("btree", "[index]") {
     Orange::create("test");
     Orange::use("test");
 
-    SavedTable::create("test", {Column("test", orange_t::Int, 0, 1, ast::data_value::int_value(5))}, {}, {});
+    SavedTable::create("test", {Column("test", 0, ast::data_type::int_type(), 0, ast::data_value::from_int(5))}, {}, {});
     cerr << "create table test" << endl;
     auto table = SavedTable::get("test");
-    table->create_index("test");
 
-    constexpr int lim = 50000;
+    table->create_index("test", {"test"}, 0, 0);
+
+    std::mt19937 rng(time(0));
+    constexpr int lim = 5000;
     static int a[lim];
     std::unordered_multiset<int> all, rm;
-
-    std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
         a[i] = rng() % 5000;
         all.insert(a[i]);
-        int x = a[i];
-        table->insert({{"test", Orange::to_bytes(a[i])}});
-        auto pos = table->single_where(parser::single_where{parser::single_where_op{"test", op_t::Eq, parser::data_value{x}}}, lim);
-        REQUIRE(pos.size() == all.count(x));
         if (rng() & 1) rm.insert(a[i]);
-        std::cerr << '\r' << i + 1 << '/' << lim;
     }
-    cerr << endl;
+    table->drop_index("test");
+    std::cerr << "test insert" << std::endl;
+    for (int i = 0; i < lim; i++) {
+        table->insert({"test"}, {{ast::data_value::from_int(a[i])}});
+    }
 
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        auto pos = table->single_where(parser::single_where{parser::single_where_op{"test", op_t::Eq, parser::data_value{x}}}, lim);
-        REQUIRE(pos.size() == all.count(x));
+        parser::single_where where = {parser::single_where_op{"test", parser::op::Eq, parser::data_value{x}}};
+        auto delete_size = table->delete_where({where});
+        REQUIRE(delete_size == all.count(x));
         all.erase(all.find(x));
-        table->remove({pos.front()});
         i++;
         std::cerr << '\r' << i << '/' << rm.size();
     }
+
     std::cerr << endl;
 
-    Orange::drop("test");
+    Orange::unuse();
 
     Orange::paolu();
 }
@@ -176,17 +181,19 @@ TEST_CASE("varchar", "[index]") {
 
     Orange::create("test");
     Orange::use("test");
-    SavedTable::create("varchar", {Column("test", orange_t::Varchar, 2333, 1, ast::data_value::string_value("2333"))}, {}, {});
+    SavedTable::create("varchar", {Column("test", 0, ast::data_type::varchar_type(2333), 1, ast::data_value::from_string("2333"))}, {}, {});
     auto table = SavedTable::get("varchar");
     int lim = 1000;
     for (int i = 0; i < lim; i++) {
-        table->insert({{"test", Orange::to_bytes(rand_str(3, 2333))}});
+        // table->insert({{"test", Orange::to_bytes(rand_str(3, 2333))}});
+
         std::cerr << '\r' << i << '/' << lim;
     }
     cerr << endl;
-    table->create_index("test");
+    table->create_index("test", {"test"}, 0, 0);
     for (int i = 0; i < lim; i++) {
-        table->insert({{"test", Orange::to_bytes(rand_str(3, 2333))}});
+        // table->insert({{"test", Orange::to_bytes(rand_str(3, 2333))}});
+        table->insert({"test"}, {{ast::data_value::from_string(rand_str(3, 2333))}});
         std::cerr << '\r' << i << '/' << lim;
     }
     cerr << endl;

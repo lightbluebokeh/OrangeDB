@@ -112,13 +112,13 @@ struct is_std_vector<std::vector<T>> : std::true_type {};
 template <typename T>
 constexpr bool is_std_vector_v = is_std_vector<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
-// template <typename>
-// struct is_basic_string : std::false_type {};
-// template <typename T>
-// struct is_basic_string<std::basic_string<T>> : std::true_type {};
-// template <typename T>
-// constexpr bool is_basic_string_v =
-//     is_basic_string<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+template <typename>
+struct is_basic_string : std::false_type {};
+template <typename T>
+struct is_basic_string<std::basic_string<T>> : std::true_type {};
+template <typename T>
+constexpr bool is_basic_string_v =
+    is_basic_string<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
 
 template <typename>
@@ -205,7 +205,7 @@ namespace Orange {
 }
 
 template<typename T>
-std::enable_if_t<std::is_enum_v<T>, std::ostream&> operator << (std::ostream& is, const T& t) {
+std::enable_if_t<std::is_enum_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
     os << int(t);
     return os;
 }
