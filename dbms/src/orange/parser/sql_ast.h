@@ -595,4 +595,9 @@ namespace Orange {
         }
         ORANGE_UNREACHABLE
     }
+
+    inline bool has_null(const ast::data_values& values) {
+        for (auto &value: values) if (value.is_null()) return 1;
+        return 0;
+    }
 }

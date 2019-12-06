@@ -9,7 +9,7 @@ namespace Orange {
 
     bool create(const String& name) {
         if (using_db()) fs::current_path("..");
-        orange_ensure(!exists(name), "database `" + name + "` already exists");
+        orange_check(!exists(name), "database `" + name + "` already exists");
         names.insert(name);
         auto ret = fs::create_directory(name);
         if (using_db()) fs::current_path(cur);
@@ -17,7 +17,7 @@ namespace Orange {
     }
 
     bool drop(const String& name) {
-        orange_ensure(exists(name), "database `" + name + "` does not exist");
+        orange_check(exists(name), "database `" + name + "` does not exist");
         names.erase(name);
         if (name == cur) {
             unuse();
@@ -32,7 +32,7 @@ namespace Orange {
     bool use(const String& name) {
         if (name == cur) return 1;
         unuse();
-        orange_ensure(exists(name), "database `" + name + "` does not exist");
+        orange_check(exists(name), "database `" + name + "` does not exist");
         fs::current_path(name);
         cur = name;
         return 1;
@@ -55,7 +55,7 @@ namespace Orange {
 
     TmpTable all_tables() {
         // if (!using_db()) return {};
-        orange_ensure(using_db(), "using some database first");
+        orange_check(using_db(), "using some database first");
         std::vector<String> data;
         for (auto it : fs::directory_iterator(".")) {
             if (it.is_directory()) data.push_back(it.path().filename().string());
@@ -68,16 +68,18 @@ namespace Orange {
     void setup() {
         if (!fs::exists("db")) fs::create_directory("db");
         fs::current_path("db");
-        for (auto entry : fs::directory_iterator("."))
+        for (auto entry : fs::directory_iterator(".")) {
             if (entry.is_directory()) {
                 names.insert(entry.path().filename().string());
             }
+        }
     }
 
     void paolu() {
         unuse();
         fs::current_path("..");
+        auto tmp = names;
+        for (auto db_name: tmp) drop(db_name);
         fs::remove_all("db");
-        // std::cerr << e << std::endl;
     }
 }  // namespace Orange

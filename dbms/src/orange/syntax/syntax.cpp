@@ -266,7 +266,7 @@ namespace Orange {
                     for (auto& col : select.select) {
                         if (col.table_name.has_value()) {
                             auto name = col.table_name.get();
-                            orange_ensure(tables.count(name), "unknown table name: `" + name + "`");
+                            orange_check(tables.count(name), "unknown table name: `" + name + "`");
                             cout << name << ".";
                         }
                         cout << col.col_name << " ";

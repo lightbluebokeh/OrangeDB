@@ -22,7 +22,7 @@ private:
             auto &expr = op.expression;
             if (expr.is_column()) {
                 auto &col2 = expr.col();
-                orange_ensure(!col2.table_name.has_value(), "cannot specify table name here");
+                orange_check(!col2.table_name.has_value(), "cannot specify table name here");
                 int col2_id = get_col_id(col2.col_name);
                 return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype().kind, op.operator_, get_field(col2_id, rid), cols[col2_id].get_datatype().kind);
             } else if (expr.is_value()) {
@@ -45,20 +45,20 @@ protected:
     const auto& get_col(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
-        orange_ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
+        orange_check(it != cols.end(), "unknown column name: `" + col_name + "`");
         return *it;
     }
     auto get_cols(const std::vector<String> col_names) const {
         std::vector<Column> ret;
         for (auto &col_name: col_names) {
-            ret.push_back(col_name);
+            ret.push_back(get_col(col_name));
         }
         return ret;
     }
     int get_col_id(const String& col_name) const { 
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
-        orange_ensure(it != cols.end(), "unknown column name: `" + col_name + "`");
+        orange_check(it != cols.end(), "unknown column name: `" + col_name + "`");
         return it - cols.begin(); 
     }
     std::vector<int> get_col_ids(const std::vector<String>& col_names) const {

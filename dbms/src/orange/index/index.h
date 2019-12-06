@@ -21,10 +21,6 @@ private:
     BTree *tree;
 
     Index(SavedTable& table, const String& name) : table(table), name(name) {}
-    ~Index() {
-        write_info();
-        delete tree;
-    }
 
     // 获取第 i 个字段
     byte_arr_t restore(const_bytes_t k_raw, int i) const;
@@ -51,9 +47,23 @@ private:
     }
 
 public:
+    ~Index() {
+        write_info();
+        delete tree;
+    }
+
     String get_name() const { return name; }
     const std::vector<Column>& get_cols() const { return cols; }
     bool is_primary() const { return primary; }
+    bool is_unique() const { return unique; }
+    bool constains(const std::vector<byte_arr_t>& vals) const {
+        for (auto &val: vals) orange_assert(val.front() != DATA_NULL, "null is not supported");
+        return tree->contains(vals);
+    }
+    // 返回所有对应 key 值的记录编号
+    std::vector<rid_t> get_on_key(const_bytes_t raw, rid_t lim = MAX_RID) const {
+        return tree->get_on_key(restore(raw), lim);
+    }
 
     static Index* create(SavedTable& table, const String& name, const std::vector<Column>& cols, bool primary, bool unique);
     static Index* load(SavedTable& table, const String& name);
@@ -64,8 +74,8 @@ public:
     }
 
     // raw: 索引值；val：真实值
-    void insert(const byte_arr_t& raw, rid_t rid, const std::vector<byte_arr_t>& val) {
-        tree->insert(raw.data(), rid, val);
+    void insert(const byte_arr_t& raw, rid_t rid) {
+        tree->insert(raw.data(), rid);
     }
 
     // 调用合适应该不会有问题8
@@ -73,10 +83,10 @@ public:
         tree->remove(raw.data(), rid);
     }
 
-    void update(const byte_arr_t &raw, rid_t rid, const std::vector<byte_arr_t>& val) {
-        remove(raw, rid);
-        insert(raw, rid, val);
-    }
+    // void update(const byte_arr_t &raw, rid_t rid, const std::vector<byte_arr_t>& val) {
+    //     remove(raw, rid);
+    //     insert(raw, rid, val);
+    // }
 
     friend class BTree;
 };

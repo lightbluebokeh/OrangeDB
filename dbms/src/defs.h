@@ -68,7 +68,7 @@ public:
     const char* what() const noexcept override { return msg.c_str(); }
 };
 
-inline void orange_ensure(bool cond, const String& msg) {
+inline void orange_check(bool cond, const String& msg) {
     if (cond == 0) {
         // std::cerr << RED << "failed: " << RESET << msg << std::endl;
         throw OrangeException(msg);

@@ -26,7 +26,11 @@ private:
     File(const File&) = delete;
     ~File() {}
 
-    Bufpage get_bufpage(int page_id) const { return Bufpage(id, page_id); }
+    Bufpage get_bufpage(int page_id) const { 
+        Bufpage page(id, page_id);
+        page.ensure_buf();
+        return page;
+    }
 
     static File* files[MAX_FILE_NUM];
 
@@ -67,7 +71,6 @@ public:
         // BufpageStream bps(Bufpage(id, page_id));
         // Bufpage page(id, page_id);
         auto page = get_bufpage(page_id);
-        page.ensure_buf();
         // bps.seekpos(offset & (PAGE_SIZE - 1));
         auto pos = (offset & (PAGE_SIZE - 1));
         // auto rest = bps.rest(), tot = n;
@@ -75,9 +78,11 @@ public:
         if (rest >= tot) {
             // bps.write_bytes(bytes, tot);
             memcpy(page.buf.bytes + pos, bytes, tot);
+            BufpageManage::mark_dirty(page.buf.buf_id);
         } else {
             // bps.write_bytes(bytes, bps.rest());
-            memcpy(page.buf.bytes, bytes, rest);
+            memcpy(page.buf.bytes + pos, bytes, rest);
+            BufpageManage::mark_dirty(page.buf.buf_id);
             bytes += rest;
             tot -= rest;
             page_id++;
@@ -86,6 +91,7 @@ public:
                 page = get_bufpage(page_id);
                 // bps.write_bytes(bytes, PAGE_SIZE);
                 memcpy(page.buf.bytes, bytes, PAGE_SIZE);
+                BufpageManage::mark_dirty(page.buf.buf_id);
                 bytes += PAGE_SIZE;
                 tot -= PAGE_SIZE;
                 page_id++;
@@ -93,9 +99,9 @@ public:
             if (tot) {
                 // bps = BufpageStream(Bufpage(id, page_id));
                 page = get_bufpage(page_id);
-                page.ensure_buf();
                 // bps.write_bytes(bytes, tot);
                 memcpy(page.buf.bytes, bytes, tot);
+                BufpageManage::mark_dirty(page.buf.buf_id);
             }
         }
         return n;
@@ -120,7 +126,6 @@ public:
         int page_id = int(offset >> PAGE_SIZE_IDX);
         // BufpageStream bps(Bufpage(id, page_id));
         auto page = get_bufpage(page_id);
-        page.ensure_buf();
         // bps.seekpos(offset & (PAGE_SIZE - 1));
         size_t pos = offset & (PAGE_SIZE - 1);
         // auto rest = bps.rest(), tot = n;
@@ -130,14 +135,13 @@ public:
             memcpy(bytes, page.buf.bytes + pos, tot);
         } else {
             // bps.read_bytes(bytes, bps.rest());
-            memcpy(bytes, page.buf.bytes, rest);
+            memcpy(bytes, page.buf.bytes + pos, rest);
             bytes += rest;
             tot -= rest;
             page_id++;
             while (tot >= PAGE_SIZE) {
                 // bps = BufpageStream(Bufpage(id, page_id));
                 page = get_bufpage(page_id);
-                page.ensure_buf();
                 // bps.read_bytes(bytes, PAGE_SIZE);
                 memcpy(bytes, page.buf.bytes, PAGE_SIZE);
                 bytes += PAGE_SIZE;
@@ -147,7 +151,6 @@ public:
             if (tot) {
                 // bps = BufpageStream(Bufpage(id, page_id));
                 page = get_bufpage(page_id);
-                page.ensure_buf();
                 // bps.read_bytes(bytes, tot);
                 memcpy(bytes, page.buf.bytes, tot);
             }

@@ -1,8 +1,8 @@
 #include "defs.h"
 #include "fs/file/file.h"
 #include "fs/bufpage/bufpage.h"
-#include <fs/file/file_manage.h>
-#include <orange/table/table.h>
+#include "fs/file/file_manage.h"
+#include "orange/table/table.h"
 
 #include <catch/catch.hpp>
 
@@ -65,16 +65,15 @@ TEST_CASE("test fs io", "[fs]") {
     }
     cerr << GREEN << "success" << RESET << endl;
 
-    orange_ensure(f1->close(), "close failed");
-    orange_ensure(File::remove(name1), "remove failed");
-    orange_ensure(f2->close(), "close failed");
-    orange_ensure(File::remove(name2), "remove failed");
+    orange_check(f1->close(), "close failed");
+    orange_check(File::remove(name1), "remove failed");
+    orange_check(f2->close(), "close failed");
+    orange_check(File::remove(name2), "remove failed");
 
     cerr << "save your disk!" << endl;
 }
 
 TEST_CASE("table", "[fs]") {
-    Orange::paolu();
     Orange::setup();
 
     Orange::create("test");
@@ -87,13 +86,12 @@ TEST_CASE("table", "[fs]") {
     std::mt19937 rng(time(0));
     constexpr int lim = 5000;
     static int a[lim];
-    std::unordered_multiset<int> all, rm;
+    std::multiset<int> all, rm;
     for (int i = 0; i < lim; i++) {
         a[i] = rng() % 5000;
         all.insert(a[i]);
         if (rng() & 1) rm.insert(a[i]);
     }
-    table->drop_index("test");
     std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
         table->insert({"test"}, {{ast::data_value::from_int(a[i])}});
@@ -105,7 +103,9 @@ TEST_CASE("table", "[fs]") {
         parser::single_where where = {parser::single_where_op{"test", parser::op::Eq, parser::data_value{x}}};
         auto delete_size = table->delete_where({where});
         REQUIRE(delete_size == all.count(x));
-        all.erase(all.find(x));
+        while (all.count(x)) all.erase(x);
+        // cerr << "x: " << x << endl;
+
         i++;
         std::cerr << '\r' << i << '/' << rm.size();
     }
@@ -121,7 +121,7 @@ using namespace std;
 static std::mt19937 rng(time(0));
 
 TEST_CASE("btree", "[index]") {
-    Orange::paolu();
+    fs::remove_all("db");
     Orange::setup();
 
     Orange::create("test");
@@ -134,18 +134,18 @@ TEST_CASE("btree", "[index]") {
     table->create_index("test", {"test"}, 0, 0);
 
     std::mt19937 rng(time(0));
-    constexpr int lim = 5000;
+    constexpr int lim = 10000;
     static int a[lim];
-    std::unordered_multiset<int> all, rm;
+    std::multiset<int> all, rm;
     for (int i = 0; i < lim; i++) {
         a[i] = rng() % 5000;
         all.insert(a[i]);
-        if (rng() & 1) rm.insert(a[i]);
+        if (rng() % 2 == 0) rm.insert(a[i]);
     }
-    table->drop_index("test");
     std::cerr << "test insert" << std::endl;
     for (int i = 0; i < lim; i++) {
         table->insert({"test"}, {{ast::data_value::from_int(a[i])}});
+        std::cerr << '\r' << i + 1 << '/' << lim;
     }
 
     std::cerr << "testing remove" << std::endl;
@@ -154,11 +154,11 @@ TEST_CASE("btree", "[index]") {
         parser::single_where where = {parser::single_where_op{"test", parser::op::Eq, parser::data_value{x}}};
         auto delete_size = table->delete_where({where});
         REQUIRE(delete_size == all.count(x));
-        all.erase(all.find(x));
+        all.erase(x);
         i++;
         std::cerr << '\r' << i << '/' << rm.size();
     }
-
+    table->drop_index("test");
     std::cerr << endl;
 
     Orange::unuse();
@@ -176,7 +176,6 @@ static String rand_str(int l, int r) {
 }
 
 TEST_CASE("varchar", "[index]") {
-    Orange::paolu();
     Orange::setup();
 
     Orange::create("test");

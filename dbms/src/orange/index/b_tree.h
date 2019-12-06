@@ -21,9 +21,12 @@ private:
 
     String tree_name() { return path + "tree"; }
     String pool_name() { return path + "pool"; }
-    // String varchar_name() { return path + "vch"; }
 
-    int cmp(const std::vector<byte_arr_t>& ks1, rid_t v1, const std::vector<byte_arr_t>& ks2, rid_t v2) const;
+    int cmp_key(const std::vector<byte_arr_t>& ks1, const std::vector<byte_arr_t>& ks2) const;
+    int cmp(const std::vector<byte_arr_t>& ks1, rid_t v1, const std::vector<byte_arr_t>& ks2, rid_t v2) const {
+        int code = cmp_key(ks1, ks2);
+        return code == 0 ? v1 - v2 : code;
+    }
 
     using pred_t = std::pair<ast::op, ast::data_value>;
     using preds_t = std::vector<pred_t>;
@@ -106,8 +109,8 @@ private:
                 / (2 * (sizeof(bid_t) + key_size + sizeof(rid_t)));
     }
 
-    // 使用**二分查找**找到最大的 i 使得 (k, v) > (key(j), val(j)) (i > j)
-    int upper_bound(node_ptr_t &x, const std::vector<byte_arr_t>& ks, rid_t v);
+    // 使用**二分查找**找到最小的 i 使得 (ks, v) > (key(j), val(j)) (i > j)，或者非严格地，最小的 i 满足 (ks, v) < (key(i), val(i))
+    int upper_bound(const node_ptr_t &x, const std::vector<byte_arr_t>& ks, rid_t v) const;
 
     // y 是 x 的 i 号儿子
     void split(node_ptr_t& x, node_ptr_t& y, int i) {
@@ -169,10 +172,12 @@ private:
     void remove_nonleast(node_ptr_t& x, const std::vector<byte_arr_t>& ks, rid_t v);
     // 内部查询，los 和 his 表示第一列的上下界
     void query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, std::vector<rid_t>& result, rid_t lim) const;
+    bool query_exists(const node_ptr_t& x, const std::vector<byte_arr_t>& ks) const;
+    void query_eq(const node_ptr_t& x, const std::vector<byte_arr_t>& ks, std::vector<rid_t>& result, rid_t lim) const;
     void check_order(node_ptr_t& x);
 public:
     BTree(Index &index, int key_size, const String& path) : index(index), path(path),
-        key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_ensure(t >= 2, "btree fanout is too small"); }
+        key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_check(t >= 2, "btree fanout is too small"); }
     ~BTree() {
         write_root();
         f_tree->close();
@@ -189,8 +194,17 @@ public:
         pool.load();
     }
 
-    void insert(const_bytes_t k_raw, rid_t v, const std::vector<byte_arr_t>& ks);
+    void insert(const_bytes_t k_raw, rid_t v);
     void remove(const_bytes_t k_raw, rid_t v);
+    bool contains(const std::vector<byte_arr_t>& ks) const {
+        return query_exists(root, ks);
+    }
+    // 返回所有值等于 ks 的记录
+    std::vector<rid_t> get_on_key(const std::vector<byte_arr_t>& ks, rid_t lim) const {
+        std::vector<rid_t> ret;
+        query_eq(root, ks, ret, lim);
+        return ret;
+    }
 
-    std::vector<rid_t> query(const std::vector<preds_t>& preds_list, rid_t lim = MAX_RID) const;
+    std::vector<rid_t> query(const std::vector<preds_t>& preds_list, rid_t lim) const;
 };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <algorithm>
 #include <filesystem>
 #include <functional>
@@ -125,11 +126,15 @@ private:
     SavedTable(int id, const String& name) : id(id), name(name), rid_pool(pool_name()) {}
     ~SavedTable() {
         for (auto data: col_data) delete data;
+        for (auto &[name, index]: indexes) delete index;
     }
 
     // info(还包括 Table::cols)
     rid_t rec_cnt;
-    std::vector<f_key_t> f_keys;
+    // std::vector<f_key_t> f_key_defs;
+    std::map<String, f_key_t> f_key_defs;
+    // 索引到该表主键的所有外键
+    std::map<String, std::pair<String, f_key_t>> f_key_rev;
 
     // map index by their name
     std::unordered_map<String, Index*> indexes;
@@ -143,18 +148,29 @@ private:
     String index_root() { return root() + "index/"; }
 
 
-    static constexpr char index_prefix[] = "index-";
+    // static constexpr char index_prefix[] = "index-";
     void write_info() {
         std::ofstream ofs(info_name());
-        ofs << cols << ' ' << rec_cnt << ' ' << f_keys << ' ' << indexes.size();
+        ofs << cols << ' ' << rec_cnt << ' ' << f_key_defs.size();
+        for (auto &[name, f_key_def]: f_key_defs) {
+            ofs << ' ' << f_key_def;
+        }
+        ofs << ' ' << indexes.size();
         for (auto &[idx_name, idx]: indexes) {
-            ofs << ' ' << (index_prefix + idx_name);
+            ofs << ' ' << idx_name;
         }
         ofs << std::endl;
     }
     void read_info() {
         std::ifstream ifs(info_name());
-        ifs >> cols >> rec_cnt >> f_keys;
+        ifs >> cols >> rec_cnt;
+        size_t f_key_size;
+        ifs >> f_key_size;
+        for (size_t i = 0; i < f_key_size; i++) {
+            f_key_t f_key_def;
+            ifs >> f_key_def;
+            f_key_defs[f_key_def.name] = f_key_def;
+        }
         for (auto &col: cols) {
             col_data.push_back(new ColumnDataHelper(File::open(col.get_name()), col, data_root()));
         }
@@ -163,7 +179,6 @@ private:
         while (index_num--) {
             String idx_name;
             ifs >> idx_name;
-            idx_name = idx_name.substr(sizeof(index_prefix) - 1);   // 截断
             auto index = Index::load(*this, idx_name);
             indexes[idx_name] = index;
         }
@@ -186,23 +201,21 @@ private:
         delete table;
     }
 
-    static void check_db() { orange_ensure(Orange::using_db(), "use some database first"); }
+    static void check_db() { orange_check(Orange::using_db(), "use some database first"); }
     
-    void on_create(const std::vector<Column>& cols, const std::vector<String>& p_key, const std::vector<f_key_t>& f_keys) {
+    void on_create(const std::vector<Column>& cols, const std::vector<String>& p_key_cols, const std::vector<f_key_t>& f_key_defs) {
         this->cols = cols;
-        this->f_keys = f_keys;
         this->rec_cnt = 0;
         File::create(info_name());
         write_info();
         rid_pool.init();
         fs::create_directory(data_root());
         for (auto &col: cols) {
-            col_data.push_back(new ColumnDataHelper(File::create_open(col.get_name()), col, data_root()));
+            col_data.push_back(new ColumnDataHelper(File::create_open(data_name(col.get_name())), col, data_root()));
         }
         fs::create_directory(index_root());
-        if (p_key.size()) add_p_key("", p_key);
-
-        ORANGE_UNIMPL
+        if (p_key_cols.size()) add_p_key("", p_key_cols);
+        for (auto &f_key_def: f_key_defs) add_f_key(f_key_def);
     }
 
     // 表的文件夹名
@@ -244,7 +257,7 @@ private:
                 auto &col = where_op.expression.col();
                 if (col.table_name.has_value()) {
                     auto &table_name = col.table_name.get();
-                    orange_ensure(table_name == name, "unknown table name in selector: `" + table_name);
+                    orange_check(table_name == name, "unknown table name in selector: `" + table_name);
                 }
                 auto &col1 = get_col(where_op.col_name), &col2 = get_col(col.col_name);
                 auto kind1 = col1.get_datatype_kind(), kind2 = col2.get_datatype_kind();
@@ -276,11 +289,81 @@ private:
     byte_arr_t get_field(int col_id, rid_t rid) const override { return col_data[col_id]->get_val(rid); }
 
     void check_insert(const ast::data_values& values) const {
-        ORANGE_UNIMPL
+        orange_check(cols.size() == values.size(), "expected " + std::to_string(cols.size()) + " values, while " + std::to_string(values.size()) + " given");
+        // 列完整性约束
+        for (unsigned i = 0; i < cols.size(); i++) {
+            const auto &[ok, msg] = cols[i].check(values[i]);
+            orange_check(ok, msg);
+        }
+        // 检查 unique 约束和外键约束
+        for (auto &[name, index]: indexes) if (index->is_unique()) {
+            bool has_null = 0, all_null = 1;
+            std::vector<byte_arr_t> vals;
+            for (auto &col: index->get_cols()) {
+                if (values[col.get_id()].is_null()) {
+                    has_null = 1;
+                } else {
+                    all_null = 0;
+                }
+                vals.push_back(Orange::value_to_bytes(values[col.get_id()], col.get_datatype()));
+            }
+            // unique 无法约束 null
+            if (!has_null) orange_check(!index->constains(vals), "fail unique constraint");
+            // 检查外键约束
+            if (f_key_defs.count(name)) {
+                auto &f_key_def = f_key_defs.at(name);
+                if (has_null) {
+                    orange_check(all_null, "foreign key columns must either be null or non-null together");
+                } else {
+                    orange_check(SavedTable::get(f_key_def.ref_tbl)->get_p_key()->constains(vals), "foreign key map missed");
+                }
+            }
+        }
     }
-    void check_delete(rid_t rid) const {
-        ORANGE_UNIMPL
+    void check_delete(rid_t) const {
+        // always deletable
+        // auto p_key = get_p_key();
+        // if (p_key) {
+        //     auto vals = get_fields(p_key->get_cols(), rid);
+        //     for (auto &[name, src_f_key]: f_key_rev) {
+        //         auto &[src, f_key_def] = src_f_key;
+        //         // 默认是 set null，如果有行映射过来，需要检查对应列是不是 not null
+        //         auto f_key = SavedTable::get(src)->get_f_key(f_key_def.name);
+        //         if (f_key->constains(vals)) {
+        //             for (auto &col: f_key->get_cols()) {
+        //                 orange_check(col.is_nullable(), "delete record that some non-null columns reference to it");
+        //             }
+        //         }
+        //     }
+        // }
     }
+    rid_t delete_record(rid_t rid) {
+        if (rid_pool.contains(rid)) return 0;
+        for (auto &[idx_name, index]: indexes) {
+            index->remove(get_raws(index->get_cols(), rid), rid);
+        }
+        for (unsigned i = 0; i < cols.size(); i++) {
+            col_data[i]->remove(rid);
+        }
+        rid_pool.free_id(rid);
+
+        auto ret = 1;
+        auto p_key = get_p_key();
+        if (p_key) {
+            // 级联删除
+            auto raws = get_raws(p_key->get_cols(), rid);
+            for (auto &[idx_name, src_f_key]: f_key_rev) {
+                auto &[src_name, f_key_def] = src_f_key;
+                auto src = SavedTable::get(src_name);
+                auto f_key = src->get_f_key(f_key_def.name);
+                for (auto ref_id: f_key->get_on_key(raws.data())) {
+                    ret += src->delete_record(ref_id);
+                }
+            }
+        }
+        return ret;
+    }
+
     // 获取一列所有默认值
     auto get_dft_vals() const {
         ast::data_values ret;
@@ -290,7 +373,7 @@ private:
         return ret;
     }
 
-    auto get_raws(const std::vector<Column>& cols, rid_t rid) const {
+    byte_arr_t get_raws(const std::vector<Column>& cols, rid_t rid) const {
         byte_arr_t ret;
         for (auto &col: cols) {
             auto tmp = col_data[col.get_id()]->get_raw(rid);
@@ -312,7 +395,7 @@ private:
         return nullptr;
     }
     Index* get_f_key(const String& name) {
-        for (auto &f_key: f_keys) {
+        for (auto &[_, f_key]: f_key_defs) {
             if (f_key.name == name) {
                 return indexes.count(name) ? indexes[name] : nullptr;
             }
@@ -320,16 +403,17 @@ private:
         return nullptr;
     }
     const Index* get_f_key(const String& name) const {
-        for (auto &f_key: f_keys) {
+        for (auto &[_, f_key]: f_key_defs) {
             if (f_key.name == name) {
                 return indexes.count(name) ? indexes.at(name) : nullptr;
             }
         }
         return nullptr;
     }
+    // 获取所有外键索引
     auto get_f_keys() {
         std::vector<Index*> ret;
-        for (auto f_key: f_keys) {
+        for (auto [_, f_key]: f_key_defs) {
             ret.push_back(indexes.at(f_key.name));
         }
         return ret;
@@ -350,14 +434,14 @@ private:
     }
 public:
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
-                       const std::vector<f_key_t>& f_keys) {
+                       const std::vector<f_key_t>& f_key_defs) {
         check_db();
-        orange_ensure(!fs::exists(get_root(name)), "table `" + name + "` exists");
+        orange_check(!fs::exists(get_root(name)), "table `" + name + "` exists");
         std::error_code e;
         if (!fs::create_directory(get_root(name), e)) throw e.message();
         auto table = new_table(name);
         try {
-            table->on_create(cols, p_key, f_keys);
+            table->on_create(cols, p_key, f_key_defs);
         } catch (OrangeException& e) {
             drop(name);
             throw e;
@@ -367,7 +451,7 @@ public:
 
     static SavedTable* get(const String& name) {
         check_db();
-        orange_ensure(fs::exists(get_root(name)), "table `" + name + "` does not exists");
+        orange_check(fs::exists(get_root(name)), "table `" + name + "` does not exists");
         auto table = get_opened(name);
         if (!table) {
             table = new_table(name);
@@ -391,15 +475,16 @@ public:
         return ret;
     }
 
-    // 关闭表，写回缓存，数据在 index 的析构中写回
+    // 关闭表，写回数据缓存
     bool close() {
-        orange_ensure(this == tables[id], "this is magic");
+        orange_assert(this == tables[id], "this is magic");
         write_info();
         free_table(this);
         return 1;
     }
 
     static bool drop(const String& name) {
+        // 如果已经打开了需要先关闭
         auto table = get_opened(name);
         if (table) table->close();
         return fs::remove_all(name);
@@ -409,16 +494,16 @@ public:
     static void close_all() {
         for (auto &table : tables) {
             if (table) {
-                orange_ensure(table->close(), "close table failed");
-                delete table;
+                orange_assert(table->close(), "close table failed");
                 table = nullptr;
             }
         }
     }
 
-    void insert(const std::vector<String>& col_names, ast::data_values_list values_list) {
+    // 返回插入成功条数
+    rid_t insert(const std::vector<String>& col_names, ast::data_values_list values_list) {
         for (auto &values: values_list) {
-            orange_ensure(col_names.size() == values.size(), "expected " + std::to_string(col_names.size()) + " values, while " + std::to_string(values.size()) + " given");
+            orange_check(col_names.size() == values.size(), "expected " + std::to_string(col_names.size()) + " values, while " + std::to_string(values.size()) + " given");
         }
         std::vector<int> col_ids;
         for (auto col_name: col_names) col_ids.push_back(get_col_id(col_name));
@@ -430,11 +515,10 @@ public:
             }
             values = insert_vals;
         }
-        insert(values_list);
+        return insert(values_list);
     }
-    void insert(const ast::data_values_list& values_list) {
+    rid_t insert(const ast::data_values_list& values_list) {
         for (auto &values: values_list) {
-            orange_ensure(cols.size() == values.size(), "expected " + std::to_string(cols.size()) + " values, while " + std::to_string(values.size()) + " given");
             check_insert(values);
         }
 
@@ -450,31 +534,24 @@ public:
 
         for (auto &[name, index]: indexes) {
             for (auto rid: new_ids) {
-                index->insert(get_raws(index->get_cols(), rid), rid, get_fields(index->get_cols(), rid));
+                index->insert(get_raws(index->get_cols(), rid), rid);
             }
         }
+        return values_list.size();
     }
 
     // 返回被删除的数据条数
     rid_t delete_where(const ast::where_clause& where) {
         auto rids = this->where(where);
         for (auto rid: rids) check_delete(rid);
-        // 接下来可以确保能够删除
-        for (auto rid: rids) {
-            for (auto &[name, index]: indexes) {
-                index->remove(get_raws(index->get_cols(), rid), rid);
-            }
-        }
-        for (auto rid: rids) {
-            for (auto data: col_data) data->remove(rid);
-            rid_pool.free_id(rid);
-        }
-        return rids.size();
+        rid_t ret = 0;
+        for (auto rid: rids) ret += delete_record(rid);
+        return ret;
     }
 
-    TmpTable select(const std::vector<String>& names, const ast::where_clause& where) const override {
+    TmpTable select(const std::vector<String>& col_names, const ast::where_clause& where) const override {
         TmpTable ret;
-        std::vector<int> col_ids = get_col_ids(names);
+        std::vector<int> col_ids = get_col_ids(col_names);
         auto rids = this->where(where);
         ret.recs.resize(rids.size());
         for (auto col_id: col_ids) {
@@ -488,13 +565,13 @@ public:
         return ret;
     }
 
-    // void update(const String& col_name, std::function<byte_arr_t(byte_arr_t)> expr, const std::vector<rid_t>& rids) {
+    // void update_where(const String& col_name, std::function<byte_arr_t(byte_arr_t)> expr, const std::vector<rid_t>& rids) {
     //     int col_id = get_col_id(col_name);
     //     auto &idx = indices[col_id];
     //     auto &col = cols[col_id];
     //     for (auto rid: rids) {
     //         auto new_val = expr(idx.get_val(rid));
-    //         orange_ensure(col.test(new_val), "update failed: new value fails constraint");
+    //         orange_check(col.test(new_val), "update failed: new value fails constraint");
     //         idx.update(new_val, rid);
     //     }
     // }
@@ -503,48 +580,53 @@ public:
         if (!primary && idx_name == PRIMARY_KEY_NAME) throw OrangeException("this name is reserved for primary key");
         orange_assert(!idx_name.empty(), "index name cannot be empty");
         if (primary) orange_assert(unique, "primary key must be unique");
-        orange_ensure(!indexes.count(idx_name), "already has index named `" + idx_name + "`");
+        orange_check(!indexes.count(idx_name), "already has index named `" + idx_name + "`");
         auto idx_cols = get_cols(col_names);
         auto index = Index::create(*this, idx_name, idx_cols, primary, unique);
         indexes[idx_name] = index;
     }
     void drop_index(const String& idx_name) {
         auto index = get_index(idx_name);
-        orange_ensure(index != nullptr, "index `" + name + "` does not exists");
+        orange_check(index != nullptr, "index `" + name + "` does not exists");
         Index::drop(index);
         indexes.erase(idx_name);
     }
 
-    void add_p_key(String name, const std::vector<String>& col_names) {
-        orange_ensure(get_p_key() == nullptr, "already has primary key");
-        if (name.empty()) name = PRIMARY_KEY_NAME;
-        create_index(name, col_names, true, true);
+    void add_p_key(String p_key_name, const std::vector<String>& col_names) {
+        orange_check(get_p_key() == nullptr, "already has primary key");
+        if (p_key_name.empty()) p_key_name = PRIMARY_KEY_NAME;
+        create_index(p_key_name, col_names, true, true);
     }
-    void drop_p_key(const String& name) {
+    void drop_p_key(const String& p_key_name) {
         auto p_key = get_p_key();
-        orange_ensure(p_key && p_key->get_name() == name, "primary key named `" + name + "` does not exist");
+        orange_check(p_key && p_key->get_name() == p_key_name, "primary key named `" + p_key_name + "` does not exist");
         // TODO: check other tables' foreign key
         ORANGE_UNIMPL
         Index::drop(p_key);
     }
 
-    void add_f_key(const f_key_t& f_key) {
-        auto ref_tbl = SavedTable::get(f_key.ref_tbl);
+    void add_f_key(const f_key_t& f_key_def) {
+        auto ref_tbl = SavedTable::get(f_key_def.ref_tbl);
         auto ref_p_key = ref_tbl->get_p_key();
         // 没有映射到那张表的主键
-        orange_ensure(![&] {
-            if (!ref_p_key || ref_p_key->get_cols().size() != f_key.ref_list.size()) return 0;
-            for (unsigned i = 0; i < f_key.ref_list.size(); i++) {
-                if (ref_p_key->get_cols()[i].get_name() != f_key.ref_list[i]) return 0;
+        orange_check(![&] {
+            if (!ref_p_key || ref_p_key->get_cols().size() != f_key_def.ref_list.size()) return 0;
+            for (unsigned i = 0; i < f_key_def.ref_list.size(); i++) {
+                if (ref_p_key->get_cols()[i].get_name() != f_key_def.ref_list[i]) return 0;
             }
             return 1;
-        }(), "should map to the primary key of table `" + f_key.ref_tbl + "`");
-        create_index(f_key.name, f_key.list, false, false);
+        }(), "should map to the primary key of table `" + f_key_def.ref_tbl + "`");
+        create_index(f_key_def.name, f_key_def.list, false, false);
+        f_key_defs[f_key_def.name] = f_key_def;
+        SavedTable::get(f_key_def.ref_tbl)->f_key_rev[f_key_def.name] = std::make_pair(this->name, f_key_def);
     }
-    void drop_f_key(const String& name) {
-        auto f_key = get_f_key(name);
-        orange_ensure(f_key, "foreign key named `" + name + "` does not exist");
+    void drop_f_key(const String& f_key_name) {
+        auto f_key = get_f_key(f_key_name);
+        orange_check(f_key, "foreign key named `" + f_key_name + "` does not exist");
         Index::drop(f_key);
+        auto &f_key_def = f_key_defs[f_key_name];
+        f_key_defs.erase(f_key_name);
+        SavedTable::get(f_key_def.ref_tbl)->f_key_rev.erase(f_key_name);
     }
 
     friend class Index;

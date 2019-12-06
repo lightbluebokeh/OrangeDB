@@ -19,19 +19,19 @@ private:
 
     int key_size;
 public:
-    Column() {}
+    explicit Column() {}
     // 适合打印名称的那种
-    Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
+    explicit Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
     Column(const String& name, int id, const ast::data_type& type, bool nullable, ast::data_value dft) : name(name), id(id), type(type), nullable(nullable), dft(dft) {
         switch (type.kind) {
             case orange_t::Int: key_size = 1 + sizeof(int_t);
             break;
             case orange_t::Varchar:
-                orange_ensure(type.int_value() <= MAX_VARCHAR_LEN, "varchar limit too long");
+                orange_check(type.int_value() <= MAX_VARCHAR_LEN, "varchar limit too long");
                 key_size = 1 + sizeof(decltype(std::declval<FileAllocator>().allocate(0)));
             break;
             case orange_t::Char:
-                orange_ensure(type.int_value() <= MAX_CHAR_LEN, "char limit too long");
+                orange_check(type.int_value() <= MAX_CHAR_LEN, "char limit too long");
                 key_size = 1 + type.int_value();
             break;
             case orange_t::Date:
@@ -40,7 +40,7 @@ public:
             case orange_t::Numeric: {
                 int p = type.int_value() / 40;
                 int s = type.int_value() % 40;
-                orange_ensure(0 <= s && s <= p && p <= 20, "bad numeric");
+                orange_check(0 <= s && s <= p && p <= 20, "bad numeric");
                 key_size = 1 + sizeof(numeric_t);
             } break;
         }

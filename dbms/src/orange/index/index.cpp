@@ -2,20 +2,20 @@
 #include "orange/index/b_tree.h"
 
 String Index::get_path() const {
-    auto ret = table.index_root() + name;
-    if (primary) ret += "(p)";  // 顺便能防止主键匿名
-    return ret + "/";
+    return table.index_root() + name + "/";
 }
 
 Index* Index::create(SavedTable& table, const String& name, const std::vector<Column>& cols, bool primary, bool unique) {
     auto index = new Index(table, name);
+    fs::create_directory(index->get_path());
     index->cols = cols;
     index->key_size = Column::key_size_sum(cols);
     index->primary = primary;
     index->unique = unique;
     index->tree = new BTree(*index, index->key_size, index->get_path());
+    index->tree->init();
     for (auto rid: table.all()) {
-        index->tree->insert(table.get_raws(cols, rid).data(), rid, table.get_fields(cols, rid));
+        index->tree->insert(table.get_raws(cols, rid).data(), rid);
     }
     return index;
 }
