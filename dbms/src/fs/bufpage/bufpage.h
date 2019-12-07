@@ -1,7 +1,7 @@
 #pragma once
 
-#include <defs.h>
-#include <fs/bufpage/bufpage_manage.h>
+#include "defs.h"
+#include "fs/bufpage/bufpage_manage.h"
 
 class File;
 
@@ -21,5 +21,6 @@ public:
         }
     }
 
+    friend class File;
     friend class BufpageStream;
 };

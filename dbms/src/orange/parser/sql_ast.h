@@ -36,58 +36,114 @@ namespace Orange {
 
         /** op: '=', '<>', '<=', '>=', '<', '>' */
         enum class op { Eq, Neq, Le, Ge, Lt, Gt };
+        using op_t = op;
+        inline bool is_low(const op_t& op) {
+            return op == op_t::Eq || op == op_t::Ge || op == op_t::Gt;
+        }
+        inline bool is_high(const op_t& op) {
+            return op == op_t::Eq || op == op_t::Lt || op == op_t::Le;
+        }
 
         /** type */
         // enum class DataTypeKind { Int, VarChar, Date, Float };
         struct data_type {
-            datatype_t kind;
-            boost::variant<boost::blank, int> value;
+            orange_t kind;
+            boost::variant<boost::blank, int_t> value;
 
             bool has_value() const { return value.which() != 0; }
 
-            int& int_value() { return boost::get<int>(value); }
-            int int_value() const { return boost::get<int>(value); }
-            int int_value_or(int x) const { return has_value() ? int_value() : x; }
+            int_t& int_value() { return boost::get<int_t>(value); }
+            int_t int_value() const { return boost::get<int_t>(value); }
+            int_t int_value_or(int_t x) const { return has_value() ? int_value() : x; }
+
+            static data_type int_type() { return {orange_t::Int, {}}; }
+            static data_type varchar_type(int len) { return {orange_t::Varchar, len}; }
         };
 
+        inline std::ostream& operator << (std::ostream& os, const data_type& type) {
+            os << type.kind << ' ' << type.int_value_or(-1);    // cannot be negative
+            return os;
+        }
+        inline std::istream& operator >> (std::istream& is, data_type& type) {
+            is >> type.kind;
+            int value;
+            is >> value;
+            if (value == -1) type.value = boost::blank();
+            else type.value = value;
+            return is;
+        }
+
         /** value */
-        enum class DataValueKind { Null, Int, String, Float };
+        enum class data_value_kind { Null, Int, String, Float };
         struct data_value {
-            using value_type = boost::variant<boost::blank, int, std::string, double>;
+            using value_type = boost::variant<boost::blank, int_t, std::string, numeric_t>;
             value_type value;
 
             bool is_null() const { return value.which() == 0; }
             bool is_int() const { return value.which() == 1; }
             bool is_string() const { return value.which() == 2; }
             bool is_float() const { return value.which() == 3; }
-            DataValueKind kind() const { return (DataValueKind)value.which(); }
+            data_value_kind kind() const { return (data_value_kind)value.which(); }
 
-            int& to_int() { return boost::get<int>(value); }
-            int to_int() const { return boost::get<int>(value); }
+            int_t& to_int() { return boost::get<int_t>(value); }
+            int_t to_int() const { return boost::get<int_t>(value); }
             std::string& to_string() { return boost::get<std::string>(value); }
             const std::string& to_string() const { return boost::get<std::string>(value); }
-            double& to_float() { return boost::get<double>(value); }
-            double to_float() const { return boost::get<double>(value); }
+            numeric_t& to_float() { return boost::get<numeric_t>(value); }
+            numeric_t to_float() const { return boost::get<numeric_t>(value); }
 
-            datatype_t get_datatype() const {
-                // if (is_null()) return ORANGE_INT;
-                switch ((DataValueKind)value.which()) {
-                    case DataValueKind::Null:
-                    case DataValueKind::Int: return ORANGE_INT; // null 的话随便
-                    case DataValueKind::String: return ORANGE_VARCHAR;
-                    case DataValueKind::Float: return ORANGE_NUMERIC;
-                }
-                return ORANGE_INT;
-            }
-
-            static data_value null_value() {
-                return data_value();
-            }
+            static data_value from_null() { return data_value{}; }
+            static data_value from_int(int_t x) { return data_value{x}; }
+            static data_value from_float(numeric_t f) { return data_value{f}; }
+            static data_value from_string(std::string s) { return data_value{s}; }
 
             operator value_type() const { return value; }
         };
-        using data_value_list = std::vector<data_value>;
-        using data_value_lists = std::vector<data_value_list>;  // 这个东西多半是假的
+
+        inline std::istream& operator >> (std::istream& is, data_value& value) {
+            int which;
+            is >> which;
+            switch (data_value_kind(which)) {
+                case data_value_kind::Null: // do nothing
+                break;
+                case data_value_kind::Int: is >> value.to_int();
+                break;
+                case data_value_kind::String: is >> value.to_string();
+                break;
+                case data_value_kind::Float: is >> value.to_float();
+                break;
+            }
+            return is;
+        }
+        inline std::ostream& operator << (std::ostream& os, const data_value& value) {
+            os << value.value.which();
+            switch (data_value_kind(value.value.which())) {
+                case data_value_kind::Null: // do  nothing
+                break;
+                case data_value_kind::Int: os << ' ' << value.to_int();
+                break;
+                case data_value_kind::String: os << ' ' << value.to_string();
+                break;
+                case data_value_kind::Float: os << ' ' << value.to_float();
+                break;
+            }
+            return os;
+        }
+
+        inline bool operator < (const data_value& v1, const data_value& v2) {
+            orange_assert(v1.kind() == v2.kind(), "comparing value with different type");
+            orange_assert(!v1.is_null(), "no null plz");
+            switch (v1.kind()) {
+                case data_value_kind::Int: return v1.to_int() < v2.to_int();
+                case data_value_kind::Float: return v1.to_float() < v2.to_float();
+                case data_value_kind::String: return v1.to_string() < v2.to_string();
+                case data_value_kind::Null: ORANGE_UNREACHABLE
+            }
+            return false;
+        }
+
+        using data_values = std::vector<data_value>;
+        using data_values_list = std::vector<data_values>;  // 这个东西多半是假的
 
         /** expr */
         struct expr {
@@ -244,7 +300,7 @@ namespace Orange {
         struct insert_into_tb_stmt {
             std::string name;
             boost::optional<column_list> columns;
-            data_value_lists value_lists;
+            data_values_list values_list;
         };
 
         struct delete_from_tb_stmt {
@@ -489,14 +545,59 @@ namespace Orange {
     }  // namespace parser
 }  // namespace Orange
 
+namespace ast = Orange::parser;
 namespace Orange {
-    inline byte_arr_t to_bytes(const Orange::parser::data_value& value) {
-        if (value.is_null()) return {DATA_NULL};
-        if (value.is_int()) return Orange::to_bytes(value.to_int());
-        if (value.is_string()) return Orange::to_bytes(value.to_string());
-        if (value.is_float()) {
-            ORANGE_UNIMPL
+    // 保证可以转换
+    inline byte_arr_t value_to_bytes(const ast::data_value& value, const ast::data_type& type) {
+        using ast::data_value_kind;
+        switch (value.kind()) {
+            case data_value_kind::Null: {
+                byte_arr_t ret = {DATA_NULL};
+                switch (type.kind) {
+                    case orange_t::Char: ret.resize(type.int_value() + 1);
+                    break;
+                    case orange_t::Date: ORANGE_UNIMPL
+                    case orange_t::Int: ret.resize(sizeof(int_t) + 1);
+                    break;
+                    case orange_t::Numeric: ret.resize(sizeof(numeric_t) + 1);
+                    break;
+                    case orange_t::Varchar: // do nothing
+                    break;
+                }
+                return ret;
+            } break;
+            case data_value_kind::Int: 
+                switch (type.kind) {
+                    case orange_t::Int: return Orange::to_bytes(value.to_int());
+                    case orange_t::Numeric: return Orange::to_bytes<numeric_t>(value.to_int());
+                    default: ORANGE_UNREACHABLE
+                }
+            break;
+            case data_value_kind::Float:
+                if (type.kind == orange_t::Numeric) return Orange::to_bytes(value.to_float());
+                ORANGE_UNREACHABLE
+            break;
+            case data_value_kind::String:
+                switch (type.kind) {
+                    case orange_t::Varchar:
+                    case orange_t::Char: {
+                        auto &str = value.to_string();
+                        // if (int(str.length()) > type.int_value()) ORANGE_UNREACHABLE
+                        orange_assert(int(str.length()) <= type.int_value(), "string value too long");
+                        auto ret = to_bytes(str);
+                        if (type.kind == orange_t::Char) ret.resize(type.int_value() + 1);  // 对于 char 补齐
+                        return ret;
+                    } break;
+                    case orange_t::Date: ORANGE_UNIMPL
+                    default: ORANGE_UNREACHABLE
+                }
+            break;
         }
-        return to_bytes("fuck warning");
+        ORANGE_UNREACHABLE
+    }
+
+    inline bool has_null(const ast::data_values& values) {
+        for (auto &value: values) if (value.is_null()) return 1;
+        return 0;
     }
 }

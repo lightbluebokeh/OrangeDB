@@ -10,163 +10,95 @@
 #include "orange/common.h"
 
 class SavedTable;
-
-// 同时维护数据和索引，有暴力模式和数据结构模式
-// 希望设计的时候索引模块不需要关注完整性约束，而交给其它模块
 class Index {
 private:
     SavedTable &table;
+    String name;
+    std::vector<Column> cols;
+    bool primary, unique;
 
-    datatype_t kind;
-    // 每个值的在索引中的大小
-    size_t size;
-    String prefix;
+    int key_size;
+    BTree *tree;
 
-    bool on;
+    Index(SavedTable& table, const String& name) : table(table), name(name) {}
 
-    File* f_data;
-    BTree* tree;
-
-    // 用于 vchar
-    FileAllocator *allocator = nullptr;
-
-    String data_name() const { return prefix + ".data"; }
-    String meta_name() const { return prefix + ".meta"; }
-    String vchar_name() const { return prefix + ".vch"; }
-
-    // 对于 vchar 返回指针，其它直接返回真实值
-    byte_arr_t store(const byte_arr_t& key) const {
-        switch (kind) {
-            case ORANGE_VARCHAR: return allocator->allocate_byte_arr(key);
-            default: return key;
+    // 获取第 i 个字段
+    byte_arr_t restore(const_bytes_t k_raw, int i) const;
+    // 获取全部字段
+    std::vector<byte_arr_t> restore(const_bytes_t k_raw) const;
+    String get_path() const;
+    String info_name() const { return get_path() + "info"; }
+    
+    void write_info() {
+        std::ofstream ofs(info_name());
+        ofs << cols.size();
+        for (auto &col: cols) {
+            ofs << ' ' << col;
         }
+        ofs << ' ' << primary << ' ' << unique << std::endl;
     }
-    byte_arr_t restore(const_bytes_t k_raw) const {
-        switch (kind) {
-            case ORANGE_VARCHAR: return allocator->read_byte_arr(*(size_t*)(k_raw + 1));
-            default: return byte_arr_t(k_raw, k_raw + size);
-        }
-    }
-
-    // 返回所在表的所有正在使用的 rid
-    std::vector<rid_t> get_all() const;
-
-    byte_arr_t get_raw(rid_t rid) const {
-        auto bytes = new byte_t[size];
-        f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-        auto ret = byte_arr_t(bytes, bytes + size);
-        delete[] bytes;
-        return ret;
+    void read_info() {
+        std::ifstream ifs(info_name());
+        unsigned cols_num;
+        ifs >> cols_num;
+        cols.resize(cols_num);
+        for (auto &col: cols) ifs >> col;
+        ifs >> primary >> unique;
     }
 
 public:
-    Index(SavedTable& table, datatype_t kind, size_t size, const String& prefix, bool on) : table(table), kind(kind), size(size), prefix(prefix), on(on) {
-        if (!fs::exists(data_name())) File::create(data_name());
-        f_data = File::open(data_name());
-        if (kind == ORANGE_VARCHAR) allocator = new FileAllocator(vchar_name());
-    }
-    // 拒绝移动构造
-    Index(Index&& index) : table(index.table) { ORANGE_UNREACHABLE }
     ~Index() {
-        if (on) delete tree;
-        if (f_data) f_data->close();
-        delete allocator;
+        write_info();
+        delete tree;
     }
 
-    //　返回 rid　记录此列的值
-    auto get_val(rid_t rid) const {
-        auto bytes = new byte_t[size];
-        f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-        auto ret = restore(bytes);
-        delete[] bytes;
-        return ret;
-    }
-
-    // 返回一系列 rid 对应的该列值
-    auto get_vals(std::vector<rid_t> rids) const {
-        auto bytes = new byte_t[size];
-        std::vector<byte_arr_t> ret;
-        for (auto rid: rids) {
-            f_data->seek_pos(rid * size)->read_bytes(bytes, size);
-            ret.push_back(restore(bytes));
+    String get_name() const { return name; }
+    int get_key_size() const { return key_size; }
+    // 对于列中编号为 id 的列，在 index 中的排名；不存在返回 -1
+    int get_col_rank(int id) const {
+        for (unsigned i = 0; i < cols.size(); i++) {
+            if (cols[i].get_id() == id) return i;
         }
-        return ret;
+        return -1;
+    }
+    const std::vector<Column>& get_cols() const { return cols; }
+    bool is_primary() const { return primary; }
+    bool is_unique() const { return unique; }
+    bool constains(const std::vector<byte_arr_t>& vals) const {
+        for (auto &val: vals) orange_assert(val.front() != DATA_NULL, "null is not supported");
+        return tree->contains(vals);
+    }
+    // 返回所有对应 key 值的记录编号
+    std::vector<rid_t> get_on_key(const_bytes_t raw, rid_t lim = MAX_RID) const {
+        return tree->get_on_key(restore(raw), lim);
     }
 
-    void load() {
-        if (on) {
-            tree = new BTree(this, size, prefix);
-            tree->load();
-        }
+    static Index* create(SavedTable& table, const String& name, const std::vector<Column>& cols, bool primary, bool unique);
+    static Index* load(SavedTable& table, const String& name);
+    static void drop(const Index* index) {
+        auto path = index->get_path();
+        delete index;
+        fs::remove_all(path);
     }
 
-    void turn_on() {
-        if (!on) {
-            on = 1;
-            tree = new BTree(this, size, prefix);
-            tree->init(f_data);
-        }
-    }
-
-    void turn_off() {
-        if (on) {
-            on = 0;
-            delete tree;
-        }
-    }
-
-    void insert(const byte_arr_t& val, rid_t rid) {
-        auto raw = store(val);
-        if (on) tree->insert(raw.data(), rid, val);
-        f_data->seek_pos(rid * size)->write_bytes(raw.data(), size);
+    // raw: 索引值；val：真实值
+    void insert(const byte_arr_t& raw, rid_t rid) {
+        tree->insert(raw.data(), rid);
     }
 
     // 调用合适应该不会有问题8
-    void remove(rid_t rid) {
-        if (on) {
-            auto raw = get_raw(rid);
-            tree->remove(raw.data(), rid);
-        }
-        f_data->seek_pos(rid * size)->write<byte_t>(DATA_INVALID);
+    void remove(const byte_arr_t &raw, rid_t rid) {
+        tree->remove(raw.data(), rid);
     }
 
-    void update(const byte_arr_t& val, rid_t rid) {
-        remove(rid);
-        insert(val, rid);
+    std::vector<rid_t> query(const std::vector<Orange::preds_t>& preds_list, rid_t lim) const {
+        return tree->query(preds_list, lim);
     }
 
-    std::vector<rid_t> get_rids_value(const Orange::parser::op &op, const Orange::parser::data_value &value, rid_t lim) const {
-        if (value.is_null()) return {};
-        if (on) {
-            return tree->query(op, value, lim);
-        } else {
-            std::vector<rid_t> ret;
-            auto bytes = new byte_t[size];
-            for (auto i: get_all()) {
-                if (ret.size() >= lim) break;
-                f_data->seek_pos(i * size)->read_bytes(bytes, size);
-                if (Orange::cmp(restore(bytes), kind, op, value)) {
-                    ret.push_back(i);
-                }
-            }            
-            delete[] bytes;
-            return ret;
-        }
-    }
-
-    auto get_rids_null(bool not_null, rid_t lim) const {
-        auto bytes = new byte_t[size];
-        std::vector<rid_t> ret;
-        for (auto i: get_all()) {
-            if (ret.size() >= lim) break;
-            f_data->seek_pos(i * size)->read_bytes(bytes, size);
-            if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
-                ret.push_back(i);
-            }
-        }
-        delete[] bytes;
-        return ret;
-    }
+    // void update(const byte_arr_t &raw, rid_t rid, const std::vector<byte_arr_t>& val) {
+    //     remove(raw, rid);
+    //     insert(raw, rid, val);
+    // }
 
     friend class BTree;
 };

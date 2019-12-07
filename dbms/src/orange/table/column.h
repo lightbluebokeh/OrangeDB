@@ -1,7 +1,9 @@
 #pragma once
 
+#include "orange/parser/sql_ast.h"
+#include "fs/allocator/allocator.h"
+
 #include <cstring>
-#include <defs.h>
 
 class File;
 class SavedTable;
@@ -9,88 +11,103 @@ class SavedTable;
 class Column {
 private:
     String name;
-    datatype_t type;
-    int maxsize;
-    int p = 18, s = 0;  // type == ORANGE_NUMERIC 才有效
-    bool unique, nullable, index;
-    byte_arr_t dft;
-    std::vector<pred_t> ranges;
-    bool is_string() const { return type == ORANGE_CHAR || type == ORANGE_VARCHAR; }
+    int id; // 所在 table 的列编号
+    ast::data_type type;
+    bool nullable;
+    ast::data_value dft;
+    std::vector<std::pair<ast::op, ast::data_value>> checks;
 
-    bool test_size(byte_arr_t& val) const {
-        if (int(val.size()) > maxsize) return 0;
-        if (int(val.size()) < maxsize) {
-            // 对于 null 或者字符串才补零
-            if (val.front() != DATA_NULL && !is_string()) return 0;
-            if (type != ORANGE_VARCHAR) val.resize(maxsize);
-        }
-        return 1;
-    }
+    int key_size;
 public:
-    Column() {}
-    Column(const String& name) : name(name), type(ORANGE_VARCHAR) {}
-    Column(const String& name, datatype_t type, int value, bool unique, bool index, bool nullable, byte_arr_t dft, 
-        std::vector<pred_t> ranges) : name(name), type(type), unique(unique), nullable(nullable), index(index), dft(dft), ranges(ranges) {
-        switch (type) {
-            case ORANGE_INT: maxsize = 4 + 1;
+    explicit Column() {}
+    // 适合打印名称的那种
+    explicit Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
+    Column(const String& name, int id, const ast::data_type& type, bool nullable, ast::data_value dft) : name(name), id(id), type(type), nullable(nullable), dft(dft) {
+        switch (type.kind) {
+            case orange_t::Int: key_size = 1 + sizeof(int_t);
             break;
-            case ORANGE_VARCHAR:
-                maxsize = value + 1;
-                orange_ensure(maxsize <= MAX_VARCHAR_LEN, "varchar limit too long");
+            case orange_t::Varchar:
+                orange_check(type.int_value() <= MAX_VARCHAR_LEN, "varchar limit too long");
+                key_size = 1 + sizeof(decltype(std::declval<FileAllocator>().allocate(0)));
             break;
-            case ORANGE_CHAR:
-                maxsize = value + 1;
-                orange_ensure(maxsize <= MAX_CHAR_LEN, "char limit too long");
+            case orange_t::Char:
+                orange_check(type.int_value() <= MAX_CHAR_LEN, "char limit too long");
+                key_size = 1 + type.int_value();
             break;
-            case ORANGE_DATE:
-                maxsize = 2 + 1;
+            case orange_t::Date:
+                ORANGE_UNIMPL
             break;
-            case ORANGE_NUMERIC:
-                maxsize = 17 + 1;
-                p = value / 40;
-                s = value % 40;
-                orange_ensure(0 <= s && s <= p && p <= 20, "bad numeric");
-            break;
-        }
-        for (auto &pred: this->ranges) {
-            orange_ensure(test_size(pred.lo) && test_size(pred.hi), "bad constraint parameter");
+            case orange_t::Numeric: {
+                int p = type.int_value() / 40;
+                int s = type.int_value() % 40;
+                orange_check(0 <= s && s <= p && p <= 20, "bad numeric");
+                key_size = 1 + sizeof(numeric_t);
+            } break;
         }
     }
 
-    String type_string() {
-        switch (type) {
-            case ORANGE_INT: return "int";
-            case ORANGE_CHAR: return "char(" + std::to_string(maxsize - 1) + ")";
-            case ORANGE_VARCHAR: return "varchar(" + std::to_string(maxsize - 1) + ")";
-            case ORANGE_DATE: return "date";
-            case ORANGE_NUMERIC: return "nummeric(" + std::to_string(p) + "," + std::to_string(s) + ")";
+    int get_id() const { return id; }
+
+    String type_string() const {
+        switch (type.kind) {
+            case orange_t::Int: return "int";
+            case orange_t::Char: return "char(" + std::to_string(type.int_value()) + ")";
+            case orange_t::Varchar: return "varchar(" + std::to_string(type.int_value()) + ")";
+            case orange_t::Date: return "date";
+            case orange_t::Numeric: return "nummeric(" + std::to_string(type.int_value() / 40) + "," + std::to_string(type.int_value() % 40) + ")";
         }
         return "<error-type>";
     }
 
-    // one more bytes for null/valid
-    int key_size() const { return type == ORANGE_VARCHAR ? 1 + sizeof(size_t) : maxsize; }
+    int get_key_size() const { return key_size; }
 
     String get_name() const { return name; }
-    byte_arr_t get_dft() const { return dft; }
+    ast::data_value get_dft() const { return dft; }
+    bool is_nullable() const { return nullable; }
 
-    // 测试 val 能否插入到这一列；对于 非 varchar 会补零
-    bool test(byte_arr_t& val) const {
-        if (val.empty()) return 0;
-        // 只允许插入 null 或者普通的数据
-        if (val.front() != DATA_NORMAL && val.front() != DATA_NULL) return 0;
-        if (!test_size(val)) return 0;
-        if (val.front() == DATA_NULL) return nullable;
-        for (auto &pred: ranges) if (!pred.test(val, type)) return 0;
-        return 1;
+    // 列完整性约束，返回是否成功和错误消息
+    std::pair<bool, String> check(const ast::data_value& value) const {
+        using ast::data_value_kind;
+        switch (value.kind()) {
+            case data_value_kind::Null: return std::make_pair(nullable, "column constraint failed: null value given to not null column"); // 懒了，都返回消息
+            case data_value_kind::Int: return std::make_pair(type.kind == orange_t::Int || type.kind == orange_t::Numeric, "incompatible type");
+            case data_value_kind::Float: return std::make_pair(type.kind == orange_t::Numeric, "column constraint failed: incompatible type");
+            case data_value_kind::String:
+                switch (type.kind) {
+                    case orange_t::Varchar:
+                    case orange_t::Char: {
+                        auto &str = value.to_string();
+                        if (int(str.length()) > type.int_value()) return std::make_pair(0, String("column constraint failed: ") + (type.kind == orange_t::Char ? "char" : "varchar") + String("limit exceeded"));
+                        return std::make_pair(1, "");
+                    } break;
+                    case orange_t::Date: ORANGE_UNIMPL
+                    default: std::make_pair(0, "column constraint failed: incompatible type");
+                }
+            break;
+        }
+        return std::make_pair(1, "");
     }
 
-    bool has_index() const { return index; }
-    bool is_unique() const { return unique; }
-    datatype_t get_datatype() const { return type; }
+    ast::data_type get_datatype() const { return type; }
+    orange_t get_datatype_kind() const { return type.kind; }
 
-    friend class File;
-    friend class SavedTable;
+    static int key_size_sum(const std::vector<Column> cols) {
+        int ret = 0;
+        for (auto &col: cols) ret += col.get_key_size();
+        return ret;
+    }
+
+    friend std::istream& operator >> (std::istream& is, Column& col);
+    friend std::ostream& operator << (std::ostream& os, const Column& col);
 };
 
-constexpr auto col_size = sizeof(Column);
+inline std::ostream& operator << (std::ostream& os, const Column& col) {
+    // print(os, ' ', col.name, col.id, col.type, col.nullable, col.dft, col.checks, col.key_size);
+    os << col.name << ' ' << col.id << ' ' << col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks << ' ' << col.key_size;
+    return os;
+}
+inline std::istream& operator >> (std::istream& is, Column& col) {
+    is >> col.name >> col.id >> col.type >> col.nullable >> col.dft >> col.checks >> col.key_size;
+    return is;
+}
+
