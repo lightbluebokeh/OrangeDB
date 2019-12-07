@@ -123,7 +123,6 @@ export default Vue.extend({
         this.queryTime = r.time;
         this.results = r.results;
       } catch (error) {
-        console.error(error);
         this.$message({ message: '出了点小问题？', type: 'error' });
       } finally {
         this.loading = false;
