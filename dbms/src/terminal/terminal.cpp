@@ -45,17 +45,17 @@ int main(int argc, char* argv[]) {
     }
     Orange::setup();
     std::cout << CYAN << "Welcome to OrangeDB terminal!" << RESET << std::endl;
-    int retcode = 0;
+    int ret_code = 0;
     std::string sql;
     while (true) {
         std::cout << ">> ";
         std::getline(std::cin, sql);
         if (sql == "q" || sql == "Q") break;
-        retcode = (int)manage(sql);
+        ret_code = (int)manage(sql);
     }
 
     Orange::unuse();
 
     std::cout << "Goodbye." << std::endl;
-    return retcode;
+    return ret_code;
 }

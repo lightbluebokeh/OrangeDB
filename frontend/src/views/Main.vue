@@ -9,7 +9,7 @@
           v-model="statements"
           type="textarea"
           placeholder="在这里输入 SQL 语句"
-          :autosize="{ minRows: 2, maxRows: 20 }"
+          :autosize="{ minRows: results.length ? 3 : 8, maxRows: 20 }"
           v-loading="uploading"
           @blur="saveSql"
         />
@@ -22,38 +22,38 @@
             :show-file-list="false"
             :http-request="uploadFile"
           >
-            <el-button size="medium" type="file" style="width:100px"
-              >读取文件</el-button
-            >
+            <el-button size="medium" type="file" style="width:100px">读取文件</el-button>
           </el-upload>
-          <el-button size="medium" type="primary" style="width:100px">
+          <el-button size="medium" type="primary" style="width:100px" @click="execSql">
             运行 <em class="el-icon-d-arrow-right" />
           </el-button>
         </div>
 
-        <el-row v-if="result_type > 0" style="margin-top:24px">
+        <el-row v-if="results.length > 0" v-loading="loading" style="margin-top:24px">
           <el-divider content-position="left">查询结果</el-divider>
 
-          <!-- 返回表格 -->
-          <div v-if="result_type === 1">
-            <el-table fit stripe size="medium" :data="results">
-              <el-table-column label="#" width="40">
-                <span slot-scope="props">{{ props.$index + 1 }}</span>
-              </el-table-column>
-              <el-table-column
-                v-for="(h, i) in headers"
-                :key="i"
-                :label="h"
-                :prop="h"
-              />
-            </el-table>
-            <p class="info">
-              共 {{ results.length }} 条记录，查询用时 {{ queryTime }} 秒
-            </p>
-          </div>
+          <el-tabs type="border-card">
+            <el-tab-pane v-for="(r, ri) in results" :key="ri">
+              <em v-if="r.error" slot="label" class="el-icon-circle-close danger" />
+              <span v-else slot="label">{{ ri + 1 }}</span>
 
-          <!-- 返回消息 -->
-          <div v-else-if="result_type === 2"></div>
+              <el-table v-if="r.data" fit stripe size="medium" :data="r.data">
+                <el-table-column label="#" width="40">
+                  <span slot-scope="props" class="info">{{ props.$index + 1 }}</span>
+                </el-table-column>
+                <el-table-column v-for="(h, i) in r.headers" :key="i" :label="h">
+                  <span slot-scope="props">{{ props.row[i] }}</span>
+                </el-table-column>
+              </el-table>
+              <div v-else style="font-size:11pt">
+                <p class="danger"><em class="el-icon-warning-outline" /> 运行错误：</p>
+                <p style="margin-left:20px">{{ r.error }}</p>
+              </div>
+
+              <p v-if="r.data" class="info text">共 {{ r.data.length }} 条记录</p>
+            </el-tab-pane>
+          </el-tabs>
+          <p class="info text">查询用时 {{ queryTime }} 秒</p>
         </el-row>
       </el-card>
     </el-col>
@@ -71,6 +71,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import exec, { ExecResult } from '@/api/exec';
 export default Vue.extend({
   data() {
     return {
@@ -78,13 +79,9 @@ export default Vue.extend({
       statements: '',
 
       // 查询用时
-      queryTime: 0.01,
-      // 查询结果的标题
-      headers: [] as string[],
-      // 结果类型
-      result_type: 0,
+      queryTime: 0,
       // 查询结果
-      results: [] as any[],
+      results: [] as ExecResult[],
 
       // 正在上传文件
       uploading: false,
@@ -118,16 +115,29 @@ export default Vue.extend({
     saveSql() {
       this.$store.commit('save', this.statements);
     },
+    /** 执行sql */
+    execSql: async function() {
+      try {
+        this.loading = true;
+        const r = await exec(this.statements);
+        this.queryTime = r.time;
+        this.results = r.results;
+      } catch (error) {
+        this.$message({ message: '出了点小问题？', type: 'error' });
+      } finally {
+        this.loading = false;
+      }
+    },
   },
   mounted() {
-    this.statements = this.$store.state.sql;
+    this.statements = this.$store.state.sql; // 加载保存的sql
   },
 });
 </script>
 
 <style lang="scss" scoped>
-.info {
-  margin-top: 8px;
+.text {
+  margin-top: 12px;
   text-align: right;
   font-size: 10pt;
   color: #909399;

@@ -18,3 +18,25 @@ h3,
 h4 {
   font-weight: 400;
 }
+
+$brand-color: #409eff;
+$success-color: #67c23a;
+$warning-color: #e6a23c;
+$danger-color: #f56c6c;
+$info-color: #909399;
+
+.brand {
+  color: $brand-color;
+}
+.success {
+  color: $success-color;
+}
+.warning {
+  color: $warning-color;
+}
+.danger {
+  color: $danger-color;
+}
+.info {
+  color: $info-color;
+}
