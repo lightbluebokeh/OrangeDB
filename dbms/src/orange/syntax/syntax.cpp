@@ -22,20 +22,20 @@ namespace Orange {
     inline std::string type_string(const data_type& type) {
         // 只有这个的kind不是方法，因为它是在产生式直接赋值的，不是variant（弄成variant=多写4个结构体+5个函数，累了
         switch (type.kind) {
-            case ORANGE_INT:
+            case orange_t::Int:
                 return type.has_value() ? "INT, " + std::to_string(type.int_value()) : "INT";
-            case ORANGE_VARCHAR: return "VARCHAR, " + std::to_string(type.int_value());
-            case ORANGE_DATE: return "DATE";
-            case ORANGE_NUMERIC: return "NUMERIC, " + std::to_string(type.int_value() / 40) + std::to_string(type.int_value() % 40);
+            case orange_t::Varchar: return "VARCHAR, " + std::to_string(type.int_value());
+            case orange_t::Date: return "DATE";
+            case orange_t::Numeric: return "NUMERIC, " + std::to_string(type.int_value() / 40) + std::to_string(type.int_value() % 40);
             default: unexpected();
         }
     }
     inline std::string value_string(const data_value& value) {
         switch (value.kind()) {
-            case DataValueKind::Int: return std::to_string(value.to_int());
-            case DataValueKind::String: return "'" + value.to_string() + "'";
-            case DataValueKind::Float: return std::to_string(value.to_float());
-            case DataValueKind::Null: return "NULL";
+            case data_value_kind::Int: return std::to_string(value.to_int());
+            case data_value_kind::String: return "'" + value.to_string() + "'";
+            case data_value_kind::Float: return std::to_string(value.to_float());
+            case data_value_kind::Null: return "NULL";
             default: unexpected();
         }
     }
@@ -114,10 +114,8 @@ namespace Orange {
                                               ? value_string(def.default_value.get())
                                               : "<none>")
                                       << std::endl;
-
-                            // auto dft = def.default_value.has_value() ? Orange::to_bytes(def.default_value.get()) : byte_arr_t{};
-                            auto dft = Orange::to_bytes(def.default_value.get_value_or(Orange::parser::data_value::null_value()));
-                            cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), 0, 0, !def.is_not_null, dft, {}));
+                            cols.push_back(Column(def.col_name, cols.size(), def.type, !def.is_not_null, def.default_value.get_value_or(ast::data_value::from_null())));
+                            // cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), !def.is_not_null, def.default_value.get_value_or(data_value::null_value())));
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
@@ -162,9 +160,9 @@ namespace Orange {
                 auto table = SavedTable::get(insert.name);
                 if (insert.columns.has_value()) {
                     auto& columns = insert.columns.get();
-                    auto& value_lists = insert.value_lists;
+                    auto& values_list = insert.values_list;
                     [&] {
-                        for (auto &values: value_lists) {
+                        for (auto &values: values_list) {
                             if (columns.size() != values.size()) {
                                 cout << "    * columns and values not match *" << std::endl;
                                 cout << "    columns:";
@@ -173,7 +171,7 @@ namespace Orange {
                                 }
                                 cout << std::endl;
                                 cout << "    values:";
-                                for (auto &values: insert.value_lists) {
+                                for (auto &values: insert.values_list) {
                                     for (auto& val : values) {
                                         cout << ' ' << value_string(val) << endl;
                                     }
@@ -185,35 +183,33 @@ namespace Orange {
                             cout << "      " << columns[i] << " ";
                         }
                         cout << endl;
-                        for (auto &values: value_lists) {
+                        for (auto &values: values_list) {
                             std::vector<std::pair<String, byte_arr_t>> data;
                             for (unsigned i = 0; i < values.size(); i++) {
                                 auto &val = values[i];
                                 cout << "       " << value_string(val);
-                                data.push_back(std::make_pair(columns[i], Orange::to_bytes(val)));
+                                // data.push_back(std::make_pair(columns[i], Orange::to_bytes(val)));
                             }
-                            table->insert(data);
+                            // table->insert(data);
                             cout << endl;
                         }
+                        table->insert(insert.columns.get(), insert.values_list);
                     }();
                 } else {
-                    for (auto &values: insert.value_lists) {
+                    for (auto &values: insert.values_list) {
                         cout << "    values:";
-                        rec_t rec;
                         for (auto& val : values) {
                             cout << ' ' << value_string(val);
-                            rec.push_back(Orange::to_bytes(val));
                         }
                         cout << endl;
-                        table->insert(rec);
                     }
+                    table->insert(insert.values_list);
                 }
             } break;
             case TbStmtKind::DeleteFrom: {
                 auto& delete_from = stmt.delete_from();
                 cout << "  delete from table:" << std::endl;
                 cout << "    table name: " << delete_from.name << std::endl;
-                auto table = SavedTable::get(delete_from.name);
                 cout << "    where:" << std::endl;
                 for (auto& cond : delete_from.where) {
                     if (cond.is_null_check()) {
@@ -228,7 +224,7 @@ namespace Orange {
                     }
                     cout << std::endl;
                 }
-                table->remove(table->where(delete_from.where));
+                SavedTable::get(delete_from.name)->delete_where(delete_from.where);
             } break;
             case TbStmtKind::Update: {
                 auto& update = stmt.update();
@@ -270,7 +266,7 @@ namespace Orange {
                     for (auto& col : select.select) {
                         if (col.table_name.has_value()) {
                             auto name = col.table_name.get();
-                            orange_ensure(tables.count(name), "unknown table name: `" + name + "`");
+                            orange_check(tables.count(name), "unknown table name: `" + name + "`");
                             cout << name << ".";
                         }
                         cout << col.col_name << " ";
@@ -295,7 +291,7 @@ namespace Orange {
                 if (select.select.empty()) {
                     if (tables.size() == 1) {
                         auto table = tables.begin()->second;
-                        cout << table->select_star(table->where(select.where.get_value_or({}))) << endl;
+                        cout << table->select_star(select.where.get_value_or({})) << endl;
                     } else {
                         ORANGE_UNIMPL
                     }
@@ -306,7 +302,7 @@ namespace Orange {
                         for (auto col: select.select) {
                             names.push_back(col.col_name);
                         }
-                        cout << table->select(names, table->where(select.where.get_value_or({}))) << endl;
+                        cout << table->select(names, select.where.get_value_or({})) << endl;
                     } else {
                         ORANGE_UNIMPL
                     }
@@ -326,8 +322,8 @@ namespace Orange {
                 ORANGE_UNIMPL
             } break;
             case IdxStmtKind::Create: {
-                auto &create = stmt.create();
-                // SavedTable::get(create.tb_name)->create_index(create.col_list, create.);
+                // auto &create = stmt.create();
+                // SavedTable::get(create.tb_name)->create_index(create.col_list, create.idx_name);
             } break;
             case IdxStmtKind::Drop: {
                 ORANGE_UNIMPL

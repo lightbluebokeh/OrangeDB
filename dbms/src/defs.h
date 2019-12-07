@@ -19,6 +19,7 @@ static_assert(sizeof(std::size_t) == 8, "x64 only");
 namespace fs = std::filesystem;
 
 using rid_t = uint64_t;
+constexpr rid_t MAX_RID = std::numeric_limits<rid_t>::max();    // save some typing
 using String = std::string;
 
 using byte_t = uint8_t;
@@ -67,7 +68,7 @@ public:
     const char* what() const noexcept override { return msg.c_str(); }
 };
 
-inline void orange_ensure(bool cond, const String& msg) {
+inline void orange_check(bool cond, const String& msg) {
     if (cond == 0) {
         // std::cerr << RED << "failed: " << RESET << msg << std::endl;
         throw OrangeException(msg);
@@ -119,6 +120,7 @@ template <typename T>
 constexpr bool is_basic_string_v =
     is_basic_string<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
+
 template <typename>
 struct is_pair : std::false_type {};
 template <typename T, typename U>
@@ -151,15 +153,19 @@ int expand(Fn&& func, Args&&... args) {
     return sizeof(arr) / sizeof(int);
 }
 
-enum datatype_t {
-    ORANGE_INT,
-    ORANGE_CHAR,
-    ORANGE_VARCHAR,
-    ORANGE_NUMERIC,
-    ORANGE_DATE,
+enum class orange_t {
+    Int,
+    Char,
+    Varchar,
+    Numeric,
+    Date,
 };
 
 using numeric_t = long double;
+static_assert(sizeof(numeric_t) == 16u);
+
+// 可能换成高精度的
+using int_t = int;
 
 namespace Orange {
     template <typename T>
@@ -197,3 +203,53 @@ namespace Orange {
         return ret;
     }
 }
+
+template<typename T>
+std::enable_if_t<std::is_enum_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
+    os << int(t);
+    return os;
+}
+template<typename T>
+std::enable_if_t<std::is_enum_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+    is >> (int&)t;
+    return is;
+}
+
+template<typename T>
+std::enable_if_t<is_std_vector_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
+    os << t.size();
+    for (auto &x: t) os << ' ' << x;
+    return os;
+}
+template<typename T>
+std::enable_if_t<is_std_vector_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+    size_t size;
+    is >> size;
+    t.resize(size);
+    for (auto &x: t) is >> x;
+    return is;
+}
+
+template<typename T>
+std::enable_if_t<is_pair_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
+    os << t.first << ' ' << t.second;
+    return os;
+}
+template<typename T>
+std::enable_if_t<is_pair_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+    is >> t.first >> t.second;
+    return is;
+}
+
+// primary key 默认名称，保留
+constexpr char PRIMARY_KEY_NAME[] = "primary_key";
+
+// // 用 div 字符分隔
+// template<typename T, typename... Ts>
+// void print(std::ostream& os, char div, const T& t, const Ts&... ts) {
+//     os << t;
+//     if constexpr (sizeof...(Ts) != 0) {
+//         os << div; 
+//         print(os, ts, div);
+//     }
+// }

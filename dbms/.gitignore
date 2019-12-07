@@ -41,3 +41,5 @@ testfile*.txt
 test_dir/
 db/
 Testing/
+cmake-build-*
+.idea

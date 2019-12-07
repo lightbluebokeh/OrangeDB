@@ -8,31 +8,42 @@
 
 class Index;
 
+namespace Orange {
+    using pred_t = std::pair<ast::op, ast::data_value>;
+    using preds_t = std::vector<pred_t>;
+}
+
 class BTree {
 private:
-    Index *index;
-    String prefix;
-    size_t key_size;
+    Index &index;
+    String path;
+    int key_size;
     File *f_tree;
 
     using bid_t = long long;
     IdPool<bid_t> pool;
     const int t;
 
-    String tree_name() { return prefix + ".bt"; }
-    String pool_name() { return prefix + ".pl"; }
-    String varchar_name() { return prefix + "vch"; }
+    String tree_name() { return path + "tree"; }
+    String pool_name() { return path + "pool"; }
 
-    int cmp(const byte_arr_t& k1, rid_t v1, const byte_arr_t& k2, rid_t v2) const;
+    int cmp_key(const std::vector<byte_arr_t>& ks1, const std::vector<byte_arr_t>& ks2) const;
+    int cmp(const std::vector<byte_arr_t>& ks1, rid_t v1, const std::vector<byte_arr_t>& ks2, rid_t v2) const {
+        int code = cmp_key(ks1, ks2);
+        return code == 0 ? v1 - v2 : code;
+    }
+
+    using pred_t = Orange::pred_t;
+    using preds_t = Orange::preds_t;
 
     struct node_t {
-        BTree &tree;
+        const BTree &tree;
 
         byte_t data[PAGE_SIZE];
         bid_t id;
 
-        node_t(BTree &tree, bid_t id) : tree(tree), id(id) { memset(data, 0, sizeof(data)); }
-        ~node_t() { tree.f_tree->seek_pos(id * PAGE_SIZE)->write_bytes(data, PAGE_SIZE); }
+        node_t(const BTree &tree, bid_t id) : tree(tree), id(id) { memset(data, 0, sizeof(data)); }
+        ~node_t() { tree.f_tree->write_bytes(id * PAGE_SIZE, data, PAGE_SIZE); }
 
         int& key_num() { return *(int*)data; }
         const int& key_num() const { return *(int*)data; }
@@ -79,22 +90,22 @@ private:
         auto id = pool.new_id();
         return std::make_unique<node_t>(*this, id);
     }
-    node_ptr_t read_node(bid_t id) {
+    node_ptr_t read_node(bid_t id) const {
         auto node = std::make_unique<node_t>(*this, id);
-        f_tree->seek_pos(id * PAGE_SIZE)->read_bytes(node->data, PAGE_SIZE);
+        f_tree->read_bytes(id * PAGE_SIZE, node->data, PAGE_SIZE);
         return node;
     }
 
     node_ptr_t root;
     void read_root() {
-        std::ifstream is(prefix + ".root");
+        std::ifstream ifs(path + "root");
         bid_t id;
-        is >> id;
+        ifs >> id;
         root = read_node(id);
     }
     void write_root() {
-        std::ofstream os(prefix + ".root");
-        os << root->id;
+        std::ofstream ofs(path + "root");
+        ofs << root->id << std::endl;
         root.release();
     }
 
@@ -103,8 +114,8 @@ private:
                 / (2 * (sizeof(bid_t) + key_size + sizeof(rid_t)));
     }
 
-    // 使用**二分查找**找到最大的 i 使得 (k, v) > (key(j), val(j)) (i > j)
-    int upper_bound(node_ptr_t &x, const byte_arr_t& k, rid_t v);
+    // 使用**二分查找**找到最小的 i 使得 (ks, v) > (key(j), val(j)) (i > j)，或者非严格地，最小的 i 满足 (ks, v) < (key(i), val(i))
+    int upper_bound(const node_ptr_t &x, const std::vector<byte_arr_t>& ks, rid_t v) const;
 
     // y 是 x 的 i 号儿子
     void split(node_ptr_t& x, node_ptr_t& y, int i) {
@@ -162,40 +173,53 @@ private:
         return std::make_pair(byte_arr_t(key, key + key_size), x->val(x->key_num() - 1));
     }
 
-    void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const byte_arr_t& k, rid_t v);
-    void remove_nonleast(node_ptr_t& x, const byte_arr_t& k, rid_t v);
-    void query_internal(node_ptr_t &x, Orange::parser::op op, const Orange::parser::data_value& value, std::vector<rid_t>& ret, rid_t lim);
+    void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const std::vector<byte_arr_t>& ks, rid_t v);
+    void remove_nonleast(node_ptr_t& x, const std::vector<byte_arr_t>& ks, rid_t v);
+    void query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, std::vector<rid_t>& result, rid_t lim) const;
+    bool query_exists(const node_ptr_t& x, const std::vector<byte_arr_t>& ks) const;
+    void query_eq(const node_ptr_t& x, const std::vector<byte_arr_t>& ks, std::vector<rid_t>& result, rid_t lim) const;
     void check_order(node_ptr_t& x);
 public:
-    BTree(Index *index, size_t key_size, const String& prefix) : index(index), prefix(prefix),
-        key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_ensure(t >= 2, "fanout too few"); }
+    BTree(Index &index, int key_size, const String& path) : index(index), path(path),
+        key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_check(t >= 2, "btree fanout is too small"); }
     ~BTree() {
         write_root();
         f_tree->close();
     }
 
-    void init(File* f_data);
+    void init() {
+        f_tree = File::create_open(tree_name());
+        pool.init();
+        root = new_node();
+    }
     void load() {
         f_tree = File::open(tree_name());
         read_root();
         pool.load();
     }
 
-    void insert(const_bytes_t k_raw, rid_t v, const byte_arr_t& k);
+    void insert(const_bytes_t k_raw, rid_t v);
     void remove(const_bytes_t k_raw, rid_t v);
-
-    auto query(Orange::parser::op op, const Orange::parser::data_value& value, rid_t lim) {
-        using op_t = Orange::parser::op;
+    bool contains(const std::vector<byte_arr_t>& ks) const {
+        return query_exists(root, ks);
+    }
+    // 返回所有值等于 ks 的记录
+    std::vector<rid_t> get_on_key(const std::vector<byte_arr_t>& ks, rid_t lim) const {
         std::vector<rid_t> ret;
-        if (op == op_t::Neq) {
-            query_internal(root, op_t::Lt, value, ret, lim);
-            query_internal(root, op_t::Gt, value, ret, lim);
-        } else {
-            query_internal(root, op, value, ret, lim);
-        }
-        orange_assert(ret.size() <= lim, "query limit exeeded");
+        query_eq(root, ks, ret, lim);
         return ret;
     }
-
-    // friend Index;
+    // preds_list[i] 表示第索引中 i 列的约束
+    std::vector<rid_t> query(const std::vector<preds_t>& preds_list, rid_t lim) const {
+        // 确保第一列在 where 中
+        orange_assert(!preds_list.front().empty(), "using index without constrainting the first line is stupid");
+        for (auto &preds: preds_list) {
+            for (auto &pred: preds) {
+                orange_assert(pred.first != ast::op::Neq, "neq in btree is not supported");
+            }
+        }
+        std::vector<rid_t> ret;
+        query(root, preds_list, ret, lim);
+        return ret;
+    }
 };

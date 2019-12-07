@@ -1704,7 +1704,7 @@ namespace Catch {
     };
 #endif
 
-    // TBD: Should we use `strnlen` to orange_ensure that we don't go out of the buffer,
+    // TBD: Should we use `strnlen` to orange_check that we don't go out of the buffer,
     //      while keeping string semantics?
     template<int SZ>
     struct StringMaker<char[SZ]> {

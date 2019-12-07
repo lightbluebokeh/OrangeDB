@@ -701,7 +701,7 @@ private:
             stateSet_[index >> 5] |= (1u << (index & 31));
             *l.template PushUnsafe<SizeType>() = index;
         }
-        return s.out == kRegexInvalidState; // by using PushUnsafe() above, we can orange_ensure s is not validated due to reallocation.
+        return s.out == kRegexInvalidState; // by using PushUnsafe() above, we can orange_check s is not validated due to reallocation.
     }
 
     bool MatchRange(SizeType rangeIndex, unsigned codepoint) const {
