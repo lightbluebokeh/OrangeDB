@@ -6,9 +6,16 @@ module.exports = {
   extends: ["plugin:vue/essential", "@vue/prettier", "@vue/typescript"],
   rules: {
     "no-console": process.env.NODE_ENV === "production" ? "error" : "off",
-    "no-debugger": process.env.NODE_ENV === "production" ? "error" : "off"
+    "no-debugger": process.env.NODE_ENV === "production" ? "error" : "off",
+    "prettier/prettier": ["warn", {
+      "singleQuote": true,
+      "quoteProps": "consistent", // 无效
+      "trailingComma": "all",
+      "arrowParens": "always",
+      "endOfLine": "auto",
+    }],
   },
   parserOptions: {
     parser: "@typescript-eslint/parser"
-  }
+  },
 };

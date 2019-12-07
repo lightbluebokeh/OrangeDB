@@ -1,0 +1,20 @@
+/* theme color */
+$--color-primary: teal;
+
+/* icon font path, required */
+$--font-path: "~element-ui/lib/theme-chalk/fonts";
+
+@import "~element-ui/packages/theme-chalk/src/index";
+
+// 文本框衬线字体
+textarea {
+  font-family: "Consolas", monospace, sans-serif;
+}
+
+// 标题太粗了
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 400;
+}
