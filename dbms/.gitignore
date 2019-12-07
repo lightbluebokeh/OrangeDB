@@ -32,8 +32,10 @@
 *.app
 
 .vs
-CMakeSettings.json
 .vscode
+.idea
+CMakeSettings.json
+cmake-build-*/
 build/
 lib/
 bin/
