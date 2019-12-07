@@ -8,6 +8,11 @@
 
 class Index;
 
+namespace Orange {
+    using pred_t = std::pair<ast::op, ast::data_value>;
+    using preds_t = std::vector<pred_t>;
+}
+
 class BTree {
 private:
     Index &index;
@@ -28,8 +33,8 @@ private:
         return code == 0 ? v1 - v2 : code;
     }
 
-    using pred_t = std::pair<ast::op, ast::data_value>;
-    using preds_t = std::vector<pred_t>;
+    using pred_t = Orange::pred_t;
+    using preds_t = Orange::preds_t;
 
     struct node_t {
         const BTree &tree;
@@ -170,7 +175,6 @@ private:
 
     void insert_nonfull(node_ptr_t &x, const_bytes_t k_raw, const std::vector<byte_arr_t>& ks, rid_t v);
     void remove_nonleast(node_ptr_t& x, const std::vector<byte_arr_t>& ks, rid_t v);
-    // 内部查询，los 和 his 表示第一列的上下界
     void query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, std::vector<rid_t>& result, rid_t lim) const;
     bool query_exists(const node_ptr_t& x, const std::vector<byte_arr_t>& ks) const;
     void query_eq(const node_ptr_t& x, const std::vector<byte_arr_t>& ks, std::vector<rid_t>& result, rid_t lim) const;
@@ -205,6 +209,17 @@ public:
         query_eq(root, ks, ret, lim);
         return ret;
     }
-
-    std::vector<rid_t> query(const std::vector<preds_t>& preds_list, rid_t lim) const;
+    // preds_list[i] 表示第索引中 i 列的约束
+    std::vector<rid_t> query(const std::vector<preds_t>& preds_list, rid_t lim) const {
+        // 确保第一列在 where 中
+        orange_assert(!preds_list.front().empty(), "using index without constrainting the first line is stupid");
+        for (auto &preds: preds_list) {
+            for (auto &pred: preds) {
+                orange_assert(pred.first != ast::op::Neq, "neq in btree is not supported");
+            }
+        }
+        std::vector<rid_t> ret;
+        query(root, preds_list, ret, lim);
+        return ret;
+    }
 };

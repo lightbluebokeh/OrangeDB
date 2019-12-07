@@ -1,7 +1,5 @@
 #pragma once
 
-#include <unordered_set>
-
 #include "defs.h"
 #include "orange/table/table_base.h"
 

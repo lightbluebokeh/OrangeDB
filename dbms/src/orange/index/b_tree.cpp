@@ -1,5 +1,5 @@
-#include <orange/index/b_tree.h>
-#include <orange/index/index.h>
+#include "orange/index/b_tree.h"
+#include "orange/index/index.h"
 
 using op_t = Orange::parser::op;
 
@@ -154,7 +154,6 @@ void BTree::remove_nonleast(node_ptr_t& x, const std::vector<byte_arr_t>& ks, ri
         }
     }
     x->check_order();
-    d--;
 }
 
 int BTree::cmp_key(const std::vector<byte_arr_t>& ks1, const std::vector<byte_arr_t>& ks2) const {
@@ -180,14 +179,6 @@ int BTree::upper_bound(const node_ptr_t& x, const std::vector<byte_arr_t>& ks, r
             l = m + 1;
     }
     return i;
-}
-
-std::vector<rid_t> BTree::query(const std::vector<preds_t>& preds_list, rid_t lim) const {
-    // 确保第一列在 where 中
-    orange_assert(!preds_list.front().empty(), "using index without constrainting the first line is stupid");
-    std::vector<rid_t> ret;
-    query(root, preds_list, ret, lim);
-    return ret;
 }
 
 bool BTree::query_exists(const node_ptr_t& x, const std::vector<byte_arr_t>& ks) const {
@@ -225,9 +216,10 @@ void BTree::query_eq(const node_ptr_t& x, const std::vector<byte_arr_t>& ks, std
 }
 
 void BTree::query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, std::vector<rid_t>& result, rid_t lim) const {
+    using op_t = ast::op;
     auto check_lo = [&] (int i) {
         for (auto &[op, value]: preds_list.front()) {
-            if (ast::is_low(op) && !Orange::cmp(index.restore(x->key(i), 0), index.cols.front().get_datatype_kind(), op, value)) {
+            if (ast::is_low(op) && !Orange::cmp(index.restore(x->key(i), 0), index.cols.front().get_datatype_kind(), op == op_t::Eq ? op_t::Ge : op, value)) {
                 return 0;
             }
         }
@@ -235,7 +227,7 @@ void BTree::query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, s
     };
     auto check_hi = [&] (int i) {
         for (auto &[op, value]: preds_list.front()) {
-            if (ast::is_high(op) && !Orange::cmp(index.restore(x->key(i), 0), index.cols.front().get_datatype_kind(), op, value)) {
+            if (ast::is_high(op) && !Orange::cmp(index.restore(x->key(i), 0), index.cols.front().get_datatype_kind(), op == op_t::Eq ? op_t::Le : op, value)) {
                 return 0;
             }
         }
@@ -259,7 +251,7 @@ void BTree::query(const node_ptr_t& x, const std::vector<preds_t>& preds_list, s
         query(y, preds_list, result, lim);
     }
     while (result.size() < lim && i < x->key_num() && check_hi(i)) {
-        if (check_others(i)) result.push_back(i);
+        if (check_others(i)) result.push_back(x->val(i));
         if (!x->leaf() && result.size() < lim) {
             y = read_node(x->ch(i + 1));
             query(y, preds_list, result, lim);

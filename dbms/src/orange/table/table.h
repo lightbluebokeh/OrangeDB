@@ -141,10 +141,10 @@ private:
 
     String root() { return get_root(name); }
     String info_name() { return root() + "info"; }
-    String pool_name() { return root() + "rid.pl"; }
+    String pool_name() { return root() + "rid"; }
     String data_root() { return root() + "data/"; }
     String col_prefix(const String& col_name) { return data_root() + col_name; }
-    String data_name(const String& col_name) { return col_prefix(col_name) + ".data"; };
+    String data_name(const String& col_name) { return col_prefix(col_name); };
     String index_root() { return root() + "index/"; }
 
 
@@ -172,7 +172,7 @@ private:
             f_key_defs[f_key_def.name] = f_key_def;
         }
         for (auto &col: cols) {
-            col_data.push_back(new ColumnDataHelper(File::open(col.get_name()), col, data_root()));
+            col_data.push_back(new ColumnDataHelper(File::open(data_name(col.get_name())), col, data_root()));
         }
         int index_num;
         ifs >> index_num;
@@ -199,6 +199,9 @@ private:
         if (table == nullptr) return;
         tables[table->id] = nullptr;
         delete table;
+    }
+    static void check_exists(const String& tbl_name) {
+        orange_check(fs::exists(get_root(tbl_name)), "table `" + tbl_name + "` does not exists");
     }
 
     static void check_db() { orange_check(Orange::using_db(), "use some database first"); }
@@ -235,8 +238,15 @@ private:
     std::vector<rid_t> all() const override { return rid_pool.all(); }
 
     // 尝试用单列索引
-    std::pair<bool, std::vector<rid_t>> filt_index(const std::vector<rid_t>& rids, const ast::op& op, const ast::data_value& value) const {
+    // 懒了，慢就慢吧
+    std::pair<bool, std::vector<rid_t>> filt_index(const std::vector<rid_t>& , const ast::op& , const ast::data_value& ) const {
         return {0, {}};
+        // constexpr int threshold = 1000;
+        // if (value.is_null()) return {1, {}};
+        // // 太少了直接暴力就好
+        // if (rids.size() <= threshold) return {0, {}};
+        // auto index = get_index
+        // return {0, {}};
     }
     std::vector<rid_t> filt(const std::vector<rid_t>& rids, const ast::single_where& where) const override {
         if (where.is_null_check()) {    // is [not] null 直接暴力，反正对半
@@ -277,9 +287,32 @@ private:
 
     // 尝试使用直接使用索引求解 where
     std::pair<bool, std::vector<rid_t>> where_index(const ast::where_clause &where, rid_t lim = MAX_RID) const {
-        return {0, {}};
+        if (where.empty()) return {1, all()};
+        std::vector<int> col_ids;
+        std::vector<std::pair<int, Orange::pred_t>> all_preds;
+        for (auto &single_where: where) {
+            if (single_where.is_null_check()) return {0, {}};
+            auto &op = single_where.op();
+            auto &expr = op.expression;
+            if (expr.is_column() || op.operator_ == ast::op::Neq) return {0, {}};
+            auto &value = expr.value();
+            if (value.is_null()) return {1, {}};
+            int col_id = get_col_id(op.col_name);
+            col_ids.push_back(col_id);
+            // all_preds.push_back({op.operator_, value});
+            all_preds.push_back(std::make_pair(col_id, Orange::pred_t{op.operator_, value}));
+        }
+        auto index = get_index(col_ids);
+        if (!index) return {0, {}};
+        std::vector<Orange::preds_t> preds_list;
+        preds_list.resize(index->get_cols().size());
+        for (auto &[col_id, pred]: all_preds) {
+            preds_list[index->get_col_rank(col_id)].push_back(pred);
+        }
+        return {1, index->query(preds_list, lim)};
     }
 
+    // 单个表的 where
     std::vector<rid_t> where(const ast::where_clause &where, rid_t lim = MAX_RID) const override {
         if (check_op_null(where)) return {};
         auto [ok, ret] = where_index(where, lim);
@@ -418,19 +451,55 @@ private:
         }
         return ret;
     }
-    Index* get_index(const String& name) {
-        if (indexes.count(name)) {
-            auto ret = indexes[name];
-            return ret != get_p_key() && ret != get_f_key(name) ? ret : nullptr;
+    // 通过索引名称获取索引
+    Index* get_index(const String& idx_name) {
+        if (indexes.count(idx_name)) {
+            auto ret = indexes[idx_name];
+            return ret != get_p_key() && ret != get_f_key(idx_name) ? ret : nullptr;
         }
         return nullptr;
     }
-    const Index* get_index(const String& name) const {
-        if (indexes.count(name)) {
-            auto ret = indexes.at(name);
-            return ret != get_p_key() && ret != get_f_key(name) ? ret : nullptr;
+    const Index* get_index(const String& idx_name) const {
+        if (indexes.count(idx_name)) {
+            auto ret = indexes.at(idx_name);
+            return ret != get_p_key() && ret != get_f_key(idx_name) ? ret : nullptr;
         }
         return nullptr;
+    }
+    // 获取首列相同，其余列包含的索引；尽可能选小的
+    Index* get_index(const std::vector<int>& col_ids) {
+        Index* ret = nullptr;
+        for (auto &[idx_name, index]: indexes) {
+            if (index->get_cols().front().get_id() == col_ids.front()) {
+                // 暴力判包含关系
+                bool test = 1;
+                for (unsigned i = 1; i < col_ids.size(); i++) {
+                    if (index->get_col_rank(col_ids[i]) == -1) {
+                        test = 0;
+                        break;
+                    }
+                }
+                if (test && (!ret || ret->get_key_size() > index->get_key_size())) ret = index;
+            }
+        }
+        return ret;
+    }
+    const Index* get_index(const std::vector<int>& col_ids) const {
+        const Index* ret = nullptr;
+        for (auto &[idx_name, index]: indexes) {
+            if (index->get_cols().front().get_id() == col_ids.front()) {
+                // 暴力判包含关系
+                bool test = 1;
+                for (unsigned i = 1; i < col_ids.size(); i++) {
+                    if (index->get_col_rank(col_ids[i]) == -1) {
+                        test = 0;
+                        break;
+                    }
+                }
+                if (test && (!ret || ret->get_key_size() > index->get_key_size())) ret = index;
+            }
+        }
+        return ret;
     }
 public:
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
@@ -451,7 +520,7 @@ public:
 
     static SavedTable* get(const String& name) {
         check_db();
-        orange_check(fs::exists(get_root(name)), "table `" + name + "` does not exists");
+        check_exists(name);
         auto table = get_opened(name);
         if (!table) {
             table = new_table(name);
@@ -484,6 +553,7 @@ public:
     }
 
     static bool drop(const String& name) {
+        check_exists(name);
         // 如果已经打开了需要先关闭
         auto table = get_opened(name);
         if (table) table->close();
@@ -525,9 +595,9 @@ public:
         std::vector<rid_t> new_ids;
         // 接下来已经可以确保可以插入
         for (auto &values: values_list) {
+            auto new_id = rid_pool.new_id();
+            new_ids.push_back(new_id);
             for (unsigned i = 0; i < cols.size(); i++) {
-                auto new_id = rid_pool.new_id();
-                new_ids.push_back(new_id);
                 col_data[i]->insert(new_id, values[i]);
             }
         }

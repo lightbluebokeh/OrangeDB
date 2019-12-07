@@ -1,6 +1,8 @@
 #include "orange/orange.h"
 #include "orange/table/table.h"
 
+#include <unordered_set>
+
 static std::unordered_set<String> names;
 static String cur = "";
 

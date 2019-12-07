@@ -43,7 +43,7 @@ public:
     // 不存在就错误了
     static File* open(const String& name) {
         int id, fd;
-        orange_assert(FileManage::open_file(name.c_str(), id, fd) == 0, "file open failed");
+        orange_assert(FileManage::open_file(name.c_str(), id, fd) == 0, "file open failed: " + name);
         if (files[id] == nullptr) files[id] = new File(id, name);
         return files[id];
     }

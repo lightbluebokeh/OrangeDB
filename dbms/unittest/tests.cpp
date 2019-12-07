@@ -74,6 +74,7 @@ TEST_CASE("test fs io", "[fs]") {
 }
 
 TEST_CASE("table", "[fs]") {
+    fs::remove_all("db");
     Orange::setup();
 
     Orange::create("test");
@@ -134,7 +135,7 @@ TEST_CASE("btree", "[index]") {
     table->create_index("test", {"test"}, 0, 0);
 
     std::mt19937 rng(time(0));
-    constexpr int lim = 10000;
+    constexpr int lim = 50000;
     static int a[lim];
     std::multiset<int> all, rm;
     for (int i = 0; i < lim; i++) {
@@ -147,6 +148,7 @@ TEST_CASE("btree", "[index]") {
         table->insert({"test"}, {{ast::data_value::from_int(a[i])}});
         std::cerr << '\r' << i + 1 << '/' << lim;
     }
+    std::cerr << endl;
 
     std::cerr << "testing remove" << std::endl;
     int i = 0;
@@ -176,6 +178,7 @@ static String rand_str(int l, int r) {
 }
 
 TEST_CASE("varchar", "[index]") {
+    fs::remove_all("db");
     Orange::setup();
 
     Orange::create("test");
@@ -184,14 +187,12 @@ TEST_CASE("varchar", "[index]") {
     auto table = SavedTable::get("varchar");
     int lim = 1000;
     for (int i = 0; i < lim; i++) {
-        // table->insert({{"test", Orange::to_bytes(rand_str(3, 2333))}});
-
+        table->insert({"test"}, {{ast::data_value::from_string(rand_str(3, 2333))}});
         std::cerr << '\r' << i << '/' << lim;
     }
     cerr << endl;
     table->create_index("test", {"test"}, 0, 0);
     for (int i = 0; i < lim; i++) {
-        // table->insert({{"test", Orange::to_bytes(rand_str(3, 2333))}});
         table->insert({"test"}, {{ast::data_value::from_string(rand_str(3, 2333))}});
         std::cerr << '\r' << i << '/' << lim;
     }

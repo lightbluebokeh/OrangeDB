@@ -69,19 +69,19 @@ public:
     std::pair<bool, String> check(const ast::data_value& value) const {
         using ast::data_value_kind;
         switch (value.kind()) {
-            case data_value_kind::Null: return std::make_pair(nullable, "null value given to not null column"); // 懒了，都返回消息
+            case data_value_kind::Null: return std::make_pair(nullable, "column constraint failed: null value given to not null column"); // 懒了，都返回消息
             case data_value_kind::Int: return std::make_pair(type.kind == orange_t::Int || type.kind == orange_t::Numeric, "incompatible type");
-            case data_value_kind::Float: return std::make_pair(type.kind == orange_t::Numeric, "incompatible type");
+            case data_value_kind::Float: return std::make_pair(type.kind == orange_t::Numeric, "column constraint failed: incompatible type");
             case data_value_kind::String:
                 switch (type.kind) {
                     case orange_t::Varchar:
                     case orange_t::Char: {
                         auto &str = value.to_string();
-                        if (int(str.length()) > type.int_value()) return std::make_pair(0, type.kind == orange_t::Char ? "char" : "varchar" + String("limit exceeded"));
-                        return std::make_pair(0, "incompatible type");
+                        if (int(str.length()) > type.int_value()) return std::make_pair(0, String("column constraint failed: ") + (type.kind == orange_t::Char ? "char" : "varchar") + String("limit exceeded"));
+                        return std::make_pair(1, "");
                     } break;
                     case orange_t::Date: ORANGE_UNIMPL
-                    default: std::make_pair(0, "incompatible type");
+                    default: std::make_pair(0, "column constraint failed: incompatible type");
                 }
             break;
         }
@@ -103,7 +103,7 @@ public:
 
 inline std::ostream& operator << (std::ostream& os, const Column& col) {
     // print(os, ' ', col.name, col.id, col.type, col.nullable, col.dft, col.checks, col.key_size);
-    os << col.name << ' ' << col.id << ' ' << col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks << ' ' << col.key_size << std::endl;
+    os << col.name << ' ' << col.id << ' ' << col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks << ' ' << col.key_size;
     return os;
 }
 inline std::istream& operator >> (std::istream& is, Column& col) {
