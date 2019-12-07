@@ -8,11 +8,11 @@ module.exports = {
     "no-console": process.env.NODE_ENV === "production" ? "error" : "off",
     "no-debugger": process.env.NODE_ENV === "production" ? "error" : "off",
     "prettier/prettier": ["warn", {
+      "printWidth": 100,
       "singleQuote": true,
-      "quoteProps": "consistent", // 无效
+      "quoteProps": "consistent",
       "trailingComma": "all",
       "arrowParens": "always",
-      "endOfLine": "auto",
     }],
   },
   parserOptions: {
