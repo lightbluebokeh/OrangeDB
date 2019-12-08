@@ -1,11 +1,11 @@
-#include <map>
 #include <algorithm>
+#include <map>
+#include <sstream>
 
-#include "syntax.h"
 #include "orange/orange.h"
 #include "orange/table/table.h"
+#include "syntax.h"
 
-static auto& cout = std::cout;
 using std::endl;
 
 namespace Orange {
@@ -13,11 +13,8 @@ namespace Orange {
     [[noreturn]] void unexpected() { throw std::runtime_error("unexpected error"); }
 
     using namespace parser;
-    // 1. switch记得break
-    // 2. 用auto&或const auto&而不是auto
-    // 3. 包含variant的结构体带有封装了get来转换类型的方法，类型不对应会抛异常，比如本应是sys_stmt
-    //    结果用.db()转成db_stmt
-    // 4. 文法没有嵌套语句，现在也不确定要支持哪些嵌套语句，就先不搞
+
+    static std::stringstream ss;
 
     inline std::string type_string(const data_type& type) {
         // 只有这个的kind不是方法，因为它是在产生式直接赋值的，不是variant（弄成variant=多写4个结构体+5个函数，累了
@@ -26,7 +23,9 @@ namespace Orange {
                 return type.has_value() ? "INT, " + std::to_string(type.int_value()) : "INT";
             case orange_t::Varchar: return "VARCHAR, " + std::to_string(type.int_value());
             case orange_t::Date: return "DATE";
-            case orange_t::Numeric: return "NUMERIC, " + std::to_string(type.int_value() / 40) + std::to_string(type.int_value() % 40);
+            case orange_t::Numeric:
+                return "NUMERIC, " + std::to_string(type.int_value() / 40) +
+                       std::to_string(type.int_value() % 40);
             default: unexpected();
         }
     }
@@ -56,8 +55,7 @@ namespace Orange {
     inline void sys(sys_stmt& stmt) {
         switch (stmt.kind()) {
             case SysStmtKind::ShowDb: {
-                cout << "  show databases:\n";
-                cout << all() << endl;
+                ss << all() << endl;
             } break;
             default: unexpected();
         }
@@ -66,25 +64,24 @@ namespace Orange {
     inline void db(db_stmt& stmt) {
         switch (stmt.kind()) {
             case DbStmtKind::Show: {
-                cout << "  show tables:" << std::endl;
-                cout << all_tables() << endl;
+                ss << all_tables() << endl;
             } break;  // clang-format喜欢把break放在这里，为什么呢
             case DbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
-                cout << "  create database:" << std::endl;
-                cout << "    name: " << create_stmt.name << std::endl;
+                ss << "  create database:" << std::endl;
+                ss << "    name: " << create_stmt.name << std::endl;
                 create(create_stmt.name);
             } break;
             case DbStmtKind::Drop: {
                 auto& drop_stmt = stmt.drop();
-                cout << "  drop database:" << std::endl;
-                cout << "    name: " << drop_stmt.name << std::endl;
+                ss << "  drop database:" << std::endl;
+                ss << "    name: " << drop_stmt.name << std::endl;
                 drop(drop_stmt.name);
             } break;
             case DbStmtKind::Use: {
                 auto& use_stmt = stmt.use();
-                cout << "  use database:" << std::endl;
-                cout << "    name: " << use_stmt.name << std::endl;
+                ss << "  use database:" << std::endl;
+                ss << "    name: " << use_stmt.name << std::endl;
                 use(use_stmt.name);
             } break;
             default: unexpected();
@@ -95,9 +92,9 @@ namespace Orange {
         switch (stmt.kind()) {
             case TbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
-                cout << "  create table:" << std::endl;
-                cout << "    table: " << create_stmt.name << std::endl;
-                cout << "    fields:" << std::endl;
+                ss << "  create table:" << std::endl;
+                ss << "    table: " << create_stmt.name << std::endl;
+                ss << "    fields:" << std::endl;
                 std::vector<Column> cols;
                 std::vector<String> p_key;
                 std::vector<f_key_t> f_keys;
@@ -105,36 +102,42 @@ namespace Orange {
                     switch (field.kind()) {
                         case FieldKind::Def: {
                             auto& def = field.def();
-                            cout << "      def:" << std::endl;
-                            cout << "        col name: " << def.col_name << std::endl;
-                            cout << "        type: " << type_string(def.type) << std::endl;
-                            cout << "        is not null: " << def.is_not_null << std::endl;
-                            cout << "        default value: "
-                                      << (def.default_value.has_value()
-                                              ? value_string(def.default_value.get())
-                                              : "<none>")
-                                      << std::endl;
-                            cols.push_back(Column(def.col_name, cols.size(), def.type, !def.is_not_null, def.default_value.get_value_or(ast::data_value::from_null())));
-                            // cols.push_back(Column(def.col_name, def.type.kind, def.type.int_value_or(0), !def.is_not_null, def.default_value.get_value_or(data_value::null_value())));
+                            ss << "      def:" << std::endl;
+                            ss << "        col name: " << def.col_name << std::endl;
+                            ss << "        type: " << type_string(def.type) << std::endl;
+                            ss << "        is not null: " << def.is_not_null << std::endl;
+                            ss << "        default value: "
+                               << (def.default_value.has_value()
+                                       ? value_string(def.default_value.get())
+                                       : "<none>")
+                               << std::endl;
+                            cols.push_back(Column(
+                                def.col_name, cols.size(), def.type, !def.is_not_null,
+                                def.default_value.get_value_or(ast::data_value::from_null())));
+                            // cols.push_back(Column(def.col_name, def.type.kind,
+                            // def.type.int_value_or(0), !def.is_not_null,
+                            // def.default_value.get_value_or(data_value::null_value())));
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
-                            cout << "      primary key:" << std::endl;
-                            cout << "        col list: ";
+                            ss << "      primary key:" << std::endl;
+                            ss << "        col list: ";
                             for (auto& col : primary_key.col_list) {
-                                cout << col << ' ';
+                                ss << col << ' ';
                             }
-                            cout << std::endl;
+                            ss << std::endl;
                             p_key = primary_key.col_list;
                         } break;
                         case FieldKind::ForeignKey: {
                             auto& foreign_key = field.foreign_key();
-                            cout << "      foreign key:" << std::endl;
-                            cout << "        col name: " << foreign_key.col;
-                            cout << "        ref table: " << foreign_key.ref_table_name;
-                            cout << "        ref col name: " << foreign_key.col << endl;
-                            
-                            f_keys.push_back(f_key_t(foreign_key.col, foreign_key.ref_table_name, {foreign_key.col}, {foreign_key.ref_col_name}));
+                            ss << "      foreign key:" << std::endl;
+                            ss << "        col name: " << foreign_key.col;
+                            ss << "        ref table: " << foreign_key.ref_table_name;
+                            ss << "        ref col name: " << foreign_key.col << endl;
+
+                            f_keys.push_back(f_key_t(foreign_key.col, foreign_key.ref_table_name,
+                                                     {foreign_key.col},
+                                                     {foreign_key.ref_col_name}));
                         } break;
                         default: unexpected();
                     }
@@ -143,155 +146,154 @@ namespace Orange {
             } break;
             case TbStmtKind::Drop: {
                 auto& drop = stmt.drop();
-                cout << "  drop table:" << std::endl;
-                cout << "    table name: " << drop.name << endl;
+                ss << "  drop table:" << std::endl;
+                ss << "    table name: " << drop.name << endl;
                 SavedTable::drop(drop.name);
             } break;
             case TbStmtKind::Desc: {
                 auto& desc = stmt.desc();
-                cout << "  describe table:" << std::endl;
-                cout << "    table name: " << desc.name << endl;
-                cout << SavedTable::get(desc.name)->description() << endl;
+                ss << "  describe table:" << std::endl;
+                ss << "    table name: " << desc.name << endl;
+                ss << SavedTable::get(desc.name)->description() << endl;
             } break;
             case TbStmtKind::InsertInto: {
                 auto& insert = stmt.insert_into();
-                cout << "  insert into table:" << std::endl;
-                cout << "    table name: " << insert.name << std::endl;
+                ss << "  insert into table:" << std::endl;
+                ss << "    table name: " << insert.name << std::endl;
                 auto table = SavedTable::get(insert.name);
                 if (insert.columns.has_value()) {
                     auto& columns = insert.columns.get();
                     auto& values_list = insert.values_list;
                     [&] {
-                        for (auto &values: values_list) {
+                        for (auto& values : values_list) {
                             if (columns.size() != values.size()) {
-                                cout << "    * columns and values not match *" << std::endl;
-                                cout << "    columns:";
+                                ss << "    * columns and values not match *" << std::endl;
+                                ss << "    columns:";
                                 for (auto& col : insert.columns.get()) {
-                                    cout << ' ' << col;
+                                    ss << ' ' << col;
                                 }
-                                cout << std::endl;
-                                cout << "    values:";
-                                for (auto &values: insert.values_list) {
+                                ss << std::endl;
+                                ss << "    values:";
+                                for (auto& values : insert.values_list) {
                                     for (auto& val : values) {
-                                        cout << ' ' << value_string(val) << endl;
+                                        ss << ' ' << value_string(val) << endl;
                                     }
                                 }
                                 return;
                             }
                         }
                         for (size_t i = 0; i < columns.size(); i++) {
-                            cout << "      " << columns[i] << " ";
+                            ss << "      " << columns[i] << " ";
                         }
-                        cout << endl;
+                        ss << endl;
                         for (auto &values: values_list) {
                             std::vector<std::pair<String, byte_arr_t>> data;
                             for (unsigned i = 0; i < values.size(); i++) {
                                 auto &val = values[i];
-                                cout << "       " << value_string(val);
+                                ss << "       " << value_string(val);
                                 // data.push_back(std::make_pair(columns[i], Orange::to_bytes(val)));
                             }
                             // table->insert(data);
-                            cout << endl;
+                            ss << endl;
                         }
                         table->insert(insert.columns.get(), insert.values_list);
                     }();
                 } else {
                     for (auto &values: insert.values_list) {
-                        cout << "    values:";
+                        ss << "    values:";
                         for (auto& val : values) {
-                            cout << ' ' << value_string(val);
+                            ss << ' ' << value_string(val);
                         }
-                        cout << endl;
+                        ss << endl;
                     }
                     table->insert(insert.values_list);
                 }
             } break;
             case TbStmtKind::DeleteFrom: {
                 auto& delete_from = stmt.delete_from();
-                cout << "  delete from table:" << std::endl;
-                cout << "    table name: " << delete_from.name << std::endl;
-                cout << "    where:" << std::endl;
+                ss << "  delete from table:" << std::endl;
+                ss << "    table name: " << delete_from.name << std::endl;
+                ss << "    where:" << std::endl;
                 for (auto& cond : delete_from.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
-                        cout << "      " << null.col_name << " IS "
-                                  << (null.is_not_null ? "NOT " : "") << "NULL";
-                        
+                        ss << "      " << null.col_name << " IS "
+                           << (null.is_not_null ? "NOT " : "") << "NULL";
+
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
-                        cout << "      " << o.col_name << " " << o.operator_ << " "
-                                  << expression_string(o.expression);
+                        ss << "      " << o.col_name << " " << o.operator_ << " "
+                           << expression_string(o.expression);
                     }
-                    cout << std::endl;
+                    ss << std::endl;
                 }
                 SavedTable::get(delete_from.name)->delete_where(delete_from.where);
             } break;
             case TbStmtKind::Update: {
                 auto& update = stmt.update();
-                cout << "  update:" << std::endl;
-                cout << "    table name: " << update.name << std::endl;
-                cout << "    set:" << std::endl;
+                ss << "  update:" << std::endl;
+                ss << "    table name: " << update.name << std::endl;
+                ss << "    set:" << std::endl;
                 for (auto& set : update.set) {
-                    cout << "      " << set.col_name << ": " << value_string(set.val)
-                              << std::endl;
+                    ss << "      " << set.col_name << ": " << value_string(set.val) << std::endl;
                 }
-                cout << "    where:" << std::endl;
+                ss << "    where:" << std::endl;
                 for (auto& cond : update.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
-                        cout << "      " << null.col_name << " IS "
-                                  << (null.is_not_null ? "NOT " : "") << "NULL";
+                        ss << "      " << null.col_name << " IS "
+                           << (null.is_not_null ? "NOT " : "") << "NULL";
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
-                        cout << "      " << o.col_name << " " << o.operator_ << " "
-                                  << expression_string(o.expression);
+                        ss << "      " << o.col_name << " " << o.operator_ << " "
+                           << expression_string(o.expression);
                     }
-                    cout << std::endl;
+                    ss << std::endl;
                 }
             } break;
             case TbStmtKind::Select: {
                 auto& select = stmt.select();
-                cout << "  select from table:" << std::endl;
+                ss << "  select from table:" << std::endl;
                 std::map<String, SavedTable*> tables;
-                cout << "    table list: ";
+                ss << "    table list: ";
                 for (auto& table : select.tables) {
-                    cout << table << ' ';
+                    ss << table << ' ';
                     tables[table] = SavedTable::get(table);
                 }
-                cout << std::endl;
-                cout << "    selected cols: ";
+                ss << std::endl;
+                ss << "    selected cols: ";
                 if (select.select.empty()) {  // empty时认为是select *
-                    cout << "*" << std::endl;
+                    ss << "*" << std::endl;
                 } else {
                     for (auto& col : select.select) {
                         if (col.table_name.has_value()) {
                             auto name = col.table_name.get();
                             orange_check(tables.count(name), "unknown table name: `" + name + "`");
-                            cout << name << ".";
+                            ss << name << ".";
                         }
-                        cout << col.col_name << " ";
+                        ss << col.col_name << " ";
                     }
-                    cout << std::endl;
+                    ss << std::endl;
                 }
                 if (select.where.has_value()) {
-                    cout << "    where:" << std::endl;
+                    ss << "    where:" << std::endl;
                     for (auto& cond : select.where.get()) {
                         if (cond.is_null_check()) {  // 只有两个的variant我只弄了is_xxx，要搞enum可以手动加
                             const auto& null = cond.null_check();
-                            cout << "      " << null.col_name << " IS "
-                                      << (null.is_not_null ? "NOT " : "") << "NULL";
+                            ss << "      " << null.col_name << " IS "
+                               << (null.is_not_null ? "NOT " : "") << "NULL";
                         } else if (cond.is_op()) {
                             const auto& o = cond.op();
-                            cout << "      " << o.col_name << " " << o.operator_ << " "
-                                      << expression_string(o.expression);
+                            ss << "      " << o.col_name << " " << o.operator_ << " "
+                               << expression_string(o.expression);
                         }
-                        cout << std::endl;
+                        ss << std::endl;
                     }
                 }
                 if (select.select.empty()) {
                     if (tables.size() == 1) {
                         auto table = tables.begin()->second;
-                        cout << table->select_star(select.where.get_value_or({})) << endl;
+                        ss << table->select_star(select.where.get_value_or({})) << endl;
                     } else {
                         ORANGE_UNIMPL
                     }
@@ -302,7 +304,7 @@ namespace Orange {
                         for (auto col: select.select) {
                             names.push_back(col.col_name);
                         }
-                        cout << table->select(names, select.where.get_value_or({})) << endl;
+                        ss << table->select(names, select.where.get_value_or({})) << endl;
                     } else {
                         ORANGE_UNIMPL
                     }
@@ -334,7 +336,7 @@ namespace Orange {
 
     inline void alter(alter_stmt& stmt) {
         // 乱写
-        cout << stmt.add_field().table_name << endl;
+        ss << stmt.add_field().table_name << endl;
     }
 
     // 遍历语法树
@@ -350,8 +352,9 @@ namespace Orange {
                     default: unexpected();
                 }
             } catch (OrangeException& e) {
-                cout << RED << "FAILED: " << RESET <<  e.what() << endl;
+                ss << RED << "FAILED: " << RESET << e.what() << endl;
             }
         }
+        std::cout << ss.str();
     }
 }  // namespace Orange
