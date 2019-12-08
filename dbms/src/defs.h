@@ -56,16 +56,17 @@ private:
     String msg;
 
 public:
-    OrangeException(const String& msg) : msg(msg) {}
-    const char* what() const noexcept override { return msg.c_str(); }
+    explicit OrangeException(const String& msg) : msg(msg) {}
+    [[nodiscard]] const char* what() const noexcept override { return msg.c_str(); }
 };
 
 class OrangeError : public std::exception {
 private:
     String msg;
+
 public:
-    OrangeError(const String& msg) : msg(msg) {}
-    const char* what() const noexcept override { return msg.c_str(); }
+    explicit OrangeError(const String& msg) : msg(msg) {}
+    [[nodiscard]] const char* what() const noexcept override { return msg.c_str(); }
 };
 
 inline void orange_check(bool cond, const String& msg) {
@@ -224,9 +225,9 @@ std::enable_if_t<is_std_vector_v<T>, std::ostream&> operator << (std::ostream& o
 template<typename T>
 std::enable_if_t<is_std_vector_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
     size_t size;
-    is >> size;
+    is >> size;  // 这个size没有初始化
     t.resize(size);
-    for (auto &x: t) is >> x;
+    for (auto& x : t) is >> x;
     return is;
 }
 

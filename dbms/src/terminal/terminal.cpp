@@ -27,8 +27,6 @@ ErrorCode manage(const std::string& sql) {
 
     try {
         sql_ast ast = parser.parse(sql);
-        std::cout << GREEN << "parsed " << ast.stmt_list.size() << " statement"
-                  << (ast.stmt_list.size() <= 1 ? "" : "s") << RESET << std::endl;
         Orange::program(ast);
     }
     catch (const parse_error& e) {
@@ -45,6 +43,7 @@ int main(int argc, char* argv[]) {
     }
     Orange::setup();
     std::cout << CYAN << "Welcome to OrangeDB terminal!" << RESET << std::endl;
+
     int ret_code = 0;
     std::string sql;
     while (true) {
@@ -54,7 +53,7 @@ int main(int argc, char* argv[]) {
         ret_code = (int)manage(sql);
     }
 
-    Orange::unuse();
+    Orange::unuse();  // 可能需要捕获ctrl+c信号
 
     std::cout << "Goodbye." << std::endl;
     return ret_code;

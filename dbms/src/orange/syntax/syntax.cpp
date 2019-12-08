@@ -111,9 +111,9 @@ namespace Orange {
                                        ? value_string(def.default_value.get())
                                        : "<none>")
                                << std::endl;
-                            cols.push_back(Column(
+                            cols.emplace_back(
                                 def.col_name, cols.size(), def.type, !def.is_not_null,
-                                def.default_value.get_value_or(ast::data_value::from_null())));
+                                def.default_value.get_value_or(ast::data_value::from_null()));
                             // cols.push_back(Column(def.col_name, def.type.kind,
                             // def.type.int_value_or(0), !def.is_not_null,
                             // def.default_value.get_value_or(data_value::null_value())));
@@ -174,7 +174,7 @@ namespace Orange {
                                 }
                                 ss << std::endl;
                                 ss << "    values:";
-                                for (auto& values : insert.values_list) {
+                                for (auto& values : insert.values_list) {  // 这个循环好像重复了？
                                     for (auto& val : values) {
                                         ss << ' ' << value_string(val) << endl;
                                     }
@@ -182,16 +182,16 @@ namespace Orange {
                                 return;
                             }
                         }
-                        for (size_t i = 0; i < columns.size(); i++) {
-                            ss << "      " << columns[i] << " ";
+                        for (const auto& column : columns) {
+                            ss << "      " << column << " ";
                         }
                         ss << endl;
-                        for (auto &values: values_list) {
+                        for (auto& values : values_list) {
                             std::vector<std::pair<String, byte_arr_t>> data;
-                            for (unsigned i = 0; i < values.size(); i++) {
-                                auto &val = values[i];
+                            for (auto& val : values) {
                                 ss << "       " << value_string(val);
-                                // data.push_back(std::make_pair(columns[i], Orange::to_bytes(val)));
+                                // data.push_back(std::make_pair(columns[i],
+                                // Orange::to_bytes(val)));
                             }
                             // table->insert(data);
                             ss << endl;
@@ -199,7 +199,7 @@ namespace Orange {
                         table->insert(insert.columns.get(), insert.values_list);
                     }();
                 } else {
-                    for (auto &values: insert.values_list) {
+                    for (auto& values : insert.values_list) {
                         ss << "    values:";
                         for (auto& val : values) {
                             ss << ' ' << value_string(val);
@@ -301,7 +301,7 @@ namespace Orange {
                     if (tables.size() == 1) {
                         auto table = tables.begin()->second;
                         std::vector<String> names;
-                        for (auto col: select.select) {
+                        for (const auto& col : select.select) {
                             names.push_back(col.col_name);
                         }
                         ss << table->select(names, select.where.get_value_or({})) << endl;
@@ -331,7 +331,6 @@ namespace Orange {
                 ORANGE_UNIMPL
             } break;
         }
-
     }
 
     inline void alter(alter_stmt& stmt) {
@@ -351,7 +350,8 @@ namespace Orange {
                     case StmtKind::Alter: alter(stmt.alter()); break;
                     default: unexpected();
                 }
-            } catch (OrangeException& e) {
+            }
+            catch (OrangeException& e) {
                 ss << RED << "FAILED: " << RESET << e.what() << endl;
             }
         }

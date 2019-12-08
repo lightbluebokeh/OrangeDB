@@ -254,7 +254,7 @@ void FileAllocator::print() const {
 }
 
 // 裁剪
-int shrink() {
+int FileAllocator::shrink() const {
     // always return 0 and do nothing
     return 0;
 }
