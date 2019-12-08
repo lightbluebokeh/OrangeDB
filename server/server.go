@@ -6,14 +6,18 @@ import (
 )
 
 func main() {
+	router := gin.Default()
 	const dist = "../frontend/dist"
-	var router = gin.Default()
 
 	// static files
 	router.Static("/", dist)
 
 	// api
-	var apiRouter = router.Group("/api")
+	apiRouter := router.Group("/api")
+	lib := LoadLib() // 加载动态链接库
+	defer lib.Release()
+
+	exec := lib.MustFindProc("exec")
 	apiRouter.POST("/exec", func(c *gin.Context) {
 		type ExecForm struct {
 			SQL string `json:"sql" binding:"required"`
@@ -21,11 +25,17 @@ func main() {
 		var form ExecForm
 		c.BindJSON(&form)
 
-		var result = Exec(form.SQL)
+		result := Exec(exec, form.SQL)
 		c.JSON(http.StatusOK, result)
 	})
 
-	// handle history mode
+	info := lib.MustFindProc("info")
+	apiRouter.POST("/info", func(c *gin.Context) {
+		result := Info(info)
+		c.JSON(http.StatusOK, result)
+	})
+
+	// handle vue history mode
 	router.NoRoute(func(c *gin.Context) {
 		c.File(dist + "/index.html")
 	})

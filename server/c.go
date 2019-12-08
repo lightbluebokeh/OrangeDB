@@ -5,8 +5,13 @@ package main
 import "C"
 
 import (
+	"syscall"
 	"unsafe"
 )
+
+func toCString(s string) uintptr {
+	return uintptr(unsafe.Pointer(syscall.StringBytePtr(s)))
+}
 
 func toGoString(cPtr uintptr) string {
 	return C.GoString((*C.char)(unsafe.Pointer(cPtr)))
