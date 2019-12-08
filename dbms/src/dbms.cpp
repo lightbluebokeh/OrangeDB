@@ -10,6 +10,7 @@ using namespace Orange;
 
 static char buffer[65536];
 
+// 只能单线程
 API const char* exec(const char* sql) {
     parser::sql_parser sql_parser;
 

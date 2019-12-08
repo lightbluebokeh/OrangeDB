@@ -38,7 +38,8 @@ size_t FileAllocator::allocate(size_t size, void* data) const {
     _Tag tag[1];
 
     // 对齐
-    if (int m = size & (ALIGN_SIZE - 1)) {
+    const size_t data_size = size;
+    if (size_t m = size & (ALIGN_SIZE - 1U)) {
         size ^= m;
         size += ALIGN_SIZE;
     }
@@ -54,14 +55,14 @@ size_t FileAllocator::allocate(size_t size, void* data) const {
         }
         fseek(fd, tag[0].size + sizeof(tag), SEEK_CUR);
     }
-    long offset = ftell(fd) + sizeof(tag);
+    unsigned long long offset = ftell(fd) + sizeof(tag);
     fseek(fd, 0, SEEK_CUR);
 
     tag[0].af = 1;
     if ((size_t)tag[0].size < size + 2 * sizeof(tag) + ALIGN_SIZE) {
         fwrite(tag, 1, sizeof(tag), fd);
         if (data) {
-            int count = fwrite(data, 1, size, fd);
+            int count = fwrite(data, 1, data_size, fd);
             fseek(fd, tag[0].size - count, SEEK_CUR);
         } else {
             fseek(fd, tag[0].size, SEEK_CUR);
@@ -72,7 +73,7 @@ size_t FileAllocator::allocate(size_t size, void* data) const {
         tag[0].size = size;
         fwrite(tag, 1, sizeof(tag), fd);
         if (data) {
-            int count = fwrite(data, 1, size, fd);
+            int count = fwrite(data, 1, data_size, fd);
             fseek(fd, size - count, SEEK_CUR);
         } else {
             fseek(fd, size, SEEK_CUR);
