@@ -1,5 +1,6 @@
 #include "orange/orange.h"
 #include "orange/table/table.h"
+#include "exceptions.h"
 
 #include <unordered_set>
 
@@ -11,7 +12,7 @@ namespace Orange {
 
     bool create(const String& name) {
         if (using_db()) fs::current_path("..");
-        orange_check(!exists(name), "database `" + name + "` already exists");
+        orange_check(!exists(name), Exception::database_exists(name));
         names.insert(name);
         auto ret = fs::create_directory(name);
         if (using_db()) fs::current_path(cur);
@@ -19,7 +20,7 @@ namespace Orange {
     }
 
     bool drop(const String& name) {
-        orange_check(exists(name), "database `" + name + "` does not exist");
+        orange_check(exists(name), Exception::database_not_exist(name));
         names.erase(name);
         if (name == cur) {
             unuse();
@@ -34,7 +35,7 @@ namespace Orange {
     bool use(const String& name) {
         if (name == cur) return 1;
         unuse();
-        orange_check(exists(name), "database `" + name + "` does not exist");
+        orange_check(exists(name), Exception::database_not_exist(name));
         fs::current_path(name);
         cur = name;
         return 1;
@@ -57,7 +58,7 @@ namespace Orange {
 
     TmpTable all_tables() {
         // if (!using_db()) return {};
-        orange_check(using_db(), "using some database first");
+        orange_check(using_db(), Exception::no_database_used());
         std::vector<String> data;
         for (auto it : fs::directory_iterator(".")) {
             if (it.is_directory()) data.push_back(it.path().filename().string());

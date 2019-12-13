@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <functional>
+#include <unordered_set>
 
 #include "defs.h"
 #include "fs/file/file.h"
@@ -15,6 +16,7 @@
 #include "utils/id_pool.h"
 #include "orange/parser/sql_ast.h"
 #include "fs/allocator/allocator.h"
+#include "exceptions.h"
 
 // 数据库中的表
 class SavedTable : public Table {
@@ -204,10 +206,11 @@ private:
         orange_check(fs::exists(get_root(tbl_name)), "table `" + tbl_name + "` does not exists");
     }
 
-    static void check_db() { orange_check(Orange::using_db(), "use some database first"); }
+    static void check_db() { orange_check(Orange::using_db(), Exception::no_database_used()); }
     
     void on_create(const std::vector<Column>& cols, const std::vector<String>& p_key_cols, const std::vector<f_key_t>& f_key_defs) {
         this->cols = cols;
+        check_unique();
         this->rec_cnt = 0;
         File::create(info_name());
         write_info();
@@ -501,6 +504,15 @@ private:
         }
         return ret;
     }
+
+    // 检查各列是不是不同
+    void check_unique() const {
+        std::unordered_set<String> set;
+        for (auto &col: cols) {
+            orange_check(!set.count(col.get_name()), "duplicate column name is not allowed");
+            set.insert(col.get_name());
+        }
+    }
 public:
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_key_defs) {
@@ -530,7 +542,7 @@ public:
         return table;
     }
 
-    TmpTable description() {
+    TmpTable description() const {
         TmpTable ret;
         ret.cols.push_back(Column("Name"));
         ret.cols.push_back(Column("null"));

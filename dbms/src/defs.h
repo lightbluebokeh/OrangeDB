@@ -225,7 +225,7 @@ std::enable_if_t<is_std_vector_v<T>, std::ostream&> operator << (std::ostream& o
 template<typename T>
 std::enable_if_t<is_std_vector_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
     size_t size;
-    is >> size;  // 这个size没有初始化
+    is >> size;
     t.resize(size);
     for (auto& x : t) is >> x;
     return is;
@@ -244,13 +244,3 @@ std::enable_if_t<is_pair_v<T>, std::istream&> operator >> (std::istream& is, T& 
 
 // primary key 默认名称，保留
 constexpr char PRIMARY_KEY_NAME[] = "primary_key";
-
-// // 用 div 字符分隔
-// template<typename T, typename... Ts>
-// void print(std::ostream& os, char div, const T& t, const Ts&... ts) {
-//     os << t;
-//     if constexpr (sizeof...(Ts) != 0) {
-//         os << div; 
-//         print(os, ts, div);
-//     }
-// }
