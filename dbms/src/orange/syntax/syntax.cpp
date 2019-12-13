@@ -369,6 +369,8 @@ namespace Orange {
     // 遍历语法树    
     std::vector<result_t> program(sql_ast& ast) {
         std::vector<result_t> ret;
+        std::stringstream tmp;  // new 一对象
+        ss_debug.swap(tmp);
         for (auto& stmt : ast.stmt_list) {
             ss_debug.clear();
             ret.push_back(Orange::stmt(stmt));

@@ -25,14 +25,13 @@ private:
     struct ColumnDataHelper {
         File *f_data;
         int size;   // 每个值的大小
-        // orange_t kind;
         ast::data_type type;
         FileAllocator *alloc;
 
         // root 为数据文件夹目录
         ColumnDataHelper(File* f_data, const Column& col, const String &root) : f_data(f_data), size(col.get_key_size()), type(col.get_datatype()) {
             if (type.kind == orange_t::Varchar) {
-                alloc = new FileAllocator(root + col.get_name());
+                alloc = new FileAllocator(root + col.get_name() + ".v");
             } else {
                 alloc = nullptr;
             }
@@ -88,6 +87,9 @@ private:
             f_data->write_bytes(rid * size, raw.data(), size);
         }
         void remove(rid_t rid) {
+            if (type.kind == orange_t::Varchar) {
+                alloc->free(f_data->read<size_t>(rid * size + 1));  // Varchar size=9，后 8 位为 offset
+            }
             f_data->write<byte_t>(rid * size, DATA_INVALID);
         }
 
@@ -254,7 +256,7 @@ private:
     std::vector<rid_t> filt(const std::vector<rid_t>& rids, const ast::single_where& where) const override {
         if (where.is_null_check()) {    // is [not] null 直接暴力，反正对半
             auto &null = where.null_check();
-            return col_data[get_col_id(null.col_name)]->filt_null(rids, !null.is_not_null);
+            return col_data[get_col_id(null.col_name)]->filt_null(rids, null.is_not_null);
         } else {
             auto &where_op = where.op();
             auto &expr = where_op.expression;

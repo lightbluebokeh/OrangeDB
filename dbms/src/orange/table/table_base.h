@@ -221,11 +221,11 @@ inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
             case orange_t::Varchar:
             case orange_t::Char: return Orange::bytes_to_string(bytes);
             case orange_t::Int: return std::to_string(Orange::bytes_to_int(bytes));
-            case orange_t::Numeric:
+            case orange_t::Numeric: return std::to_string(Orange::bytes_to_numeric(bytes));
             case orange_t::Date: ORANGE_UNIMPL
-            default: ORANGE_UNIMPL
+            default: return "<error>???";
         }
-        return "fuck warning";
+        return "**** warning";
     };
 
     for (auto &rec: table.recs) {

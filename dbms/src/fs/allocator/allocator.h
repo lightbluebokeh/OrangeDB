@@ -62,7 +62,10 @@ public:
         memcpy(bytes, arr.data(), arr.size());
         auto offset = allocate(size, bytes);
         delete[] bytes;
-        return Orange::to_bytes(offset);
+        byte_arr_t ret(1 + sizeof(size_t));
+        ret.front() = arr.front();
+        *(size_t*)(ret.data() + 1) = offset;
+        return ret;
     }
 
     auto read_byte_arr(size_t offset) const {

@@ -46,12 +46,10 @@ static ErrorCode manage(const std::string& sql) {
 
 
 static auto from_file(const String& name) {
-    cout << name << endl;
-    assert(fs::exists(name));
+    assert(fs::exists(name) && !fs::is_directory(name));
     std::ifstream ifs(name);
     ifs.seekg(0, std::ios::end);
     auto size = ifs.tellg();
-    cout << "size: " << size << endl;
     String program(size, ' ');
     ifs.seekg(0).read(program.data(), size);
     return manage(program);
@@ -79,9 +77,13 @@ int main(int argc, char* argv[]) {
             printf("file name: ");
             String name;
             std::getline(std::cin, name);
+            if (name.empty()) continue;
             if (name.front() != '/') name = cwd + name;
             if (!fs::exists(name)) {
-                printf("\nno such file\n");
+                printf("\nno such file or directory\n");
+                continue;
+            } else if (fs::is_directory(name)) {
+                printf("\ndirectory is not allowed\n");
                 continue;
             }
             ret_code = (int)from_file(name);

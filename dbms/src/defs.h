@@ -193,8 +193,13 @@ namespace Orange {
     }
 
     inline int bytes_to_int(const byte_arr_t& bytes) {
-        orange_assert(bytes.size() == 5 && bytes.front() != DATA_NULL, "bad byte array for int");
+        orange_assert(bytes.size() == 1 + sizeof(int_t) && bytes.front() != DATA_NULL, "bad byte array for int");
         return *(int*)(bytes.data() + 1);
+    }
+
+    inline numeric_t bytes_to_numeric(const byte_arr_t& bytes) {
+        orange_assert(bytes.size() == 1 + sizeof(numeric_t) && bytes.front() != DATA_NULL, "bad byte array for int");
+        return *(numeric_t*)(bytes.data() + 1);
     }
 
     inline String bytes_to_string(const byte_arr_t& bytes) {
