@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defs.h"
+#include "exceptions.h"
 #include "orange/parser/sql_ast.h"
 
 static String to_string(orange_t type) {
@@ -11,7 +12,7 @@ static String to_string(orange_t type) {
         case orange_t::Varchar: return "string";
         case orange_t::Date: return "date";
     }
-    return "fuck warning";
+    return "**** warning";
 }
 
 namespace Orange {
@@ -27,23 +28,19 @@ namespace Orange {
             case op_t::Lt: return t1 < t2;
             case op_t::Neq: return t1 != t2;
         }
-        return (bool)"fuck warning";
+        return (bool)"**** warning";
     }
 
     // bytes 与 value 按照 op 比较
     inline bool cmp(const byte_arr_t& v1_bytes, orange_t t1, Orange::parser::op op, const Orange::parser::data_value& v2) {
-        using op_t = Orange::parser::op;
         orange_assert(!v2.is_null(), "value should not be null here");
-        if (v1_bytes.front() == DATA_NULL) {
-            return op == op_t::Le || op == op_t::Lt || op == op_t::Neq;
-        }
+        if (v1_bytes.front() == DATA_NULL) return 0;
         switch (t1) {
             case orange_t::Int: {
                 int v1 = bytes_to_int(v1_bytes);
                 if (v2.is_int()) return cmp(v1, op, v2.to_int());
-                else if (v2.is_float()) {
-                    ORANGE_UNIMPL
-                } else {
+                else if (v2.is_float()) return cmp(v1, op, v2.to_float());
+                else {
                     ORANGE_UNREACHABLE
                 }
             } break;
@@ -56,42 +53,32 @@ namespace Orange {
                 }
             } break;
             case orange_t::Numeric: {
-                ORANGE_UNIMPL
+                auto v1 = bytes_to_numeric(v1_bytes);
+                if (v2.is_int()) return cmp(v1, op, v2.to_int());
+                else if (v2.is_float()) return cmp(v1, op, v2.to_float());
+                else {
+                    ORANGE_UNREACHABLE
+                }
             } break;
             case orange_t::Date: {
                 ORANGE_UNIMPL
             } break;
         }
-        return (bool)"fuck warning";
+        return (bool)"**** warning";
     }
 
     // bytes 和 bytes 按照 op 比较，保证可以比较
-    inline bool cmp(const byte_arr_t& v1_bytes, orange_t t1, Orange::parser::op op, const byte_arr_t& v2_bytes, orange_t t2) {
-        using op_t = Orange::parser::op;
-        if (v1_bytes.front() == DATA_NULL) {
-            switch (op) {
-                case op_t::Le:return true;
-                case op_t::Eq:
-                case op_t::Ge: return v2_bytes.front() == DATA_NULL;
-                case op_t::Lt:
-                case op_t::Neq: return v2_bytes.front() != DATA_NULL;
-                case op_t::Gt: return false;
-            }
-        }
-        // 此时 v1　一定不是 null
-        if (v2_bytes.front() == DATA_NULL) return op == op_t::Neq || op == op_t::Gt || op == op_t::Ge;
+    inline bool cmp(const byte_arr_t& v1_bytes, orange_t t1, ast::op op, const byte_arr_t& v2_bytes, orange_t t2) {
+        // 有 null 都 false 
+        if (v1_bytes.front() == DATA_NULL || v2_bytes.front() == DATA_NULL) return 0;
         switch (t1) {
             case orange_t::Int: {
                 int v1 = Orange::bytes_to_int(v1_bytes);
                 switch (t2) {
-                    case orange_t::Int: {
-                        return cmp(v1, op, bytes_to_int(v2_bytes));
-                    } break;
-                    case orange_t::Numeric:
-                        ORANGE_UNIMPL
+                    case orange_t::Int: return cmp(v1, op, bytes_to_int(v2_bytes));
                     break;
-                    default: 
-                        throw OrangeError("types `" + to_string(t1) + "` and `" + to_string(t2) + "` are not comparable");
+                    case orange_t::Numeric: return cmp(v1, op, bytes_to_numeric(v2_bytes));
+                    default: throw OrangeError(Exception::uncomparable(to_string(t1), to_string(t2)));
                 }
             } break;
             case orange_t::Varchar:
@@ -99,23 +86,30 @@ namespace Orange {
                 String v1 = Orange::bytes_to_string(v1_bytes);
                 switch (t2) {
                     case orange_t::Char:
-                    case orange_t::Varchar: {
-                        int code = v1.compare(Orange::bytes_to_string(v2_bytes));
-                        switch (op) {
-                            case op_t::Eq: return code == 0;
-                            case op_t::Ge: return code >= 0;
-                            case op_t::Gt: return code > 0;
-                            case op_t::Le: return code <= 0;
-                            case op_t::Lt: return code < 0;
-                            case op_t::Neq: return code != 0;
-                        }
-                    } break;
-                    default:
-                        throw OrangeError("types `" + to_string(t1) + "` and `" + to_string(t2) + "` are not comparable");
+                    case orange_t::Varchar: return cmp(v1, op, bytes_to_string(v2_bytes));
+                    break;
+                    // {
+                    //     int code = v1.compare(Orange::bytes_to_string(v2_bytes));
+                    //     switch (op) {
+                    //         case op_t::Eq: return code == 0;
+                    //         case op_t::Ge: return code >= 0;
+                    //         case op_t::Gt: return code > 0;
+                    //         case op_t::Le: return code <= 0;
+                    //         case op_t::Lt: return code < 0;
+                    //         case op_t::Neq: return code != 0;
+                    //     }
+                    // } break;
+                    default: throw OrangeError(Exception::uncomparable(to_string(t1), to_string(t2)));
                 }
             } break;
-            case orange_t::Numeric:
-                ORANGE_UNIMPL
+            case orange_t::Numeric: {
+                auto v1 = bytes_to_numeric(v1_bytes);
+                switch (t2) {
+                    case orange_t::Int: return cmp(v1, op, bytes_to_int(v2_bytes));
+                    case orange_t::Numeric: return cmp(v1, op, bytes_to_numeric(v2_bytes));
+                    default: throw OrangeError(Exception::uncomparable(to_string(t1), to_string(t2)));
+                }
+            } break;
             case orange_t::Date:
                 ORANGE_UNIMPL
         }
