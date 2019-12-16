@@ -584,6 +584,8 @@ public:
         }
     }
 
+    bool has_index(const String& idx_name) const { return indexes.count(idx_name); }
+
     // 返回插入成功条数
     rid_t insert(const std::vector<String>& col_names, ast::data_values_list values_list) {
         for (auto &values: values_list) {
@@ -664,14 +666,14 @@ public:
         if (!primary && idx_name == PRIMARY_KEY_NAME) throw OrangeException("this name is reserved for primary key");
         orange_assert(!idx_name.empty(), "index name cannot be empty");
         if (primary) orange_assert(unique, "primary key must be unique");
-        orange_check(!indexes.count(idx_name), "already has index named `" + idx_name + "`");
+        orange_check(!has_index(idx_name), Exception::index_exists(idx_name, this->name));
         auto idx_cols = get_cols(col_names);
         auto index = Index::create(*this, idx_name, idx_cols, primary, unique);
         indexes[idx_name] = index;
     }
     void drop_index(const String& idx_name) {
         auto index = get_index(idx_name);
-        orange_check(index != nullptr, "index `" + name + "` does not exists");
+        orange_check(index != nullptr, Exception::index_not_exist(idx_name, this->name));
         Index::drop(index);
         indexes.erase(idx_name);
     }

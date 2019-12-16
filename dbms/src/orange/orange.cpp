@@ -52,18 +52,15 @@ namespace Orange {
 
     bool using_db() { return cur != ""; }
 
-    TmpTable all() {
-        return TmpTable::from_strings("databases", {names.begin(), names.end()});
-    }
+    std::vector<String> all() { return { names.begin(), names.end() }; }
 
-    TmpTable all_tables() {
-        // if (!using_db()) return {};
+    std::vector<String> all_tables() {
         orange_check(using_db(), Exception::no_database_used());
         std::vector<String> data;
         for (auto it : fs::directory_iterator(".")) {
             if (it.is_directory()) data.push_back(it.path().filename().string());
         }
-        return TmpTable::from_strings("tables", data);
+        return data;
     }
 
     String get_cur() { return cur; }

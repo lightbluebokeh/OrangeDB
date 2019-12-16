@@ -59,7 +59,7 @@ namespace Orange {
     inline result_t sys(sys_stmt& stmt) {
         switch (stmt.kind()) {
             case SysStmtKind::ShowDb: {
-                return {all()};
+                return { TmpTable::from_strings("tables", all()) };
             } break;
             default: unexpected();
         }
@@ -68,7 +68,7 @@ namespace Orange {
     inline result_t db(db_stmt& stmt) {
         switch (stmt.kind()) {
             case DbStmtKind::Show: {
-                return result_t(all_tables());
+                return result_t(TmpTable::from_strings("tables", all_tables()));
             } break;  // clang-format喜欢把break放在这里，为什么呢
             case DbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
@@ -329,17 +329,30 @@ namespace Orange {
     inline result_t idx(idx_stmt& stmt) {
         switch (stmt.kind()) {
             case IdxStmtKind::AlterAdd: {
-                ORANGE_UNIMPL
+                auto alter_add = stmt.alter_add();
+                SavedTable::get(alter_add.tb_name)->create_index(alter_add.idx_name, alter_add.col_list, 0, 0);
             } break;
             case IdxStmtKind::AlterDrop: {
-                ORANGE_UNIMPL
+                auto alter_drop = stmt.alter_drop();
+                SavedTable::get(alter_drop.tb_name)->drop_index(alter_drop.idx_name);
             } break;
             case IdxStmtKind::Create: {
-                // auto &create = stmt.create();
-                // SavedTable::get(create.tb_name)->create_index(create.col_list, create.idx_name);
+                auto &create = stmt.create();
+                ss_debug << "  create index" << endl;
+                ss_debug << "   table: " + create.tb_name << endl;
+                ss_debug << "   index name: " + create.idx_name << endl;
+                ss_debug << "   columns: " << endl;
+                for (auto col: create.col_list) ss_debug << "       " << col << endl;
+                SavedTable::get(create.tb_name)->create_index(create.idx_name, create.col_list, 0, 0);  // unique 不知道
             } break;
             case IdxStmtKind::Drop: {
-                ORANGE_UNIMPL
+                auto &drop = stmt.drop();
+                ss_debug << "  drop index" << endl;
+                ss_debug << "   index name: " << drop.name << endl;
+                for (auto tbl_name: all_tables()) {
+                    auto table = SavedTable::get(tbl_name);
+                    if (table->has_index(drop.name)) table->drop_index(drop.name);
+                }
             } break;
         }
         return {{}};

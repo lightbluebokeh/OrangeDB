@@ -15,6 +15,6 @@ namespace Orange {
     bool unuse();
     String get_cur();
     // 所有数据库
-    TmpTable all();  
-    TmpTable all_tables();
+    std::vector<String> all();  
+    std::vector<String> all_tables();
 };  // namespace Orange

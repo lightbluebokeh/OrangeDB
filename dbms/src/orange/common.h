@@ -88,17 +88,6 @@ namespace Orange {
                     case orange_t::Char:
                     case orange_t::Varchar: return cmp(v1, op, bytes_to_string(v2_bytes));
                     break;
-                    // {
-                    //     int code = v1.compare(Orange::bytes_to_string(v2_bytes));
-                    //     switch (op) {
-                    //         case op_t::Eq: return code == 0;
-                    //         case op_t::Ge: return code >= 0;
-                    //         case op_t::Gt: return code > 0;
-                    //         case op_t::Le: return code <= 0;
-                    //         case op_t::Lt: return code < 0;
-                    //         case op_t::Neq: return code != 0;
-                    //     }
-                    // } break;
                     default: throw OrangeError(Exception::uncomparable(to_string(t1), to_string(t2)));
                 }
             } break;
