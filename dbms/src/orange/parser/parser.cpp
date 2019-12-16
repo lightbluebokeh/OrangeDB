@@ -238,10 +238,10 @@ namespace Orange {
                 drop_idx %= kw(+"DROP") >> kw(+"INDEX") > identifier;
                 // <alter_add_idx> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'INDEX' [idx_name]
                 //                    '(' column_list ')'
-                alter_add_idx %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"ADD") >>
+                alter_add_idx %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >>
                                  kw(+"INDEX") > identifier > '(' > columns > ')';
                 // <alter_drop_idx> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'INDEX' [idx_name]
-                alter_drop_idx %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"DROP") >>
+                alter_drop_idx %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"DROP") >>
                                   kw(+"INDEX") > identifier;
 
                 // <alter_stmt> := <add_field> | <drop_col> | <change_col> | <rename_tb> |
@@ -252,36 +252,36 @@ namespace Orange {
                          add_constraint_primary_key | drop_primary_key |
                          add_constraint_foreign_key | drop_foreign_key;
                 // <add_field> := 'ALTER' 'TABLE' [tb_name] 'ADD' <field>
-                add_field %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"ADD") >> field;
+                add_field %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >> field;
                 // <drop_col> := 'ALTER' 'TABLE' [tb_name] 'DROP' [col_name]
-                drop_col %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"DROP") >> identifier;
+                drop_col %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"DROP") >> identifier;
                 // <change_col> := 'ALTER' 'TABLE' [tb_name] 'CHANGE' [col_name] <field>
                 change_col %=
-                    kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"CHANGE") > identifier > field;
+                    kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"CHANGE") > identifier > field;
                 // <rename_tb> := 'ALTER' 'TABLE' [tb_name] 'RENAME' 'TO' [new_tb_name]
-                rename_tb %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"RENAME") > kw(+"TO") >
+                rename_tb %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"RENAME") > kw(+"TO") >
                              identifier;
                 // <add_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'PRIMARY' 'KEY'
                 //                      '(' <column_list> ')'
-                add_primary_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"ADD") >>
+                add_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >>
                                    kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
                 // <add_constraint_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [pk_name] 'PRIMARY' 'KEY' '(' <column_list> ')'
-                add_constraint_primary_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >>
+                add_constraint_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >>
                                               kw(+"ADD") >> kw(+"CONSTRAINT") > identifier >>
                                               kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
                 // <drop_primary_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'PRIMARY' 'KEY' [pk_name]?
-                drop_primary_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"DROP") >>
+                drop_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"DROP") >>
                                     kw(+"PRIMARY") > kw(+"KEY") > -(identifier);
                 // <add_constraint_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [fk_name] 'FOREIGN' 'KEY' '(' <column_list> ')'
                 //                                 'REFERENCES' [ref_tb_name] '(' <column_list> ')'
-                add_constraint_foreign_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >>
+                add_constraint_foreign_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >>
                                               kw(+"ADD") >> kw(+"CONSTRAINT") > identifier >>
                                               kw(+"FOREIGN") > kw(+"KEY") > '(' > columns > ')' >
                                               kw(+"REFERENCES") > identifier > '(' > columns > ')';
                 // <drop_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'FOREIGN' 'KEY' [fk_name]
-                drop_foreign_key %= kw(+"ALTER") > kw(+"TABLE") > identifier >> kw(+"DROP") >>
+                drop_foreign_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"DROP") >>
                                     kw(+"FOREIGN") > kw(+"KEY") > identifier;
 
                 // keyword
