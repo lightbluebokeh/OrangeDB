@@ -5,7 +5,6 @@
 
 namespace Orange {
     // stmt 返回值类型，为空，为一张表，或者用户操作异常的消息
-    // using result_t = boost::variant<boost::blank, TmpTable, String>;
     struct result_t {
         using value_t = boost::variant<boost::blank, TmpTable, String>;
         value_t value;

@@ -222,7 +222,7 @@ private:
             col_data.push_back(new ColumnDataHelper(File::create_open(data_name(col.get_name())), col, data_root()));
         }
         fs::create_directory(index_root());
-        if (p_key_cols.size()) add_p_key("", p_key_cols);
+        if (!p_key_cols.empty()) add_p_key("", p_key_cols);
         for (auto &f_key_def: f_key_defs) add_f_key(f_key_def);
     }
 
