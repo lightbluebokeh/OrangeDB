@@ -360,31 +360,76 @@ namespace Orange {
         switch (stmt.kind()) {
             case AlterStmtKind::AddField: {
                 const auto& add_field = stmt.add_field();
-                ss_debug << add_field.table_name << endl;
+                const std::string& table_name = add_field.table_name;
+                const single_field& new_field = add_field.new_field;
+
+                auto table = SavedTable::get(table_name);
+
             } break;
             case AlterStmtKind::DropCol: {
                 const auto& drop_col = stmt.drop_col();
+                const std::string& table_name = drop_col.table_name;
+                const std::string& col_name = drop_col.col_name;
+
+                auto table = SavedTable::get(table_name);
             } break;
             case AlterStmtKind::ChangeCol: {
                 const auto& change_col = stmt.change_col();
+                const std::string& table_name = change_col.table_name;
+                const std::string& col_name = change_col.col_name;
+                const single_field& new_field = change_col.new_field;
+
+                auto table = SavedTable::get(table_name);
             } break;
             case AlterStmtKind::RenameTb: {
                 const auto& rename_table = stmt.rename_tb();
+                const std::string& table_name = rename_table.table_name;
+                const std::string& new_tb_name = rename_table.new_tb_name;
+
+                auto table = SavedTable::get(table_name);
             } break;
             case AlterStmtKind::AddPrimaryKey: {
                 const auto& add_primary_key = stmt.add_primary_key();
+                const std::string& table_name = add_primary_key.table_name;
+                const column_list& col_list = add_primary_key.col_list;
+                for (const std::string& col : col_list) {
+                }
+
+                auto table = SavedTable::get(table_name);
             } break;
             case AlterStmtKind::AddConstraintPrimaryKey: {
                 const auto& add_constraint_primary_key = stmt.add_constraint_primary_key();
+                const std::string& table_name = add_constraint_primary_key.table_name;
+                const std::string& pk_name = add_constraint_primary_key.pk_name;
+                const column_list& col_list = add_constraint_primary_key.col_list;
+                for (const std::string& col : col_list) {
+                }
+
+                auto table = SavedTable::get(table_name);
             } break;
             case AlterStmtKind::DropPrimaryKey: {
                 const auto& drop_primary_key = stmt.drop_primary_key();
+                const std::string& table_name = drop_primary_key.table_name;
+                const boost::optional<std::string>& pk_name = drop_primary_key.pk_name;
+
+                auto table = SavedTable::get(table_name);
             } break;
             case AlterStmtKind::AddConstraintForeignKey: {
                 const auto& add_constraint_foreign_key = stmt.add_constraint_foreign_key();
+                const std::string& table_name = add_constraint_foreign_key.table_name;
+                const std::string& fk_name = add_constraint_foreign_key.fk_name;
+                const column_list& col_list = add_constraint_foreign_key.col_list;
+                const std::string& ref_tb_name = add_constraint_foreign_key.ref_tb_name;
+                const column_list& ref_col_list = add_constraint_foreign_key.ref_col_list;
+
+                auto table = SavedTable::get(table_name);
             } break;
             case AlterStmtKind::DropForeignKey: {
                 const auto& drop_foreign_key = stmt.drop_foreign_key();
+                const std::string& table_name = drop_foreign_key.table_name;
+                const std::string& fk_name = drop_foreign_key.fk_name;
+
+                auto table = SavedTable::get(table_name);
             } break;
             default: unexpected();
         }

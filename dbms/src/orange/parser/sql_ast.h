@@ -451,7 +451,7 @@ namespace Orange::parser {
                        add_constraint_foreign_key_stmt, drop_foreign_key_stmt>
             stmt;
 
-        AlterStmtKind kind() const { return (AlterStmtKind)stmt.which(); }
+        [[nodiscard]] AlterStmtKind kind() const { return (AlterStmtKind)stmt.which(); }
 
         const add_field_stmt& add_field() const { return boost::get<add_field_stmt>(stmt); }
         add_field_stmt& add_field() { return boost::get<add_field_stmt>(stmt); }

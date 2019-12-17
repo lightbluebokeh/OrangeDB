@@ -1,10 +1,11 @@
 #pragma once
 
-#include <map>
 #include <algorithm>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <unordered_set>
+#include <utility>
 
 #include "defs.h"
 #include "fs/file/file.h"
@@ -98,7 +99,7 @@ private:
             std::vector<rid_t> ret;
             for (auto i: rids) {
                 f_data->read_bytes(i * size, bytes, size);
-                if (not_null && *bytes != DATA_NULL || !not_null && *bytes == DATA_NULL) {
+                if ((not_null && *bytes != DATA_NULL) || (!not_null && *bytes == DATA_NULL)) {
                     ret.push_back(i);
                 }
             }
@@ -127,10 +128,10 @@ private:
     String name;
     IdPool<rid_t> rid_pool;
 
-    SavedTable(int id, const String& name) : id(id), name(name), rid_pool(pool_name()) {}
-    ~SavedTable() {
-        for (auto data: col_data) delete data;
-        for (auto &[name, index]: indexes) delete index;
+    SavedTable(int id, String name) : id(id), name(std::move(name)), rid_pool(pool_name()) {}
+    ~SavedTable() override {
+        for (auto data : col_data) delete data;
+        for (auto& [name, index] : indexes) delete index;
     }
 
     // info(还包括 Table::cols)
@@ -231,9 +232,9 @@ private:
 
     // 在打开的表里面找
     static SavedTable* get_opened(const String& name) {
-        for (int i = 0; i < MAX_TBL_NUM; i++) {
-            if (tables[i] && tables[i]->name == name) {
-                return tables[i];
+        for (auto& table : tables) {
+            if (table && table->name == name) {
+                return table;
             }
         }
         return nullptr;
@@ -546,13 +547,14 @@ public:
 
     TmpTable description() const {
         TmpTable ret;
-        ret.cols.push_back(Column("Name"));
-        ret.cols.push_back(Column("null"));
-        ret.cols.push_back(Column("type"));
+        ret.cols.emplace_back("Name");
+        ret.cols.emplace_back("null");
+        ret.cols.emplace_back("type");
         ret.recs.resize(cols.size());
         for (unsigned i = 0; i < cols.size(); i++) {
             ret.recs[i].push_back(Orange::to_bytes(cols[i].get_name()));
-            ret.recs[i].push_back(Orange::to_bytes(cols[i].is_nullable() ? "nullable" : "not null"));
+            ret.recs[i].push_back(
+                Orange::to_bytes(cols[i].is_nullable() ? "nullable" : "not null"));
             ret.recs[i].push_back(Orange::to_bytes(cols[i].type_string()));
         }
         return ret;
@@ -592,7 +594,7 @@ public:
             orange_check(col_names.size() == values.size(), "expected " + std::to_string(col_names.size()) + " values, while " + std::to_string(values.size()) + " given");
         }
         std::vector<int> col_ids;
-        for (auto col_name: col_names) col_ids.push_back(get_col_id(col_name));
+        for (const auto& col_name : col_names) col_ids.push_back(get_col_id(col_name));
         auto insert_vals = get_dft_vals();
         for (auto &values: values_list) {
             for (unsigned i = 0; i < col_ids.size(); i++) {
