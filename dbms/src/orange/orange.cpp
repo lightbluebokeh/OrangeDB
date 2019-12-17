@@ -5,7 +5,7 @@
 #include <unordered_set>
 
 static std::unordered_set<String> names;
-static String cur = "";
+static String cur;
 
 namespace Orange {
     bool exists(const String& name) { return names.count(name); }
@@ -50,7 +50,7 @@ namespace Orange {
         return 1;
     }
 
-    bool using_db() { return cur != ""; }
+    bool using_db() { return !cur.empty(); }
 
     std::vector<String> all() { return { names.begin(), names.end() }; }
 
@@ -68,7 +68,7 @@ namespace Orange {
     void setup() {
         if (!fs::exists("db")) fs::create_directory("db");
         fs::current_path("db");
-        for (auto entry : fs::directory_iterator(".")) {
+        for (const auto& entry : fs::directory_iterator(".")) {
             if (entry.is_directory()) {
                 names.insert(entry.path().filename().string());
             }
@@ -79,7 +79,7 @@ namespace Orange {
         unuse();
         fs::current_path("..");
         auto tmp = names;
-        for (auto db_name: tmp) drop(db_name);
+        for (const auto& db_name : tmp) drop(db_name);
         fs::remove_all("db");
     }
 }  // namespace Orange

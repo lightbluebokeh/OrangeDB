@@ -43,7 +43,6 @@ API const char* exec(const char* sql) {
     //   },
     // ]
     // 如果某一条语句失败了，就换成类似于 { "error": "插入失败" }，并且不执行失败语句之后的语句
-    // 使用 R"(.....)" 就不需要那么多转移字符了
     sprintf(buffer, R"([{"headers": ["状态"], "data": [["操作完成了，但还没写返回数据的代码"]]}])");
     return buffer;
 }

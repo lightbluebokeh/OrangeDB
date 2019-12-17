@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <vector>
 
 #include <defs.h>
@@ -20,7 +21,7 @@ private:
     int key_size;
     BTree *tree;
 
-    Index(SavedTable& table, const String& name) : table(table), name(name) {}
+    Index(SavedTable& table, String name) : table(table), name(std::move(name)) {}
 
     // 获取第 i 个字段
     byte_arr_t restore(const_bytes_t k_raw, int i) const;

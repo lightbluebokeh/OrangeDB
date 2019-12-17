@@ -57,7 +57,7 @@ namespace Orange {
         switch (stmt.kind()) {
             case SysStmtKind::ShowDb: {
                 return {TmpTable::from_strings("tables", all())};
-            } break;
+            }
             default: unexpected();
         }
     }
@@ -66,7 +66,7 @@ namespace Orange {
         switch (stmt.kind()) {
             case DbStmtKind::Show: {
                 return result_t(TmpTable::from_strings("tables", all_tables()));
-            } break;
+            }
             case DbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
                 ss_debug << "  create database:" << std::endl;
@@ -339,7 +339,7 @@ namespace Orange {
                 ss_debug << "   table: " + create.tb_name << endl;
                 ss_debug << "   index name: " + create.idx_name << endl;
                 ss_debug << "   columns: " << endl;
-                for (auto col : create.col_list) ss_debug << "       " << col << endl;
+                for (auto& col : create.col_list) ss_debug << "       " << col << endl;
                 SavedTable::get(create.tb_name)
                     ->create_index(create.idx_name, create.col_list, 0, 0);  // unique 不知道
             } break;
@@ -360,7 +360,7 @@ namespace Orange {
         switch (stmt.kind()) {
             case AlterStmtKind::AddField: {
                 const auto& add_field = stmt.add_field();
-                ss_debug << stmt.add_field().table_name << endl;
+                ss_debug << add_field.table_name << endl;
             } break;
             case AlterStmtKind::DropCol: {
                 const auto& drop_col = stmt.drop_col();
@@ -408,7 +408,8 @@ namespace Orange {
     }
 
     // 遍历语法树
-    std::vector<result_t> program(sql_ast& ast) {
+    // 不抛异常
+    std::vector<result_t> program(sql_ast& ast) noexcept {
         std::vector<result_t> ret;
         std::stringstream tmp;  // new 一对象
         ss_debug.swap(tmp);

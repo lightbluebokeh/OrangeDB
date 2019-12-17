@@ -109,9 +109,10 @@ private:
         root.release();
     }
 
-    int fanout(int key_size) {
-        return (PAGE_SIZE - sizeof(std::remove_reference_t<decltype(std::declval<node_t>().key_num())>))
-                / (2 * (sizeof(bid_t) + key_size + sizeof(rid_t)));
+    static int fanout(int key_size) {
+        return (PAGE_SIZE -
+                sizeof(std::remove_reference_t<decltype(std::declval<node_t>().key_num())>)) /
+               (2 * (sizeof(bid_t) + key_size + sizeof(rid_t)));
     }
 
     // 使用**二分查找**找到最小的 i 使得 (ks, v) > (key(j), val(j)) (i > j)，或者非严格地，最小的 i 满足 (ks, v) < (key(i), val(i))

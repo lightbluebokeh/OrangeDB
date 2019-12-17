@@ -8,7 +8,7 @@ namespace Orange {
     struct result_t {
         using value_t = boost::variant<boost::blank, TmpTable, String>;
         value_t value;
-        
+
         result_t(const value_t& value) : value(value) {}
 
         bool ok() const { return value.which() != 2; }
@@ -18,5 +18,5 @@ namespace Orange {
     };
 
     // 语义分析入口
-    std::vector<result_t> program(Orange::parser::sql_ast& ast);
+    std::vector<result_t> program(Orange::parser::sql_ast& ast) noexcept;
 }  // namespace Orange
