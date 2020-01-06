@@ -42,6 +42,12 @@ protected:
 
     virtual ~Table() {}
 
+    auto& get_col(const String& col_name) {
+        auto it = cols.begin();
+        while (it != cols.end() && it->get_name() != col_name) it++;
+        orange_check(it != cols.end(), Exception::col_not_exist(col_name, get_name()));
+        return *it;        
+    }
     const auto& get_col(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;

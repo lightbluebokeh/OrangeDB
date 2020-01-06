@@ -198,7 +198,7 @@ namespace Orange {
     }
 
     inline numeric_t bytes_to_numeric(const byte_arr_t& bytes) {
-        orange_assert(bytes.size() == 1 + sizeof(numeric_t) && bytes.front() != DATA_NULL, "bad byte array for int");
+        orange_assert(bytes.size() == 1 + sizeof(numeric_t) && bytes.front() != DATA_NULL, "bad byte array for numeric");
         return *(numeric_t*)(bytes.data() + 1);
     }
 

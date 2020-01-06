@@ -89,7 +89,7 @@ void BTree::remove_nonleast(node_ptr_t& x, const std::vector<byte_arr_t>& ks, ri
             }
         }
     } else {
-        orange_check(!x->leaf(), "trying to delete something does not exist");
+        orange_assert(!x->leaf(), "trying to delete something does not exist");
         auto y = read_node(x->ch(i));
         if (!y->least())
             remove_nonleast(y, ks, v);

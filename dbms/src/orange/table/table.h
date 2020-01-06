@@ -43,6 +43,14 @@ private:
             delete alloc;
         }
 
+        // 对于 varchar 类型，得到最长的长度
+        int max_len(const std::vector<rid_t>& rids) {
+            int ret = 0;
+            for (auto rid: rids) {
+                
+            }
+        }
+
         // 对于 vchar 返回指针，其它直接返回真实值
         auto store(const byte_arr_t& key) const {
             switch (type.kind) {
@@ -360,7 +368,7 @@ private:
             }
         }
     }
-    void check_delete(rid_t) const {
+    // void check_delete(rid_t) const {
         // always deletable
         // auto p_key = get_p_key();
         // if (p_key) {
@@ -376,7 +384,7 @@ private:
         //         }
         //     }
         // }
-    }
+    // }
     rid_t delete_record(rid_t rid) {
         if (rid_pool.contains(rid)) return 0;
         for (auto &[idx_name, index]: indexes) {
@@ -634,7 +642,8 @@ public:
     // 返回被删除的数据条数
     rid_t delete_where(const ast::where_clause& where) {
         auto rids = this->where(where);
-        for (auto rid: rids) check_delete(rid);
+        // orange db 的删除不会有约束问题
+        // for (auto rid: rids) check_delete(rid);
         rid_t ret = 0;
         for (auto rid: rids) ret += delete_record(rid);
         return ret;
@@ -736,13 +745,38 @@ public:
     }
 
     void drop_col(const String& col_name) {
-        auto col = get_col(col_name);
+        auto drop_col = get_col(col_name);
         // 如果有索引使用当前列，不允许删除
         for (auto &[idx_name, index]: indexes) {
-            for (auto c: index->get_cols()) {
-                orange_check(c.get_name() != col.get_name(), Exception::drop_index_col(col_name, idx_name, this->name));
+            for (auto col: index->get_cols()) {
+                orange_check(col.get_name() != drop_col.get_name(), Exception::drop_index_col(col_name, idx_name, this->name));
             }
         }
+        auto drop_id = drop_col.get_id();
+        delete col_data[drop_id];
+        // 暴力左移就可以了
+        for (unsigned i = drop_id; i + 1 < col_data.size(); i++) {
+            col_data[i] = col_data[i + 1];
+            cols[i] = Column(cols[i + 1].get_name(), i, cols[i + 1].get_datatype(), cols[i + 1].is_nullable(), cols[i + 1].get_dft());
+        }
+        col_data.resize(col_data.size() - 1);
+        cols.resize(cols.size() - 1);
+    }
+
+    void change_col(const String& col_name, const ast::field_def& def) {
+        auto old_col = get_col(col_name);
+        auto col_id = old_col.get_id();
+        if (old_col.changable(def)) {
+            auto new_col = Column::from_def(def, col_id);
+            
+            for (auto [_, index]: indexes) {
+                for (auto &col: index->get_cols()) if (col.get_name() == old_col.get_name()) {
+                    col = new_col;
+                }
+            }
+
+        }
+        // 引用里面的那一份也要修改
     }
 
     int new_col_id() const { return cols.size(); }

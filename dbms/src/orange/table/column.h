@@ -88,6 +88,10 @@ public:
         return std::make_pair(1, "");
     }
 
+    bool changable(const ast::field_def& def) const {
+        
+    }
+
     ast::data_type get_datatype() const { return type; }
     orange_t get_datatype_kind() const { return type.kind; }
 
@@ -95,6 +99,11 @@ public:
         int ret = 0;
         for (auto &col: cols) ret += col.get_key_size();
         return ret;
+    }
+
+    static Column from_def(const ast::field_def& def, int id) {
+        return Column(def.col_name, id, def.type, !def.is_not_null, 
+            def.default_value.get_value_or(ast::data_value::null_value()));
     }
 
     friend std::istream& operator >> (std::istream& is, Column& col);

@@ -62,6 +62,7 @@ public:
         }
         return -1;
     }
+    std::vector<Column>& get_cols() { return cols; }
     const std::vector<Column>& get_cols() const { return cols; }
     bool is_primary() const { return primary; }
     bool is_unique() const { return unique; }

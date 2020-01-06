@@ -376,8 +376,8 @@ namespace Orange {
                 const auto& drop_col = stmt.drop_col();
                 const std::string& table_name = drop_col.table_name;
                 const std::string& col_name = drop_col.col_name;
-
                 auto table = SavedTable::get(table_name);
+                table->drop_col(col_name);
             } break;
             case AlterStmtKind::ChangeCol: {
                 const auto& change_col = stmt.change_col();
@@ -386,6 +386,11 @@ namespace Orange {
                 const single_field& new_field = change_col.new_field;
 
                 auto table = SavedTable::get(table_name);
+                if (new_field.kind == FieldKind::Def) {
+                    table->change_col(col_name, new_field.def());
+                } else {
+                    unexpected();
+                }
             } break;
             case AlterStmtKind::RenameTb: {
                 const auto& rename_table = stmt.rename_tb();

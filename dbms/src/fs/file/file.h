@@ -35,6 +35,8 @@ private:
     static File* files[MAX_FILE_NUM];
 
 public:
+    String get_name() const { return name; }
+
     static bool create(const String& name) {
         orange_assert(FileManage::create_file(name.c_str()) == 0, "file create fail");
         return true;
