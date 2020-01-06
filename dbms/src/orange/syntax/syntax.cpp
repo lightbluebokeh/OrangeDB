@@ -1,6 +1,7 @@
-#include <algorithm>
 #include <map>
 #include <sstream>
+#include <iostream>
+#include <algorithm>
 
 #include "orange/orange.h"
 #include "orange/table/table.h"
@@ -117,7 +118,7 @@ namespace Orange {
                                      << std::endl;
                             cols.emplace_back(
                                 def.col_name, cols.size(), def.type, !def.is_not_null,
-                                def.default_value.get_value_or(ast::data_value::from_null()));
+                                def.default_value.get_value_or(ast::data_value::null_value()));
                             // cols.push_back(Column(def.col_name, def.type.kind,
                             // def.type.int_value_or(0), !def.is_not_null,
                             // def.default_value.get_value_or(data_value::null_value())));
@@ -361,10 +362,15 @@ namespace Orange {
             case AlterStmtKind::AddField: {
                 const auto& add_field = stmt.add_field();
                 const std::string& table_name = add_field.table_name;
-                const single_field& new_field = add_field.new_field;
-
                 auto table = SavedTable::get(table_name);
-
+                const single_field& new_field = add_field.new_field;
+                if (new_field.kind() == FieldKind::Def) {
+                    auto &def = new_field.def();
+                    Column col(def.col_name, table->new_col_id(), def.type, !def.is_not_null, def.default_value.get_value_or(ast::data_value::null_value()));
+                    table->add_col(col);
+                } else {
+                    unexpected();
+                }
             } break;
             case AlterStmtKind::DropCol: {
                 const auto& drop_col = stmt.drop_col();

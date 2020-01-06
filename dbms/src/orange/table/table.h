@@ -6,6 +6,7 @@
 #include <map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "defs.h"
 #include "fs/file/file.h"
@@ -517,6 +518,8 @@ private:
         }
     }
 public:
+    String get_name() const override { return this->name; }
+
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_key_defs) {
         check_db();
@@ -716,6 +719,33 @@ public:
         f_key_defs.erase(f_key_name);
         SavedTable::get(f_key_def.ref_tbl)->f_key_rev.erase(f_key_name);
     }
+
+    void add_col(const Column& new_col) {
+        auto col_name = new_col.get_name();
+        for (auto &col: cols) {
+            orange_check(col_name != col.get_name(), Exception::col_exists(col_name, this->name));
+        }
+        cols.push_back(new_col);
+        auto data = new ColumnDataHelper(File::create_open(data_name(col_name)), new_col, data_root());
+        col_data.push_back(data);
+        // 新增一列时设置默认值，注意检查
+        auto dft = new_col.get_dft();
+        const auto &[ok, msg] = new_col.check(dft);
+        orange_check(ok, msg);
+        for (auto rid: all()) data->insert(rid, dft);
+    }
+
+    void drop_col(const String& col_name) {
+        auto col = get_col(col_name);
+        // 如果有索引使用当前列，不允许删除
+        for (auto &[idx_name, index]: indexes) {
+            for (auto c: index->get_cols()) {
+                orange_check(c.get_name() != col.get_name(), Exception::drop_index_col(col_name, idx_name, this->name));
+            }
+        }
+    }
+
+    int new_col_id() const { return cols.size(); }
 
     friend class Index;
 };

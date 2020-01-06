@@ -1,9 +1,8 @@
 #pragma once
 
 #include "sql_ast.h"
-#include <defs.h>
-#include <exception>
-
+#include "defs.h"
+#include "exception"
 
 namespace Orange {
     namespace parser {

@@ -1,11 +1,11 @@
-#include <defs.h>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 
-#include <orange/orange.h>
-#include <orange/parser/parser.h>
-#include <orange/syntax/syntax.h>
+#include "defs.h"
+#include "orange/orange.h"
+#include "orange/parser/parser.h"
+#include "orange/syntax/syntax.h"
 
 enum class ErrorCode { Ok, ParseError };
 

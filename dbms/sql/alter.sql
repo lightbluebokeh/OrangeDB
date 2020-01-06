@@ -1,0 +1,1 @@
+alter table test add ddd

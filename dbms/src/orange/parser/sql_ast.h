@@ -93,7 +93,7 @@ namespace Orange::parser {
         numeric_t& to_float() { return boost::get<numeric_t>(value); }
         numeric_t to_float() const { return boost::get<numeric_t>(value); }
 
-        static data_value from_null() { return data_value{}; }
+        static data_value null_value() { return data_value{}; }
         static data_value from_int(int_t x) { return data_value{x}; }
         static data_value from_float(numeric_t f) { return data_value{f}; }
         static data_value from_string(std::string s) { return data_value{s}; }

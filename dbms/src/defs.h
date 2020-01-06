@@ -249,3 +249,5 @@ std::enable_if_t<is_pair_v<T>, std::istream&> operator >> (std::istream& is, T& 
 
 // primary key 默认名称，保留
 constexpr char PRIMARY_KEY_NAME[] = "primary_key";
+// 匿名的表之类的名称
+constexpr char ANONYMOUS_NAME[] = "<anonymous>";

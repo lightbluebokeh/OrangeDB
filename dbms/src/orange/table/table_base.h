@@ -45,7 +45,7 @@ protected:
     const auto& get_col(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
-        orange_check(it != cols.end(), "unknown column name: `" + col_name + "`");
+        orange_check(it != cols.end(), Exception::col_not_exist(col_name, get_name()));
         return *it;
     }
     auto get_cols(const std::vector<String> col_names) const {
@@ -58,7 +58,7 @@ protected:
     int get_col_id(const String& col_name) const { 
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
-        orange_check(it != cols.end(), "unknown column name: `" + col_name + "`");
+        orange_check(it != cols.end(), Exception::col_not_exist(col_name, get_name()));
         return it - cols.begin(); 
     }
     std::vector<int> get_col_ids(const std::vector<String>& col_names) const {
@@ -102,6 +102,8 @@ protected:
         return 0;
     }
 public:
+    virtual String get_name() const { return ANONYMOUS_NAME; }
+
     // 返回满足 where clause 的所有 rid
     // 为了测试放到了 public
     virtual std::vector<rid_t> where(const ast::where_clause& where, rid_t lim = MAX_RID) const {

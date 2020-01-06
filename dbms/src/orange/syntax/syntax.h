@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "orange/parser/parser.h"
 #include "orange/table/table_base.h"
 
