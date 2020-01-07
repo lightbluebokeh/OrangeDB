@@ -57,6 +57,8 @@ namespace Orange::parser {
 
         static data_type int_type() { return {orange_t::Int, {}}; }
         static data_type varchar_type(int len) { return {orange_t::Varchar, len}; }
+
+        bool is_string() const { return kind == orange_t::Char || kind == orange_t::Varchar; }
     };
 
     inline std::ostream& operator<<(std::ostream& os, const data_type& type) {

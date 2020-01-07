@@ -47,8 +47,20 @@ private:
         int max_len(const std::vector<rid_t>& rids) {
             int ret = 0;
             for (auto rid: rids) {
+                auto val = get_val(rid);
+                ret = std::max(ret, int(strlen(String(val.begin() + 1, val.end()).data())));
+            }
+            return ret;
+        }
+
+        void change(const ast::data_type& new_type) {
+            orange_check(type.is_string() && new_type.is_string(), Exception::change_nonstring());
+            if (type.kind == orange_t::Char) {
+                orange_check(type.int_value() <= new_type.int_value(), Exception::shrink_char());
+            } else {
                 
             }
+
         }
 
         // 对于 vchar 返回指针，其它直接返回真实值
@@ -74,7 +86,7 @@ private:
             return ret;
         }
         //　返回 rid　记录此列的真实值
-        auto get_val(rid_t rid) const {
+        byte_arr_t get_val(rid_t rid) const {
             auto bytes = new byte_t[size];
             f_data->read_bytes(rid * size, bytes, size);
             auto ret = restore(bytes);
@@ -766,17 +778,17 @@ public:
     void change_col(const String& col_name, const ast::field_def& def) {
         auto old_col = get_col(col_name);
         auto col_id = old_col.get_id();
-        if (old_col.changable(def)) {
-            auto new_col = Column::from_def(def, col_id);
-            
-            for (auto [_, index]: indexes) {
-                for (auto &col: index->get_cols()) if (col.get_name() == old_col.get_name()) {
-                    col = new_col;
-                }
-            }
+        // 目前只允许在 char 和 varchar 之间转换，或者改变长度
+        old_col.check_change(def.type);
+        int old_len = old_col.get_datatype().int_value(), new_len = def.type.int_value();
 
+        auto new_col = Column::from_def(def, col_id);
+        // 索引里的对应列也要修改
+        for (auto [_, index]: indexes) {
+            for (auto &col: index->get_cols()) if (col.get_name() == old_col.get_name()) {
+                
+            }
         }
-        // 引用里面的那一份也要修改
     }
 
     int new_col_id() const { return cols.size(); }

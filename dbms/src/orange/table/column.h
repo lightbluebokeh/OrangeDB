@@ -88,8 +88,9 @@ public:
         return std::make_pair(1, "");
     }
 
-    bool changable(const ast::field_def& def) const {
-        
+    void check_change(const ast::data_type& new_type) const {
+        orange_check(type.is_string() && new_type.is_string(), Exception::change_nonstring());
+        if (type.kind == orange_t::Char) orange_check(new_type.int_value() >= type.int_value(), Exception::shrink_char());
     }
 
     ast::data_type get_datatype() const { return type; }
