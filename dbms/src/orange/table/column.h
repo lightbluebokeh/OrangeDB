@@ -17,22 +17,17 @@ private:
     ast::data_value dft;
     std::vector<std::pair<ast::op, ast::data_value>> checks;
 
-    int key_size;
 public:
     explicit Column() {}
     // 适合打印名称的那种
     explicit Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
     Column(const String& name, int id, const ast::data_type& type, bool nullable, ast::data_value dft) : name(name), id(id), type(type), nullable(nullable), dft(dft) {
         switch (type.kind) {
-            case orange_t::Int: key_size = 1 + sizeof(int_t);
-            break;
             case orange_t::Varchar:
                 orange_check(type.int_value() <= MAX_VARCHAR_LEN, "varchar limit too long");
-                key_size = 1 + sizeof(decltype(std::declval<FileAllocator>().allocate(0)));
             break;
             case orange_t::Char:
                 orange_check(type.int_value() <= MAX_CHAR_LEN, "char limit too long");
-                key_size = 1 + type.int_value();
             break;
             case orange_t::Date:
                 ORANGE_UNIMPL
@@ -41,7 +36,6 @@ public:
                 int p = type.int_value() / 40;
                 int s = type.int_value() % 40;
                 orange_check(0 <= s && s <= p && p <= 20, "bad numeric");
-                key_size = 1 + sizeof(numeric_t);
             } break;
         }
     }
@@ -59,7 +53,7 @@ public:
         return "<error-type>";
     }
 
-    int get_key_size() const { return key_size; }
+    int get_key_size() const { return type.key_size(); }
 
     String get_name() const { return name; }
     ast::data_value get_dft() const { return dft; }
@@ -86,11 +80,6 @@ public:
             break;
         }
         return std::make_pair(1, "");
-    }
-
-    void check_change(const ast::data_type& new_type) const {
-        orange_check(type.is_string() && new_type.is_string(), Exception::change_nonstring());
-        if (type.kind == orange_t::Char) orange_check(new_type.int_value() >= type.int_value(), Exception::shrink_char());
     }
 
     ast::data_type get_datatype() const { return type; }

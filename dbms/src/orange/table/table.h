@@ -29,9 +29,10 @@ private:
         int size;   // 每个值的大小
         ast::data_type type;
         FileAllocator *alloc;
+        String root, name;
 
         // root 为数据文件夹目录
-        ColumnDataHelper(File* f_data, const Column& col, const String &root) : f_data(f_data), size(col.get_key_size()), type(col.get_datatype()) {
+        ColumnDataHelper(File* f_data, const Column& col, const String &root, const String& name) : f_data(f_data), root(root), size(col.get_key_size()), type(col.get_datatype()) {
             if (type.kind == orange_t::Varchar) {
                 alloc = new FileAllocator(root + col.get_name() + ".v");
             } else {
@@ -53,24 +54,64 @@ private:
             return ret;
         }
 
-        void change(const ast::data_type& new_type) {
+        void change(const ast::field_def& def, const std::vector<rid_t>& all) {
+            if (def.col_name != name) {
+                f_data->close();
+                fs::rename(root + name, root + def.col_name);
+                name = def.col_name;
+                f_data = File::open(root + name);
+            }
+            auto new_type = def.type;
             orange_check(type.is_string() && new_type.is_string(), Exception::change_nonstring());
             if (type.kind == orange_t::Char) {
                 orange_check(type.int_value() <= new_type.int_value(), Exception::shrink_char());
+                type = new_type;
+                size = type.key_size();
+                auto vals = get_vals(all);
+                if (new_type.kind == orange_t::Char) {
+                    for (unsigned i = 0; i < all.size(); i++) {
+                        auto rid = all[i];
+                        auto val = vals[i];
+                        // 补零
+                        val.resize(size);
+                        // 不用转为 raw
+                        f_data->write_bytes(rid * size, val.data(), size);
+                    }
+                } else {
+                    alloc = new FileAllocator(root + def.col_name + ".v");
+                    for (unsigned i = 0; i < all.size(); i++) {
+                        auto rid = all[i];
+                        auto val = vals[i];
+                        auto raw = store(val);
+                        f_data->write_bytes(rid * size, raw.data(), size);
+                    }
+                }
             } else {
-                
+                if (type.int_value() > new_type.int_value()) {
+                    orange_check(max_len(all) <= new_type.int_value(), Exception::short_varchar());
+                }
+                type = new_type;
+                size = type.key_size();
+                if (new_type.kind == orange_t::Char) {
+                    auto vals = get_vals(all);
+                    for (unsigned i = 0; i < all.size(); i++) {
+                        vals[i].resize(size);
+                        insert(all[i], vals[i]);
+                    }
+                } else {
+                    // varchar 长度限制改变，啥也不用做
+                }
             }
-
         }
 
         // 对于 vchar 返回指针，其它直接返回真实值
-        auto store(const byte_arr_t& key) const {
+        byte_arr_t store(const byte_arr_t& key) const {
             switch (type.kind) {
                 case orange_t::Varchar: return alloc->allocate_byte_arr(key);
                 default: return key;
             }
         }
-        auto restore(const_bytes_t k_raw) const {
+        byte_arr_t restore(const_bytes_t k_raw) const {
             switch (type.kind) {
                 case orange_t::Varchar: return alloc->read_byte_arr(*(size_t*)(k_raw + 1));
                 default: return byte_arr_t(k_raw, k_raw + size);
@@ -94,7 +135,7 @@ private:
             return ret;
         }
         // 返回一系列 rid 对应的该列值
-        auto get_vals(std::vector<rid_t> rids) const {
+        std::vector<byte_arr_t> get_vals(std::vector<rid_t> rids) const {
             auto bytes = new byte_t[size];
             std::vector<byte_arr_t> ret;
             for (auto rid: rids) {
@@ -106,6 +147,10 @@ private:
 
         void insert(rid_t rid, const ast::data_value& value) {
             auto raw = store(Orange::value_to_bytes(value, type));
+            f_data->write_bytes(rid * size, raw.data(), size);
+        }
+        void insert(rid_t rid, const byte_arr_t& bytes) {
+            auto raw = store(bytes);
             f_data->write_bytes(rid * size, raw.data(), size);
         }
         void remove(rid_t rid) {
@@ -198,7 +243,7 @@ private:
             f_key_defs[f_key_def.name] = f_key_def;
         }
         for (auto &col: cols) {
-            col_data.push_back(new ColumnDataHelper(File::open(data_name(col.get_name())), col, data_root()));
+            col_data.push_back(new ColumnDataHelper(File::open(data_name(col.get_name())), col, data_root(), name));
         }
         int index_num;
         ifs >> index_num;
@@ -241,7 +286,7 @@ private:
         rid_pool.init();
         fs::create_directory(data_root());
         for (auto &col: cols) {
-            col_data.push_back(new ColumnDataHelper(File::create_open(data_name(col.get_name())), col, data_root()));
+            col_data.push_back(new ColumnDataHelper(File::create_open(data_name(col.get_name())), col, data_root(), name));
         }
         fs::create_directory(index_root());
         if (!p_key_cols.empty()) add_p_key("", p_key_cols);
@@ -537,6 +582,16 @@ private:
             set.insert(col.get_name());
         }
     }
+
+    std::vector<File*> all_files() {
+        std::vector<File*> ret;
+        for (auto data: col_data) {
+            ret.push_back(data->f_data);
+        }
+        for (auto [_, index]: indexes) {
+            
+        }
+    }
 public:
     String get_name() const override { return this->name; }
 
@@ -747,7 +802,7 @@ public:
             orange_check(col_name != col.get_name(), Exception::col_exists(col_name, this->name));
         }
         cols.push_back(new_col);
-        auto data = new ColumnDataHelper(File::create_open(data_name(col_name)), new_col, data_root());
+        auto data = new ColumnDataHelper(File::create_open(data_name(col_name)), new_col, data_root(), name);
         col_data.push_back(data);
         // 新增一列时设置默认值，注意检查
         auto dft = new_col.get_dft();
@@ -778,20 +833,23 @@ public:
     void change_col(const String& col_name, const ast::field_def& def) {
         auto old_col = get_col(col_name);
         auto col_id = old_col.get_id();
-        // 目前只允许在 char 和 varchar 之间转换，或者改变长度
-        old_col.check_change(def.type);
-        int old_len = old_col.get_datatype().int_value(), new_len = def.type.int_value();
-
-        auto new_col = Column::from_def(def, col_id);
-        // 索引里的对应列也要修改
-        for (auto [_, index]: indexes) {
-            for (auto &col: index->get_cols()) if (col.get_name() == old_col.get_name()) {
-                
+        // 有索引使用的列不允许 change
+        for (auto [idx_name, index]: indexes) {
+            for (auto col: index->get_cols()) {
+                orange_check(col.get_name() != col_name, Exception::change_index_col(col_name, idx_name, name));
             }
         }
+        // 目前只允许在 char 和 varchar 之间转换，以及改变长度限制
+        col_data[col_id]->change(def, all());
     }
 
     int new_col_id() const { return cols.size(); }
+
+    static void rename(const String& old_name, const String& new_name) {
+        check_db();
+        SavedTable::get(old_name)->close(); // 来人啊都给我退下
+        fs::rename(old_name, new_name);
+    }
 
     friend class Index;
 };

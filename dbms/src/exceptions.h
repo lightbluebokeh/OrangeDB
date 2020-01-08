@@ -20,6 +20,7 @@ namespace Exception {
 
     // 尝试删除一个索引正在使用的列
     inline String drop_index_col(const String& col_name, const String& idx_name, const String& tbl_name) { return "cannot drop column `" + col_name + "` in table `" + tbl_name + "` used by index `" + idx_name + "`"; }
+    inline String change_index_col(const String& col_name, const String& idx_name, const String& tbl_name) { return "cannot change column `" + col_name + "` in table `" + tbl_name + "` used by index `" + idx_name + "`"; }
 
     inline String uncomparable(const String& t1, const String& t2) { return "types `" + t1 + "` and `" + t2 + "` are not comparable"; }
 

@@ -397,7 +397,7 @@ namespace Orange {
                 const std::string& table_name = rename_table.table_name;
                 const std::string& new_tb_name = rename_table.new_tb_name;
 
-                auto table = SavedTable::get(table_name);
+                SavedTable::rename(table_name, new_tb_name);
             } break;
             case AlterStmtKind::AddPrimaryKey: {
                 const auto& add_primary_key = stmt.add_primary_key();
@@ -407,6 +407,7 @@ namespace Orange {
                 }
 
                 auto table = SavedTable::get(table_name);
+                table->add_p_key(PRIMARY_KEY_NAME, col_list);
             } break;
             case AlterStmtKind::AddConstraintPrimaryKey: {
                 const auto& add_constraint_primary_key = stmt.add_constraint_primary_key();
@@ -417,6 +418,7 @@ namespace Orange {
                 }
 
                 auto table = SavedTable::get(table_name);
+                table->add_p_key(pk_name, col_list);
             } break;
             case AlterStmtKind::DropPrimaryKey: {
                 const auto& drop_primary_key = stmt.drop_primary_key();
@@ -424,6 +426,7 @@ namespace Orange {
                 const boost::optional<std::string>& pk_name = drop_primary_key.pk_name;
 
                 auto table = SavedTable::get(table_name);
+                table->drop_p_key(pk_name.get_value_or(PRIMARY_KEY_NAME));
             } break;
             case AlterStmtKind::AddConstraintForeignKey: {
                 const auto& add_constraint_foreign_key = stmt.add_constraint_foreign_key();
@@ -434,6 +437,7 @@ namespace Orange {
                 const column_list& ref_col_list = add_constraint_foreign_key.ref_col_list;
 
                 auto table = SavedTable::get(table_name);
+                table->add_f_key(f_key_t{fk_name, ref_tb_name, col_list, ref_col_list});
             } break;
             case AlterStmtKind::DropForeignKey: {
                 const auto& drop_foreign_key = stmt.drop_foreign_key();
@@ -441,6 +445,7 @@ namespace Orange {
                 const std::string& fk_name = drop_foreign_key.fk_name;
 
                 auto table = SavedTable::get(table_name);
+                table->drop_f_key(fk_name);
             } break;
             default: unexpected();
         }
