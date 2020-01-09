@@ -253,6 +253,7 @@ namespace Orange {
                     }
                     ss_debug << std::endl;
                 }
+                SavedTable::get(update.name)->update_where(update.set, update.where);
                 return {{}};
             }
             case TbStmtKind::Select: {

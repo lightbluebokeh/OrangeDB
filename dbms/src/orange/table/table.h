@@ -731,10 +731,8 @@ public:
         return ret;
     }
 
-    void update_where(ast::set_clause set, const ast::where_clause& where) {
+    void update_where(const ast::set_clause& set, const ast::where_clause& where) {
         auto rids = this->where(where);
-        std::sort(set.begin(), set.end(), [] (auto a, auto b) { return a.col_name < b.col_name; });
-        set.resize(std::unique(set.begin(), set.end(), [] (auto a, auto b) { return a.col_name == b.col_name; }) - set.begin());
         std::map<String, ast::data_value> new_vals;
         for (auto &single_set: set) {
             new_vals[single_set.col_name] = single_set.val;
