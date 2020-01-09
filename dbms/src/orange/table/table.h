@@ -299,6 +299,7 @@ private:
 
     // 在打开的表里面找，找不到返回 null
     static SavedTable* get_opened(const String& name) {
+        check_db();
         for (auto& table : tables) {
             if (table && table->name == name) {
                 return table;
@@ -864,8 +865,7 @@ public:
         // 有索引使用的列不允许 change
         for (auto [idx_name, index]: indexes) {
             for (const auto& col : index->get_cols()) {
-                orange_check(col.get_name() != col_name,
-                             Exception::change_index_col(col_name, idx_name, name));
+                orange_check(col.get_name() != col_name, Exception::change_index_col(col_name, idx_name, name));
             }
         }
         // 目前只允许在 char 和 varchar 之间转换，以及改变长度限制
