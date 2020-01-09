@@ -27,4 +27,6 @@ namespace Exception {
     inline String change_nonstring() { return "type change only support for string types(i.e. char and varchar)"; }
     inline String shrink_char() { return "cannot reduce the size of char"; }
     inline String short_varchar() { return "some string is longer than the new limit"; }
+
+    inline String drop_pk_fk_ref(const String& pk_tbl) { return "primary key of table `" + pk_tbl + "` is referenced by foreign key of some table"; }
 };

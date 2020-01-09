@@ -32,7 +32,7 @@ private:
         String root, name;
 
         // root 为数据文件夹目录
-        ColumnDataHelper(File* f_data, const Column& col, const String &root, const String& name) : f_data(f_data), root(root), size(col.get_key_size()), type(col.get_datatype()) {
+        ColumnDataHelper(File* f_data, const Column& col, const String &root, const String& name) : f_data(f_data), size(col.get_key_size()), type(col.get_datatype()), root(root), name(name) {
             if (type.kind == orange_t::Varchar) {
                 alloc = new FileAllocator(root + col.get_name() + ".v");
             } else {
@@ -153,6 +153,7 @@ private:
             auto raw = store(bytes);
             f_data->write_bytes(rid * size, raw.data(), size);
         }
+
         void remove(rid_t rid) {
             if (type.kind == orange_t::Varchar) {
                 alloc->free(f_data->read<size_t>(rid * size + 1));  // Varchar size=9，后 8 位为 offset
@@ -204,7 +205,7 @@ private:
     rid_t rec_cnt;
     // std::vector<f_key_t> f_key_defs;
     std::map<String, f_key_t> f_key_defs;
-    // 索引到该表主键的所有外键
+    // 索引到该表主键的所有外键：外键名，源表+外键定义
     std::map<String, std::pair<String, f_key_t>> f_key_rev;
 
     // map index by their name
@@ -296,7 +297,7 @@ private:
     // 表的文件夹名
     static String get_root(const String& name) { return name + "/"; }
 
-    // 在打开的表里面找
+    // 在打开的表里面找，找不到返回 null
     static SavedTable* get_opened(const String& name) {
         for (auto& table : tables) {
             if (table && table->name == name) {
@@ -343,7 +344,7 @@ private:
                 }
                 auto &col1 = get_col(where_op.col_name), &col2 = get_col(col.col_name);
                 auto kind1 = col1.get_datatype_kind(), kind2 = col2.get_datatype_kind();
-                auto data1 = col_data[col1.get_id()], data2 = col_data[col2.get_id()];
+                auto data1 = col_data[get_col_id(col1.get_name())], data2 = col_data[get_col_id(col2.get_name())];
                 std::vector<rid_t> ret;
                 for (auto rid: rids) {
                     if (Orange::cmp(data1->get_val(rid), kind1, where_op.operator_, data2->get_val(rid), kind2)) {
@@ -363,9 +364,11 @@ private:
         std::vector<int> col_ids;
         std::vector<std::pair<int, Orange::pred_t>> all_preds;
         for (auto &single_where: where) {
+            // 使用索引时查询中不允许包含 null
             if (single_where.is_null_check()) return {0, {}};
             auto &op = single_where.op();
             auto &expr = op.expression;
+            // Neq 也不做了，太烦了
             if (expr.is_column() || op.operator_ == ast::op::Neq) return {0, {}};
             auto &value = expr.value();
             if (value.is_null()) return {1, {}};
@@ -405,12 +408,12 @@ private:
             bool has_null = 0, all_null = 1;
             std::vector<byte_arr_t> vals;
             for (auto &col: index->get_cols()) {
-                if (values[col.get_id()].is_null()) {
+                if (values[get_col_id(col.get_name())].is_null()) {
                     has_null = 1;
                 } else {
                     all_null = 0;
                 }
-                vals.push_back(Orange::value_to_bytes(values[col.get_id()], col.get_datatype()));
+                vals.push_back(Orange::value_to_bytes(values[get_col_id(col.get_name())], col.get_datatype()));
             }
             // unique 无法约束 null
             if (!has_null) orange_check(!index->constains(vals), "fail unique constraint");
@@ -481,7 +484,7 @@ private:
     byte_arr_t get_raws(const std::vector<Column>& cols, rid_t rid) const {
         byte_arr_t ret;
         for (auto &col: cols) {
-            auto tmp = col_data[col.get_id()]->get_raw(rid);
+            auto tmp = col_data[get_col_id(col.get_name())]->get_raw(rid);
             ret.insert(ret.end(), tmp.begin(), tmp.end());
         }
         return ret;
@@ -542,7 +545,7 @@ private:
     Index* get_index(const std::vector<int>& col_ids) {
         Index* ret = nullptr;
         for (auto &[idx_name, index]: indexes) {
-            if (index->get_cols().front().get_id() == col_ids.front()) {
+            if (get_col_id(index->get_cols().front().get_name()) == col_ids.front()) {
                 // 暴力判包含关系
                 bool test = 1;
                 for (unsigned i = 1; i < col_ids.size(); i++) {
@@ -559,7 +562,7 @@ private:
     const Index* get_index(const std::vector<int>& col_ids) const {
         const Index* ret = nullptr;
         for (auto &[idx_name, index]: indexes) {
-            if (index->get_cols().front().get_id() == col_ids.front()) {
+            if (get_col_id(index->get_cols().front().get_name()) == col_ids.front()) {
                 // 暴力判包含关系
                 bool test = 1;
                 for (unsigned i = 1; i < col_ids.size(); i++) {
@@ -580,16 +583,6 @@ private:
         for (auto &col: cols) {
             orange_check(!set.count(col.get_name()), "duplicate column name is not allowed");
             set.insert(col.get_name());
-        }
-    }
-
-    std::vector<File*> all_files() {
-        std::vector<File*> ret;
-        for (auto data: col_data) {
-            ret.push_back(data->f_data);
-        }
-        for (auto [_, index]: indexes) {
-            
         }
     }
 public:
@@ -732,16 +725,47 @@ public:
         return ret;
     }
 
-    // void update_where(const String& col_name, std::function<byte_arr_t(byte_arr_t)> expr, const std::vector<rid_t>& rids) {
-    //     int col_id = get_col_id(col_name);
-    //     auto &idx = indices[col_id];
-    //     auto &col = cols[col_id];
-    //     for (auto rid: rids) {
-    //         auto new_val = expr(idx.get_val(rid));
-    //         orange_check(col.test(new_val), "update failed: new value fails constraint");
-    //         idx.update(new_val, rid);
-    //     }
-    // }
+    void update_where(ast::set_clause set, const ast::where_clause& where) {
+        auto rids = this->where(where);
+        std::sort(set.begin(), set.end(), [] (auto a, auto b) { return a.col_name < b.col_name; });
+        set.resize(std::unique(set.begin(), set.end(), [] (auto a, auto b) { return a.col_name == b.col_name; }) - set.begin());
+        std::map<String, ast::data_value> new_vals;
+        for (auto &single_set: set) {
+            int col_id = get_col_id(single_set.col_name);
+            new_vals[single_set.col_name] = single_set.val;
+        }
+        auto has_update = [&] (const std::vector<Column>& cols) {
+            for (auto col: cols) if (new_vals.count(col.get_name())) return 1;
+            return 0;
+        };
+
+        // 更新索引
+        for (auto [_, index]: indexes) if (has_update(index->get_cols())) {
+            std::vector<int> col_ids;
+            for (auto col: index->get_cols()) col_ids.push_back(get_col_id(col.get_name()));
+            for (auto rid: rids) {
+                byte_arr_t new_raw;
+                for (auto col: index->get_cols()) {
+                    byte_arr_t tmp;
+                    if (new_vals.count(col.get_name())) {
+                        tmp = Orange::value_to_bytes(new_vals[col.get_name()], col.get_datatype());
+                    } else {
+                        tmp = col_data[get_col_id(col)]->get_raw(rid);
+                    }
+                    new_raw.insert(new_raw.end(), tmp.begin(), tmp.end());
+                }
+                index->update(get_raws(index->get_cols(), rid), new_raw, rid);
+            }
+        }
+
+        // 更新数据
+        for (auto &[col_name, val]: new_vals) {
+            int col_id = get_col_id(col_name);
+            for (auto rid: rids) {
+                col_data[col_id]->insert(rid, val);
+            }
+        }
+    }
 
     void create_index(const String& idx_name, const std::vector<String>& col_names, bool primary, bool unique) {
         if (!primary && idx_name == PRIMARY_KEY_NAME) throw OrangeException("this name is reserved for primary key");
@@ -767,8 +791,7 @@ public:
     void drop_p_key(const String& p_key_name) {
         auto p_key = get_p_key();
         orange_check(p_key && p_key->get_name() == p_key_name, "primary key named `" + p_key_name + "` does not exist");
-        // TODO: check other tables' foreign key
-        ORANGE_UNIMPL
+        orange_check(f_key_rev.empty(), Exception::drop_pk_fk_ref(name));
         Index::drop(p_key);
     }
 
@@ -819,12 +842,12 @@ public:
                 orange_check(col.get_name() != drop_col.get_name(), Exception::drop_index_col(col_name, idx_name, this->name));
             }
         }
-        auto drop_id = drop_col.get_id();
+        auto drop_id = get_col_id(drop_col.get_name());
         delete col_data[drop_id];
         // 暴力左移就可以了
         for (unsigned i = drop_id; i + 1 < col_data.size(); i++) {
             col_data[i] = col_data[i + 1];
-            cols[i] = Column(cols[i + 1].get_name(), i, cols[i + 1].get_datatype(), cols[i + 1].is_nullable(), cols[i + 1].get_dft());
+            cols[i] = Column(cols[i + 1].get_name(), cols[i + 1].get_datatype(), cols[i + 1].is_nullable(), cols[i + 1].get_dft());
         }
         col_data.resize(col_data.size() - 1);
         cols.resize(cols.size() - 1);
@@ -832,7 +855,7 @@ public:
 
     void change_col(const String& col_name, const ast::field_def& def) {
         auto old_col = get_col(col_name);
-        auto col_id = old_col.get_id();
+        auto col_id = get_col_id(old_col.get_name());
         // 有索引使用的列不允许 change
         for (auto [idx_name, index]: indexes) {
             for (auto col: index->get_cols()) {
@@ -847,7 +870,8 @@ public:
 
     static void rename(const String& old_name, const String& new_name) {
         check_db();
-        SavedTable::get(old_name)->close(); // 来人啊都给我退下
+        auto table = SavedTable::get_opened(old_name);  // 防止文件系统出 bug，先关掉表再重命名
+        if (table) table->close();
         fs::rename(old_name, new_name);
     }
 

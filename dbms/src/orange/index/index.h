@@ -47,6 +47,13 @@ private:
         ifs >> primary >> unique;
     }
 
+    bool has_null(const byte_arr_t& raw) const {
+        for (unsigned i = 0, sum; i < cols.size(); i++) {
+            if (raw[sum] == DATA_NULL) return 1;
+            sum += cols[i].get_key_size();
+        }
+        return 0;
+    }
 public:
     ~Index() {
         write_info();
@@ -70,7 +77,7 @@ public:
         for (auto &val: vals) orange_assert(val.front() != DATA_NULL, "null is not supported");
         return tree->contains(vals);
     }
-    // 返回所有对应 key 值的记录编号
+    // 返回所有等于对应 key 值的记录编号
     std::vector<rid_t> get_on_key(const_bytes_t raw, rid_t lim = MAX_RID) const {
         return tree->get_on_key(restore(raw), lim);
     }
@@ -85,11 +92,14 @@ public:
 
     // raw: 索引值；val：真实值
     void insert(const byte_arr_t& raw, rid_t rid) {
+        // 遇到有 null 的不必插
+        if (has_null(raw)) return;
         tree->insert(raw.data(), rid);
     }
 
     // 调用合适应该不会有问题8
     void remove(const byte_arr_t &raw, rid_t rid) {
+        if (has_null(raw)) return;
         tree->remove(raw.data(), rid);
     }
 
@@ -97,10 +107,10 @@ public:
         return tree->query(preds_list, lim);
     }
 
-    // void update(const byte_arr_t &raw, rid_t rid, const std::vector<byte_arr_t>& val) {
-    //     remove(raw, rid);
-    //     insert(raw, rid, val);
-    // }
+    void update(const byte_arr_t &raw, const byte_arr_t& new_raw, rid_t rid) {
+        remove(raw, rid);
+        insert(new_raw, rid);
+    }
 
     friend class BTree;
 };

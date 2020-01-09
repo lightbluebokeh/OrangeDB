@@ -67,6 +67,7 @@ protected:
         orange_check(it != cols.end(), Exception::col_not_exist(col_name, get_name()));
         return it - cols.begin(); 
     }
+    int get_col_id(const Column& col) const { return get_col_id(col.get_name()); }
     std::vector<int> get_col_ids(const std::vector<String>& col_names) const {
         std::vector<int> ret;
         for (auto &col_name: col_names) {
@@ -83,7 +84,7 @@ protected:
     virtual byte_arr_t get_field(int col_id, rid_t rid) const = 0;
     auto get_fields(const std::vector<Column>& cols, rid_t rid) const {
         std::vector<byte_arr_t> ret;
-        for (auto &col: cols) ret.push_back(get_field(col.get_id(), rid));
+        for (auto &col: cols) ret.push_back(get_field(get_col_id(col.get_name()), rid));
         return ret;
     }
 
