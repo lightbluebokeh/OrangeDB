@@ -13,6 +13,7 @@
 #endif
 
 #include "defs.h"
+#include "fs/allocator/allocator.h"
 
 #include <fs/allocator/allocator.h>
 #include <vector>
@@ -70,6 +71,7 @@ namespace Orange::parser {
                 case orange_t::Date: ORANGE_UNIMPL break;
                 case orange_t::Numeric: return 1 + sizeof(numeric_t);
             }
+            return 233;
         }
     };
 

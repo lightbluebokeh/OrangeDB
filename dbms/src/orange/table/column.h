@@ -12,7 +12,7 @@ class SavedTable;
 class Column {
 private:
     String name;
-    int id;  // 所在 table 的列编号
+    // int id; // 所在 table 的列编号
     ast::data_type type;
     bool nullable;
     ast::data_value dft;
@@ -21,11 +21,16 @@ private:
 public:
     explicit Column() = default;
     // 适合打印名称的那种
-    explicit Column(String name) :
-        name(std::move(name)), id(), type{orange_t::Varchar, MAX_VARCHAR_LEN}, nullable() {}
-    Column(String name, int id, const ast::data_type& type, bool nullable, ast::data_value dft) :
-        name(std::move(name)), id(id), type(type), nullable(nullable), dft(std::move(dft)) {
+    explicit Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
+    Column(const String& name,
+    // int id,
+    const ast::data_type& type, bool nullable, ast::data_value dft) : name(name),
+    // id(id),
+    type(type), nullable(nullable), dft(dft) {
         switch (type.kind) {
+            case orange_t::Int:
+                // do nothing
+            break;
             case orange_t::Varchar:
                 orange_check(type.int_value() <= MAX_VARCHAR_LEN, "varchar limit too long");
                 break;
@@ -42,7 +47,7 @@ public:
         }
     }
 
-    [[nodiscard]] int get_id() const { return id; }
+    // int get_id() const { return id; }
 
     [[nodiscard]] String type_string() const {
         switch (type.kind) {
@@ -113,11 +118,15 @@ public:
 
 inline std::ostream& operator << (std::ostream& os, const Column& col) {
     // print(os, ' ', col.name, col.id, col.type, col.nullable, col.dft, col.checks, col.key_size);
-    os << col.name << ' ' << col.id << ' ' << col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks << ' ' << col.key_size;
+    os << col.name << ' ' <<
+    // col.id << ' ' <<
+    col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks;
     return os;
 }
 inline std::istream& operator >> (std::istream& is, Column& col) {
-    is >> col.name >> col.id >> col.type >> col.nullable >> col.dft >> col.checks >> col.key_size;
+    is >> col.name >>
+    // col.id >>
+    col.type >> col.nullable >> col.dft >> col.checks;
     return is;
 }
 

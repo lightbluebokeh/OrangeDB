@@ -386,7 +386,7 @@ namespace Orange {
                 const single_field& new_field = change_col.new_field;
 
                 auto table = SavedTable::get(table_name);
-                if (new_field.kind == FieldKind::Def) {
+                if (new_field.kind() == FieldKind::Def) {
                     table->change_col(col_name, new_field.def());
                 } else {
                     unexpected();
@@ -403,7 +403,12 @@ namespace Orange {
                 const auto& add_primary_key = stmt.add_primary_key();
                 const std::string& table_name = add_primary_key.table_name;
                 const column_list& col_list = add_primary_key.col_list;
+                ss_debug << "  add primary key: " << endl;
+                ss_debug << "   table: " + add_primary_key.table_name << endl;
+                ss_debug << String("   primary key name: ") + PRIMARY_KEY_NAME << endl;
+                ss_debug << "   columns: " << endl;
                 for (const std::string& col : col_list) {
+                    ss_debug << "       " << col << endl;
                 }
 
                 auto table = SavedTable::get(table_name);
@@ -414,7 +419,12 @@ namespace Orange {
                 const std::string& table_name = add_constraint_primary_key.table_name;
                 const std::string& pk_name = add_constraint_primary_key.pk_name;
                 const column_list& col_list = add_constraint_primary_key.col_list;
+                ss_debug << "  add primary key: " << endl;
+                ss_debug << "   table: " + add_constraint_primary_key.table_name << endl;
+                ss_debug << String("   primary key name: ") + add_constraint_primary_key.pk_name << endl;
+                ss_debug << "   columns: " << endl;
                 for (const std::string& col : col_list) {
+                    ss_debug << "       " << col << endl;
                 }
 
                 auto table = SavedTable::get(table_name);

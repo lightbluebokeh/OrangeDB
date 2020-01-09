@@ -15,7 +15,7 @@ Index* Index::create(SavedTable& table, const String& name, const std::vector<Co
     index->tree = new BTree(*index, index->key_size, index->get_path());
     index->tree->init();
     for (auto rid: table.all()) {
-        index->tree->insert(table.get_raws(cols, rid).data(), rid);
+        index->insert(table.get_raws(cols, rid), rid);
     }
     return index;
 }
