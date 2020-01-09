@@ -56,7 +56,8 @@ public:
     }
 
     bool close() {
-        orange_assert(FileManage::close_file(id) == 0, "close file fail");
+        auto code = FileManage::close_file(id);
+        orange_assert(code == 0, "close file fail");
         orange_assert(this == files[id], "this is magic");
         files[id] = nullptr;
         delete this;

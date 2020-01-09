@@ -48,7 +48,7 @@ private:
     }
 
     bool has_null(const byte_arr_t& raw) const {
-        for (unsigned i = 0, sum; i < cols.size(); i++) {
+        for (unsigned i = 0, sum = 0; i < cols.size(); i++) {
             if (raw[sum] == DATA_NULL) return 1;
             sum += cols[i].get_key_size();
         }

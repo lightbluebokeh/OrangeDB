@@ -299,6 +299,7 @@ private:
 
     // 在打开的表里面找，找不到返回 null
     static SavedTable* get_opened(const String& name) {
+        check_db();
         for (auto& table : tables) {
             if (table && table->name == name) {
                 return table;
@@ -388,6 +389,9 @@ private:
         for (auto &[col_name, pred]: all_preds) {
             preds_list[index->get_col_rank(col_name)].push_back(pred);
         }
+#ifdef DEBUG
+        std::cerr << "query use index" << std::endl;
+#endif
         return {1, index->query(preds_list, lim)};
     }
 
@@ -730,10 +734,8 @@ public:
         return ret;
     }
 
-    void update_where(ast::set_clause set, const ast::where_clause& where) {
+    void update_where(const ast::set_clause& set, const ast::where_clause& where) {
         auto rids = this->where(where);
-        std::sort(set.begin(), set.end(), [] (auto a, auto b) { return a.col_name < b.col_name; });
-        set.resize(std::unique(set.begin(), set.end(), [] (auto a, auto b) { return a.col_name == b.col_name; }) - set.begin());
         std::map<String, ast::data_value> new_vals;
         for (auto &single_set: set) {
             new_vals[single_set.col_name] = single_set.val;
@@ -864,8 +866,7 @@ public:
         // 有索引使用的列不允许 change
         for (auto [idx_name, index]: indexes) {
             for (const auto& col : index->get_cols()) {
-                orange_check(col.get_name() != col_name,
-                             Exception::change_index_col(col_name, idx_name, name));
+                orange_check(col.get_name() != col_name, Exception::change_index_col(col_name, idx_name, name));
             }
         }
         // 目前只允许在 char 和 varchar 之间转换，以及改变长度限制

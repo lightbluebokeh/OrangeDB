@@ -171,8 +171,14 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().insert_into().columns.get()[0] == "col1");
     REQUIRE(ast.stmt_list[0].tb().insert_into().columns.get()[1] == "col2");
 
-    parse_sql("update test set a = 3 where b = 4;", ast);
+    parse_sql("update test set b = 5 where a = 6;", ast);
+    REQUIRE(ast.stmt_list[0].kind() == StmtKind::Tb);
+    REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Update);
+    REQUIRE(ast.stmt_list[0].tb().update().name == "test");
+    REQUIRE(ast.stmt_list[0].tb().update().set.size() == 1);
+    REQUIRE(ast.stmt_list[0].tb().update().set[0].col_name == "b");
     REQUIRE(ast.stmt_list[0].tb().update().set[0].val.is_int());
+    REQUIRE(ast.stmt_list[0].tb().update().set[0].val.to_int() == 5);
 }
 
 // 测试index statement
