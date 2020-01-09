@@ -135,10 +135,10 @@ private:
             return ret;
         }
         // 返回一系列 rid 对应的该列值
-        std::vector<byte_arr_t> get_vals(std::vector<rid_t> rids) const {
+        std::vector<byte_arr_t> get_vals(const std::vector<rid_t>& rids) const {
             auto bytes = new byte_t[size];
             std::vector<byte_arr_t> ret;
-            for (auto rid: rids) {
+            for (auto rid : rids) {
                 f_data->read_bytes(rid * size, bytes, size);
                 ret.push_back(restore(bytes));
             }
@@ -277,7 +277,7 @@ private:
     }
 
     static void check_db() { orange_check(Orange::using_db(), Exception::no_database_used()); }
-    
+
     void on_create(const std::vector<Column>& cols, const std::vector<String>& p_key_cols, const std::vector<f_key_t>& f_key_defs) {
         this->cols = cols;
         check_unique();
@@ -313,7 +313,7 @@ private:
     // 尝试用单列索引
     // 懒了，慢就慢吧
     std::pair<bool, std::vector<rid_t>> filt_index(const std::vector<rid_t>& , const ast::op& , const ast::data_value& ) const {
-        return {0, {}};
+        return {false, {}};
         // constexpr int threshold = 1000;
         // if (value.is_null()) return {1, {}};
         // // 太少了直接暴力就好
@@ -392,6 +392,7 @@ private:
     }
 
     // 单个表的 where
+    // 重写的函数不允许有默认参数
     std::vector<rid_t> where(const ast::where_clause &where, rid_t lim = MAX_RID) const override {
         if (check_op_null(where)) return {};
         auto [ok, ret] = where_index(where, lim);
@@ -415,7 +416,7 @@ private:
                 if (values[get_col_id(col.get_name())].is_null()) {
                     has_null = 1;
                 } else {
-                    all_null = 0;
+                    all_null = false;
                 }
                 vals.push_back(Orange::value_to_bytes(values[get_col_id(col.get_name())], col.get_datatype()));
             }
@@ -507,15 +508,15 @@ private:
         return nullptr;
     }
     Index* get_f_key(const String& name) {
-        for (auto &[_, f_key]: f_key_defs) {
+        for (auto& [_, f_key] : f_key_defs) {
             if (f_key.name == name) {
                 return indexes.count(name) ? indexes[name] : nullptr;
             }
         }
         return nullptr;
     }
-    const Index* get_f_key(const String& name) const {
-        for (auto &[_, f_key]: f_key_defs) {
+    [[nodiscard]] const Index* get_f_key(const String& name) const {
+        for (auto& [_, f_key] : f_key_defs) {
             if (f_key.name == name) {
                 return indexes.count(name) ? indexes.at(name) : nullptr;
             }
@@ -590,7 +591,7 @@ private:
         }
     }
 public:
-    String get_name() const override { return this->name; }
+    [[nodiscard]] String get_name() const override { return this->name; }
 
     static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
                        const std::vector<f_key_t>& f_key_defs) {
@@ -605,7 +606,7 @@ public:
             drop(name);
             throw e;
         }
-        return 1;
+        return true;
     }
 
     static SavedTable* get(const String& name) {
@@ -620,7 +621,7 @@ public:
         return table;
     }
 
-    TmpTable description() const {
+    [[nodiscard]] TmpTable description() const {
         TmpTable ret;
         ret.cols.emplace_back("Name");
         ret.cols.emplace_back("null");
@@ -640,7 +641,7 @@ public:
         orange_assert(this == tables[id], "this is magic");
         write_info();
         free_table(this);
-        return 1;
+        return true;
     }
 
     static bool drop(const String& name) {
@@ -661,7 +662,7 @@ public:
         }
     }
 
-    bool has_index(const String& idx_name) const { return indexes.count(idx_name); }
+    [[nodiscard]] bool has_index(const String& idx_name) const { return indexes.count(idx_name); }
 
     // 返回插入成功条数
     rid_t insert(const std::vector<String>& col_names, ast::data_values_list values_list) {
@@ -841,8 +842,9 @@ public:
         auto drop_col = get_col(col_name);
         // 如果有索引使用当前列，不允许删除
         for (auto &[idx_name, index]: indexes) {
-            for (auto col: index->get_cols()) {
-                orange_check(col.get_name() != drop_col.get_name(), Exception::drop_index_col(col_name, idx_name, this->name));
+            for (const auto& col : index->get_cols()) {
+                orange_check(col.get_name() != drop_col.get_name(),
+                             Exception::drop_index_col(col_name, idx_name, this->name));
             }
         }
         auto drop_id = get_col_id(drop_col.get_name());
@@ -861,8 +863,9 @@ public:
         auto col_id = get_col_id(old_col.get_name());
         // 有索引使用的列不允许 change
         for (auto [idx_name, index]: indexes) {
-            for (auto col: index->get_cols()) {
-                orange_check(col.get_name() != col_name, Exception::change_index_col(col_name, idx_name, name));
+            for (const auto& col : index->get_cols()) {
+                orange_check(col.get_name() != col_name,
+                             Exception::change_index_col(col_name, idx_name, name));
             }
         }
         // 目前只允许在 char 和 varchar 之间转换，以及改变长度限制

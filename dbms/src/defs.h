@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
 #include <cassert>
 #include <cstring>
 #include <filesystem>
+#include <string>
 #include <type_traits>
 
 #ifndef NDEBUG
@@ -19,7 +19,7 @@ static_assert(sizeof(std::size_t) == 8, "x64 only");
 namespace fs = std::filesystem;
 
 using rid_t = uint64_t;
-constexpr rid_t MAX_RID = std::numeric_limits<rid_t>::max();    // save some typing
+constexpr rid_t MAX_RID = std::numeric_limits<rid_t>::max();  // save some typing
 using String = std::string;
 
 using byte_t = uint8_t;
@@ -44,19 +44,20 @@ const int MAX_COL_NUM = 20;
 const int MAX_FILE_NUM = MAX_TBL_NUM * (2 * MAX_COL_NUM + 3);
 
 #include <iostream>
+#include <utility>
 
 constexpr const char* RESET = "\033[0m";
-constexpr const char* RED = "\033[31m";   /* Red */
-constexpr const char* GREEN = "\033[32m"; /* Green */
+constexpr const char* RED = "\033[31m";    /* Red */
+constexpr const char* GREEN = "\033[32m";  /* Green */
 constexpr const char* YELLOW = "\033[33m"; /* Yellow */
-constexpr const char* CYAN = "\033[36m"; /* Cyan */
+constexpr const char* CYAN = "\033[36m";   /* Cyan */
 
 class OrangeException : public std::exception {
 private:
     String msg;
 
 public:
-    explicit OrangeException(const String& msg) : msg(msg) {}
+    explicit OrangeException(String msg) : msg(std::move(msg)) {}
     [[nodiscard]] const char* what() const noexcept override { return msg.c_str(); }
 };
 
@@ -65,7 +66,7 @@ private:
     String msg;
 
 public:
-    explicit OrangeError(const String& msg) : msg(msg) {}
+    explicit OrangeError(String msg) : msg(std::move(msg)) {}
     [[nodiscard]] const char* what() const noexcept override { return msg.c_str(); }
 };
 
@@ -129,13 +130,13 @@ struct is_pair<std::pair<T, U>> : std::true_type {};
 template <typename T>
 constexpr bool is_pair_v = is_pair<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
-template<typename>
+template <typename>
 struct is_char_array : public std::false_type {};
-template<std::size_t _Size>
+template <std::size_t _Size>
 struct is_char_array<char[_Size]> : public std::true_type {};
-template<>
+template <>
 struct is_char_array<char[]> : public std::true_type {};
-template<typename T>
+template <typename T>
 constexpr bool is_char_array_v = is_char_array<T>::value;
 
 constexpr int MAX_CHAR_LEN = 255;
@@ -145,7 +146,8 @@ constexpr int MAX_VARCHAR_LEN = 65535;
 #define DATA_NORMAL 0x1
 #define DATA_INVALID 0xff
 
-#define ORANGE_UNIMPL throw OrangeError("<del>lazy</del> orange developer has not implemented this yet");
+#define ORANGE_UNIMPL                                                                              \
+    throw OrangeError("<del>lazy</del> orange developer has not implemented this yet");
 #define ORANGE_UNREACHABLE throw OrangeError("how are you able to reach here?");
 
 template <class Fn, class... Args>
@@ -193,12 +195,14 @@ namespace Orange {
     }
 
     inline int bytes_to_int(const byte_arr_t& bytes) {
-        orange_assert(bytes.size() == 1 + sizeof(int_t) && bytes.front() != DATA_NULL, "bad byte array for int");
+        orange_assert(bytes.size() == 1 + sizeof(int_t) && bytes.front() != DATA_NULL,
+                      "bad byte array for int");
         return *(int*)(bytes.data() + 1);
     }
 
     inline numeric_t bytes_to_numeric(const byte_arr_t& bytes) {
-        orange_assert(bytes.size() == 1 + sizeof(numeric_t) && bytes.front() != DATA_NULL, "bad byte array for numeric");
+        orange_assert(bytes.size() == 1 + sizeof(numeric_t) && bytes.front() != DATA_NULL,
+                      "bad byte array for numeric");
         return *(numeric_t*)(bytes.data() + 1);
     }
 
@@ -208,27 +212,27 @@ namespace Orange {
         ret.resize(strlen(ret.data()));
         return ret;
     }
-}
+}  // namespace Orange
 
-template<typename T>
-std::enable_if_t<std::is_enum_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
+template <typename T>
+std::enable_if_t<std::is_enum_v<T>, std::ostream&> operator<<(std::ostream& os, const T& t) {
     os << int(t);
     return os;
 }
-template<typename T>
-std::enable_if_t<std::is_enum_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+template <typename T>
+std::enable_if_t<std::is_enum_v<T>, std::istream&> operator>>(std::istream& is, T& t) {
     is >> (int&)t;
     return is;
 }
 
-template<typename T>
-std::enable_if_t<is_std_vector_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
+template <typename T>
+std::enable_if_t<is_std_vector_v<T>, std::ostream&> operator<<(std::ostream& os, const T& t) {
     os << t.size();
-    for (auto &x: t) os << ' ' << x;
+    for (auto& x : t) os << ' ' << x;
     return os;
 }
-template<typename T>
-std::enable_if_t<is_std_vector_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+template <typename T>
+std::enable_if_t<is_std_vector_v<T>, std::istream&> operator>>(std::istream& is, T& t) {
     size_t size;
     is >> size;
     t.resize(size);
@@ -236,13 +240,13 @@ std::enable_if_t<is_std_vector_v<T>, std::istream&> operator >> (std::istream& i
     return is;
 }
 
-template<typename T>
-std::enable_if_t<is_pair_v<T>, std::ostream&> operator << (std::ostream& os, const T& t) {
+template <typename T>
+std::enable_if_t<is_pair_v<T>, std::ostream&> operator<<(std::ostream& os, const T& t) {
     os << t.first << ' ' << t.second;
     return os;
 }
-template<typename T>
-std::enable_if_t<is_pair_v<T>, std::istream&> operator >> (std::istream& is, T& t) {
+template <typename T>
+std::enable_if_t<is_pair_v<T>, std::istream&> operator>>(std::istream& is, T& t) {
     is >> t.first >> t.second;
     return is;
 }

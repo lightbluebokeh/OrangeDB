@@ -4,6 +4,7 @@
 #include "fs/allocator/allocator.h"
 
 #include <cstring>
+#include <utility>
 
 class File;
 class SavedTable;
@@ -18,13 +19,13 @@ private:
     std::vector<std::pair<ast::op, ast::data_value>> checks;
 
 public:
-    explicit Column() {}
+    explicit Column() = default;
     // 适合打印名称的那种
     explicit Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
-    Column(const String& name, 
-    // int id, 
-    const ast::data_type& type, bool nullable, ast::data_value dft) : name(name), 
-    // id(id), 
+    Column(const String& name,
+    // int id,
+    const ast::data_type& type, bool nullable, ast::data_value dft) : name(name),
+    // id(id),
     type(type), nullable(nullable), dft(dft) {
         switch (type.kind) {
             case orange_t::Int:
@@ -32,69 +33,77 @@ public:
             break;
             case orange_t::Varchar:
                 orange_check(type.int_value() <= MAX_VARCHAR_LEN, "varchar limit too long");
-            break;
+                break;
             case orange_t::Char:
                 orange_check(type.int_value() <= MAX_CHAR_LEN, "char limit too long");
-            break;
-            case orange_t::Date:
-                ORANGE_UNIMPL
-            break;
+                break;
+            case orange_t::Date: ORANGE_UNIMPL break;
             case orange_t::Numeric: {
                 int p = type.int_value() / 40;
                 int s = type.int_value() % 40;
                 orange_check(0 <= s && s <= p && p <= 20, "bad numeric");
             } break;
+            case orange_t::Int: break;
         }
     }
 
     // int get_id() const { return id; }
 
-    String type_string() const {
+    [[nodiscard]] String type_string() const {
         switch (type.kind) {
             case orange_t::Int: return "int";
             case orange_t::Char: return "char(" + std::to_string(type.int_value()) + ")";
             case orange_t::Varchar: return "varchar(" + std::to_string(type.int_value()) + ")";
             case orange_t::Date: return "date";
-            case orange_t::Numeric: return "nummeric(" + std::to_string(type.int_value() / 40) + "," + std::to_string(type.int_value() % 40) + ")";
+            case orange_t::Numeric:
+                return "numeric(" + std::to_string(type.int_value() / 40) + "," +
+                       std::to_string(type.int_value() % 40) + ")";
         }
         return "<error-type>";
     }
 
-    int get_key_size() const { return type.key_size(); }
+    [[nodiscard]] int get_key_size() const { return type.key_size(); }
 
-    String get_name() const { return name; }
-    ast::data_value get_dft() const { return dft; }
-    bool is_nullable() const { return nullable; }
+    [[nodiscard]] String get_name() const { return name; }
+    [[nodiscard]] ast::data_value get_dft() const { return dft; }
+    [[nodiscard]] bool is_nullable() const { return nullable; }
 
     // 列完整性约束，返回是否成功和错误消息
-    std::pair<bool, String> check(const ast::data_value& value) const {
+    [[nodiscard]] std::pair<bool, String> check(const ast::data_value& value) const {
         using ast::data_value_kind;
         switch (value.kind()) {
-            case data_value_kind::Null: return std::make_pair(nullable, "column constraint failed: null value given to not null column"); // 懒了，都返回消息
-            case data_value_kind::Int: return std::make_pair(type.kind == orange_t::Int || type.kind == orange_t::Numeric, "incompatible type");
-            case data_value_kind::Float: return std::make_pair(type.kind == orange_t::Numeric, "column constraint failed: incompatible type");
+            case data_value_kind::Null:
+                return std::make_pair(nullable, "column constraint failed: null value given to not "
+                                                "null column");  // 懒了，都返回消息
+            case data_value_kind::Int:
+                return std::make_pair(type.kind == orange_t::Int || type.kind == orange_t::Numeric,
+                                      "incompatible type");
+            case data_value_kind::Float:
+                return std::make_pair(type.kind == orange_t::Numeric,
+                                      "column constraint failed: incompatible type");
             case data_value_kind::String:
                 switch (type.kind) {
                     case orange_t::Varchar:
                     case orange_t::Char: {
-                        auto &str = value.to_string();
+                        auto& str = value.to_string();
                         if (int(str.length()) > type.int_value()) return std::make_pair(0, String("column constraint failed: ") + (type.kind == orange_t::Char ? "char" : "varchar") + String("limit exceeded"));
                         return std::make_pair(1, "");
-                    } break;
+                    }
                     case orange_t::Date: ORANGE_UNIMPL
-                    default: std::make_pair(0, "column constraint failed: incompatible type");
+                    default:
+                        return std::make_pair(0, "column constraint failed: incompatible type");
                 }
-            break;
+                break;
         }
         return std::make_pair(1, "");
     }
 
-    ast::data_type get_datatype() const { return type; }
-    orange_t get_datatype_kind() const { return type.kind; }
+    [[nodiscard]] ast::data_type get_datatype() const { return type; }
+    [[nodiscard]] orange_t get_datatype_kind() const { return type.kind; }
 
-    static int key_size_sum(const std::vector<Column> cols) {
+    static int key_size_sum(const std::vector<Column>& cols) {
         int ret = 0;
-        for (auto &col: cols) ret += col.get_key_size();
+        for (auto& col : cols) ret += col.get_key_size();
         return ret;
     }
 
@@ -109,14 +118,14 @@ public:
 
 inline std::ostream& operator << (std::ostream& os, const Column& col) {
     // print(os, ' ', col.name, col.id, col.type, col.nullable, col.dft, col.checks, col.key_size);
-    os << col.name << ' ' << 
-    // col.id << ' ' << 
+    os << col.name << ' ' <<
+    // col.id << ' ' <<
     col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks;
     return os;
 }
 inline std::istream& operator >> (std::istream& is, Column& col) {
-    is >> col.name >> 
-    // col.id >> 
+    is >> col.name >>
+    // col.id >>
     col.type >> col.nullable >> col.dft >> col.checks;
     return is;
 }
