@@ -1,5 +1,3 @@
-// parser
-// 这里应该会报很多优先级警告，要修的话全部左结合就行了，编译错误再说，因为我这里不报这些warning，修不了（
 
 #if !defined(NDEBUG) && defined(DEBUG_PARSER)
 #define BOOST_SPIRIT_DEBUG
@@ -14,11 +12,9 @@
 
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/phoenix.hpp>
-#include <boost/regex/pending/unicode_iterator.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/support_standard.hpp>
 #include <boost/spirit/include/support_standard_wide.hpp>
-#include <boost/variant/recursive_variant.hpp>
 
 #ifdef _MSC_VER
 #pragma warning(pop)

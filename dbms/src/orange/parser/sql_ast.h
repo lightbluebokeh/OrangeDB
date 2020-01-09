@@ -7,20 +7,18 @@
 
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
+#include <boost/variant/recursive_variant.hpp>
 
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
 
 #include "defs.h"
-#include "fs/allocator/allocator.h"
-
 #include <fs/allocator/allocator.h>
 #include <vector>
 
 namespace Orange::parser {
     // 这些都是ast结点
-    // 使用boost::optional和boost::variant, 因为它们不能转成std的
 
     /** column */
     struct column {
@@ -49,7 +47,7 @@ namespace Orange::parser {
     // enum class DataTypeKind { Int, VarChar, Date, Float };
     struct data_type {
         orange_t kind;
-        boost::variant<boost::blank, int_t> value;
+        boost::variant<boost::blank, int> value;
 
         bool has_value() const { return value.which() != 0; }
 
