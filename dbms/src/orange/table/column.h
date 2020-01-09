@@ -43,7 +43,6 @@ public:
                 int s = type.int_value() % 40;
                 orange_check(0 <= s && s <= p && p <= 20, "bad numeric");
             } break;
-            case orange_t::Int: break;
         }
     }
 
