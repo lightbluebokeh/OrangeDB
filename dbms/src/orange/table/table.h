@@ -389,6 +389,9 @@ private:
         for (auto &[col_name, pred]: all_preds) {
             preds_list[index->get_col_rank(col_name)].push_back(pred);
         }
+#ifdef DEBUG
+        std::cerr << "query use index" << std::endl;
+#endif
         return {1, index->query(preds_list, lim)};
     }
 

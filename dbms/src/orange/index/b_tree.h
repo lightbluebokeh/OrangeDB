@@ -43,7 +43,9 @@ private:
         bid_t id;
 
         node_t(const BTree &tree, bid_t id) : tree(tree), id(id) { memset(data, 0, sizeof(data)); }
-        ~node_t() { tree.f_tree->write_bytes(id * PAGE_SIZE, data, PAGE_SIZE); }
+        ~node_t() { 
+            tree.f_tree->write_bytes(id * PAGE_SIZE, data, PAGE_SIZE); 
+        }
 
         int& key_num() { return *(int*)data; }
         const int& key_num() const { return *(int*)data; }
@@ -106,7 +108,6 @@ private:
     void write_root() {
         std::ofstream ofs(path + "root");
         ofs << root->id << std::endl;
-        root.release();
     }
 
     static int fanout(int key_size) {
@@ -185,6 +186,7 @@ public:
         key_size(key_size), pool(pool_name()), t(fanout(key_size)) { orange_check(t >= 2, "btree fanout is too small"); }
     ~BTree() {
         write_root();
+        delete root.release();
         f_tree->close();
     }
 
