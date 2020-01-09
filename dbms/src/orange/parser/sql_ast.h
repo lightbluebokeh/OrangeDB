@@ -14,6 +14,7 @@
 
 #include "defs.h"
 
+#include <fs/allocator/allocator.h>
 #include <vector>
 
 namespace Orange::parser {
@@ -56,28 +57,27 @@ namespace Orange::parser {
         int_t int_value_or(int_t x) const { return has_value() ? int_value() : x; }
 
         static data_type int_type() { return {orange_t::Int, {}}; }
-        static data_type varchar_type(int len) { return {orange_t::Varchar, len}; }
+        static data_type varchar_type(int len) { return {orange_t::Varchar, int_t(len)}; }
 
         bool is_string() const { return kind == orange_t::Char || kind == orange_t::Varchar; }
 
         int key_size() const {
             switch (kind) {
                 case orange_t::Int: return 1 + sizeof(int_t);
-                case orange_t::Varchar: return 1 + sizeof(decltype(std::declval<FileAllocator>().allocate(0)));
+                case orange_t::Varchar:
+                    return 1 + sizeof(decltype(std::declval<FileAllocator>().allocate(0)));
                 case orange_t::Char: return 1 + int_value();
-                case orange_t::Date:
-                    ORANGE_UNIMPL
-                break;
+                case orange_t::Date: ORANGE_UNIMPL break;
                 case orange_t::Numeric: return 1 + sizeof(numeric_t);
             }
         }
     };
 
-    inline std::ostream& operator << (std::ostream& os, const data_type& type) {
+    inline std::ostream& operator<<(std::ostream& os, const data_type& type) {
         os << type.kind << ' ' << type.int_value_or(-1);  // cannot be negative
         return os;
     }
-    inline std::istream& operator >> (std::istream& is, data_type& type) {
+    inline std::istream& operator>>(std::istream& is, data_type& type) {
         is >> type.kind;
         int value;
         is >> value;

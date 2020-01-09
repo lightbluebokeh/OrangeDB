@@ -13,21 +13,25 @@ private:
     // 慢是慢了点，不过用暴力的话已经在内存里了，真慢了再说
     bool check_where(rid_t rid, const ast::single_where& where) const {
         if (where.is_null_check()) {
-            auto &null = where.null_check();
+            auto& null = where.null_check();
             auto flag = get_field(get_col_id(null.col_name), rid).front();
-            return null.is_not_null && flag != DATA_NULL || !null.is_not_null && flag == DATA_NULL;
+            return (null.is_not_null && flag != DATA_NULL) ||
+                   (!null.is_not_null && flag == DATA_NULL);
         } else if (where.is_op()) {
-            auto &op = where.op();
+            auto& op = where.op();
             auto col1_id = get_col_id(op.col_name);
-            auto &expr = op.expression;
+            auto& expr = op.expression;
             if (expr.is_column()) {
-                auto &col2 = expr.col();
+                auto& col2 = expr.col();
                 orange_check(!col2.table_name.has_value(), "cannot specify table name here");
                 int col2_id = get_col_id(col2.col_name);
-                return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype().kind, op.operator_, get_field(col2_id, rid), cols[col2_id].get_datatype().kind);
+                return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype().kind,
+                                   op.operator_, get_field(col2_id, rid),
+                                   cols[col2_id].get_datatype().kind);
             } else if (expr.is_value()) {
-                auto &value = expr.value();
-                return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype_kind(), op.operator_, value);
+                auto& value = expr.value();
+                return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype_kind(),
+                                   op.operator_, value);
             } else {
                 ORANGE_UNIMPL
                 return 0;
@@ -37,16 +41,17 @@ private:
             return 0;
         }
     }
+
 protected:
     std::vector<Column> cols;
 
-    virtual ~Table() {}
+    virtual ~Table() = default;
 
     auto& get_col(const String& col_name) {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
         orange_check(it != cols.end(), Exception::col_not_exist(col_name, get_name()));
-        return *it;        
+        return *it;
     }
     const auto& get_col(const String& col_name) const {
         auto it = cols.begin();
@@ -54,59 +59,61 @@ protected:
         orange_check(it != cols.end(), Exception::col_not_exist(col_name, get_name()));
         return *it;
     }
-    auto get_cols(const std::vector<String> col_names) const {
+    auto get_cols(const std::vector<String>& col_names) const {
         std::vector<Column> ret;
-        for (auto &col_name: col_names) {
+        for (auto& col_name : col_names) {
             ret.push_back(get_col(col_name));
         }
         return ret;
     }
-    int get_col_id(const String& col_name) const { 
+    int get_col_id(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
         orange_check(it != cols.end(), Exception::col_not_exist(col_name, get_name()));
-        return it - cols.begin(); 
+        return it - cols.begin();
     }
-    std::vector<int> get_col_ids(const std::vector<String>& col_names) const {
+    [[nodiscard]] std::vector<int> get_col_ids(const std::vector<String>& col_names) const {
         std::vector<int> ret;
-        for (auto &col_name: col_names) {
+        for (auto& col_name : col_names) {
             ret.push_back(get_col_id(col_name));
         }
         return ret;
     }
-    bool has_col(const String& col_name) const { 
+    bool has_col(const String& col_name) const {
         auto it = cols.begin();
         while (it != cols.end() && it->get_name() != col_name) it++;
         return it != cols.end();
     }
 
-    virtual byte_arr_t get_field(int col_id, rid_t rid) const = 0;
+    [[nodiscard]] virtual byte_arr_t get_field(int col_id, rid_t rid) const = 0;
     auto get_fields(const std::vector<Column>& cols, rid_t rid) const {
         std::vector<byte_arr_t> ret;
-        for (auto &col: cols) ret.push_back(get_field(col.get_id(), rid));
+        for (auto& col : cols) ret.push_back(get_field(col.get_id(), rid));
         return ret;
     }
 
     // 返回所有合法 rid
     virtual std::vector<rid_t> all() const = 0;
     // 用 where 进行筛选
-    virtual std::vector<rid_t> filt(const std::vector<rid_t>& rids, const ast::single_where& where) const {
+    virtual std::vector<rid_t> filt(const std::vector<rid_t>& rids,
+                                    const ast::single_where& where) const {
         std::vector<rid_t> ret;
-        for (auto rid: rids) {
+        for (auto rid : rids) {
             if (check_where(rid, where)) ret.push_back(rid);
         }
         return ret;
     }
     // where 中含有和 null 的比较
     bool check_op_null(const ast::where_clause& where_clause) const {
-        for (auto &where: where_clause) {
+        for (auto& where : where_clause) {
             if (where.is_op()) {
-                auto &expr = where.op().expression;
-                if (expr.is_value() && expr.value().is_null()) return 1; 
+                auto& expr = where.op().expression;
+                if (expr.is_value() && expr.value().is_null()) return true;
             }
         }
-        return 0;
+        return false;
     }
+
 public:
     virtual String get_name() const { return ANONYMOUS_NAME; }
 
@@ -116,11 +123,12 @@ public:
         if (check_op_null(where)) return {};
         // 多条 where clause 是与关系，求交
         auto ret = all();
-        for (auto &single_where: where) ret = filt(ret, single_where);
+        for (auto& single_where : where) ret = filt(ret, single_where);
         if (ret.size() > lim) ret.resize(lim);
         return ret;
     }
-    virtual TmpTable select(const std::vector<String>& names, const ast::where_clause& where) const = 0;
+    virtual TmpTable select(const std::vector<String>& names,
+                            const ast::where_clause& where) const = 0;
     TmpTable select_star(const ast::where_clause& where) const;
 };
 
@@ -129,53 +137,55 @@ class SavedTable;
 class TmpTable : public Table {
 private:
     std::vector<rec_t> recs;
-    std::vector<rid_t> all() const {
+    [[nodiscard]] std::vector<rid_t> all() const override {
         std::vector<rid_t> ret;
         for (rid_t i = 0; i < recs.size(); i++) {
             ret.push_back(i);
         }
         return ret;
     }
+
 public:
     byte_arr_t get_field(int col_id, rid_t rid) const override { return recs[rid][col_id]; }
 
     static TmpTable from_strings(const String& title, const std::vector<String>& strs) {
         TmpTable ret;
-        ret.cols.push_back(Column(title));
+        ret.cols.emplace_back(title);
         ret.recs.reserve(strs.size());
-        for (auto &str: strs) {
+        for (auto& str : strs) {
             ret.recs.push_back({Orange::to_bytes(str)});
         }
         return ret;
     }
 
-    virtual TmpTable select(const std::vector<String>& names, const ast::where_clause& where) const override {
+    [[nodiscard]] TmpTable select(const std::vector<String>& names,
+                                  const ast::where_clause& where) const override {
         TmpTable ret;
         auto rids = this->where(where);
         auto col_ids = get_col_ids(names);
         ret.recs.resize(rids.size());
-        for (auto col_id: col_ids) {
+        for (auto col_id : col_ids) {
             ret.cols.push_back(cols[col_id]);
-            for (auto rid: rids) {
+            for (auto rid : rids) {
                 ret.recs[rid].push_back(get_field(rid, col_id));
             }
         }
-        return ret; 
+        return ret;
     }
 
     friend class Table;
     friend class SavedTable;
-    friend std::ostream& operator << (std::ostream& os, const TmpTable& table);
+    friend std::ostream& operator<<(std::ostream& os, const TmpTable& table);
 };
 
 inline TmpTable Table::select_star(const ast::where_clause& where) const {
     std::vector<String> names;
-    for (auto &col: cols) names.push_back(col.get_name());
+    for (auto& col : cols) names.push_back(col.get_name());
     return select(names, where);
 }
 
 
-inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
+inline std::ostream& operator<<(std::ostream& os, const TmpTable& table) {
     using std::endl;
 
     // 最后三个字符留作省略号
@@ -191,7 +201,7 @@ inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
         os.put('+') << endl;
     };
     // 带截断的打印字符串
-    auto print = [&] (const String& str) {
+    auto print = [&](const String& str) {
         if (int(str.length()) + 3 > width) {
             os << str.substr(0, width - 3) + "...";
         } else {
@@ -201,7 +211,7 @@ inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
             }
         }
     };
-    auto print_line = [&] (const std::vector<String>& data) {
+    auto print_line = [&](const std::vector<String>& data) {
         os.put('|');
         for (unsigned i = 0; i < data.size(); i++) {
             print(data[i]);
@@ -223,7 +233,7 @@ inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
     // 中间线
     print_divide();
 
-    auto to_string = [] (const byte_arr_t &bytes, orange_t type) -> String {
+    auto to_string = [](const byte_arr_t& bytes, orange_t type) -> String {
         if (bytes.front() == DATA_NULL) return "null";
         switch (type) {
             case orange_t::Varchar:
@@ -233,11 +243,11 @@ inline std::ostream& operator << (std::ostream& os, const TmpTable& table) {
             case orange_t::Date: ORANGE_UNIMPL
             default: return "<error>???";
         }
-        return "**** warning";
     };
 
-    for (auto &rec: table.recs) {
-        for (unsigned i = 0; i < data.size(); i++) data[i] = to_string(rec[i], table.cols[i].get_datatype().kind);
+    for (auto& rec : table.recs) {
+        for (unsigned i = 0; i < data.size(); i++)
+            data[i] = to_string(rec[i], table.cols[i].get_datatype().kind);
         // 打印表的每一列
         print_line(data);
     }
