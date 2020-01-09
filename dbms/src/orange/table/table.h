@@ -362,7 +362,8 @@ private:
     std::pair<bool, std::vector<rid_t>> where_index(const ast::where_clause &where, rid_t lim = MAX_RID) const {
         if (where.empty()) return {1, all()};
         std::vector<int> col_ids;
-        std::vector<std::pair<int, Orange::pred_t>> all_preds;
+        std::vector<String> col_names;
+        std::vector<std::pair<String, Orange::pred_t>> all_preds;
         for (auto &single_where: where) {
             // 使用索引时查询中不允许包含 null
             if (single_where.is_null_check()) return {0, {}};
@@ -374,15 +375,18 @@ private:
             if (value.is_null()) return {1, {}};
             int col_id = get_col_id(op.col_name);
             col_ids.push_back(col_id);
+            col_names.push_back(op.col_name);
             // all_preds.push_back({op.operator_, value});
-            all_preds.push_back(std::make_pair(col_id, Orange::pred_t{op.operator_, value}));
+            all_preds.push_back(std::make_pair(op.col_name, Orange::pred_t{op.operator_, value}));
         }
-        auto index = get_index(col_ids);
+        std::sort(col_names.begin(), col_names.end());
+        col_names.resize(std::unique(col_names.begin(), col_names.end()) - col_names.begin());
+        auto index = get_index(col_names);
         if (!index) return {0, {}};
         std::vector<Orange::preds_t> preds_list;
         preds_list.resize(index->get_cols().size());
-        for (auto &[col_id, pred]: all_preds) {
-            preds_list[index->get_col_rank(col_id)].push_back(pred);
+        for (auto &[col_name, pred]: all_preds) {
+            preds_list[index->get_col_rank(col_name)].push_back(pred);
         }
         return {1, index->query(preds_list, lim)};
     }
@@ -541,15 +545,15 @@ private:
         }
         return nullptr;
     }
-    // 获取首列相同，其余列包含的索引；尽可能选小的
-    Index* get_index(const std::vector<int>& col_ids) {
+    // 获取首列相同，其余列包含的索引；尽可能选键大小小的
+    Index* get_index(const std::vector<String>& col_names) {
         Index* ret = nullptr;
         for (auto &[idx_name, index]: indexes) {
-            if (get_col_id(index->get_cols().front().get_name()) == col_ids.front()) {
+            if (index->get_cols().front().get_name() == col_names.front()) {
                 // 暴力判包含关系
                 bool test = 1;
-                for (unsigned i = 1; i < col_ids.size(); i++) {
-                    if (index->get_col_rank(col_ids[i]) == -1) {
+                for (unsigned i = 1; i < col_names.size(); i++) {
+                    if (index->get_col_rank(col_names[i]) == -1) {
                         test = 0;
                         break;
                     }
@@ -559,14 +563,14 @@ private:
         }
         return ret;
     }
-    const Index* get_index(const std::vector<int>& col_ids) const {
+    const Index* get_index(const std::vector<String>& col_names) const {
         const Index* ret = nullptr;
         for (auto &[idx_name, index]: indexes) {
-            if (get_col_id(index->get_cols().front().get_name()) == col_ids.front()) {
+            if (index->get_cols().front().get_name() == col_names.front()) {
                 // 暴力判包含关系
                 bool test = 1;
-                for (unsigned i = 1; i < col_ids.size(); i++) {
-                    if (index->get_col_rank(col_ids[i]) == -1) {
+                for (unsigned i = 1; i < col_names.size(); i++) {
+                    if (index->get_col_rank(col_names[i]) == -1) {
                         test = 0;
                         break;
                     }
@@ -731,7 +735,6 @@ public:
         set.resize(std::unique(set.begin(), set.end(), [] (auto a, auto b) { return a.col_name == b.col_name; }) - set.begin());
         std::map<String, ast::data_value> new_vals;
         for (auto &single_set: set) {
-            int col_id = get_col_id(single_set.col_name);
             new_vals[single_set.col_name] = single_set.val;
         }
         auto has_update = [&] (const std::vector<Column>& cols) {
@@ -865,8 +868,6 @@ public:
         // 目前只允许在 char 和 varchar 之间转换，以及改变长度限制
         col_data[col_id]->change(def, all());
     }
-
-    int new_col_id() const { return cols.size(); }
 
     static void rename(const String& old_name, const String& new_name) {
         check_db();

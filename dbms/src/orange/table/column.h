@@ -98,8 +98,8 @@ public:
         return ret;
     }
 
-    static Column from_def(const ast::field_def& def, int id) {
-        return Column(def.col_name, id, def.type, !def.is_not_null, 
+    static Column from_def(const ast::field_def& def) {
+        return Column(def.col_name, def.type, !def.is_not_null, 
             def.default_value.get_value_or(ast::data_value::null_value()));
     }
 

@@ -99,8 +99,10 @@ namespace Orange {
                     default: throw OrangeError(Exception::uncomparable(to_string(t1), to_string(t2)));
                 }
             } break;
-            case orange_t::Date:
+            case orange_t::Date: {
+                
                 ORANGE_UNIMPL
+            } break;
         }
         ORANGE_UNREACHABLE
         return 1;

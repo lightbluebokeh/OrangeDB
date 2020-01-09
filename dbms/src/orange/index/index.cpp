@@ -38,7 +38,7 @@ std::vector<byte_arr_t> Index::restore(const_bytes_t k_raw) const {
     std::vector<byte_arr_t> ret;
     for (unsigned i = 0, offset = 0; i < cols.size(); i++, offset += key_size) {
         auto &col = cols[i];
-        ret.push_back(table.col_data[col.get_id()]->restore(k_raw + offset));
+        ret.push_back(table.col_data[table.get_col_id(col.get_name())]->restore(k_raw + offset));
     }
     return ret;
 }

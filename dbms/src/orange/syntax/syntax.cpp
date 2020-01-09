@@ -116,12 +116,7 @@ namespace Orange {
                                              ? value_string(def.default_value.get())
                                              : "<none>")
                                      << std::endl;
-                            cols.emplace_back(
-                                def.col_name, cols.size(), def.type, !def.is_not_null,
-                                def.default_value.get_value_or(ast::data_value::null_value()));
-                            // cols.push_back(Column(def.col_name, def.type.kind,
-                            // def.type.int_value_or(0), !def.is_not_null,
-                            // def.default_value.get_value_or(data_value::null_value())));
+                            cols.emplace_back(Column::from_def(def));
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
@@ -366,7 +361,7 @@ namespace Orange {
                 const single_field& new_field = add_field.new_field;
                 if (new_field.kind() == FieldKind::Def) {
                     auto &def = new_field.def();
-                    Column col(def.col_name, table->new_col_id(), def.type, !def.is_not_null, def.default_value.get_value_or(ast::data_value::null_value()));
+                    Column col(def.col_name, def.type, !def.is_not_null, def.default_value.get_value_or(ast::data_value::null_value()));
                     table->add_col(col);
                 } else {
                     unexpected();

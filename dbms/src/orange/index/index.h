@@ -62,10 +62,10 @@ public:
 
     String get_name() const { return name; }
     int get_key_size() const { return key_size; }
-    // 对于列中编号为 id 的列，在 index 中的排名；不存在返回 -1
-    int get_col_rank(int id) const {
+    // 获取列在 index 中的排名；不存在返回 -1
+    int get_col_rank(const String& col_name) const {
         for (unsigned i = 0; i < cols.size(); i++) {
-            if (cols[i].get_id() == id) return i;
+            if (cols[i].get_name() == col_name) return i;
         }
         return -1;
     }

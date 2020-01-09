@@ -80,7 +80,7 @@ TEST_CASE("table", "[fs]") {
     Orange::create("test");
     Orange::use("test");
 
-    SavedTable::create("test", {Column("test", 0, ast::data_type::int_type(), 0, ast::data_value::from_int(5))}, {}, {});
+    SavedTable::create("test", {Column("test", ast::data_type::int_type(), 0, ast::data_value::from_int(5))}, {}, {});
     cerr << "create table test" << endl;
     auto table = SavedTable::get("test");
 
@@ -128,7 +128,7 @@ TEST_CASE("btree", "[index]") {
     Orange::create("test");
     Orange::use("test");
 
-    SavedTable::create("test", {Column("test", 0, ast::data_type::int_type(), 0, ast::data_value::from_int(5))}, {}, {});
+    SavedTable::create("test", {Column("test", ast::data_type::int_type(), 0, ast::data_value::from_int(5))}, {}, {});
     cerr << "create table test" << endl;
     auto table = SavedTable::get("test");
 
@@ -183,7 +183,7 @@ TEST_CASE("varchar", "[index]") {
 
     Orange::create("test");
     Orange::use("test");
-    SavedTable::create("varchar", {Column("test", 0, ast::data_type::varchar_type(2333), 1, ast::data_value::from_string("2333"))}, {}, {});
+    SavedTable::create("varchar", {Column("test", ast::data_type::varchar_type(2333), 1, ast::data_value::from_string("2333"))}, {}, {});
     auto table = SavedTable::get("varchar");
     int lim = 1000;
     for (int i = 0; i < lim; i++) {
