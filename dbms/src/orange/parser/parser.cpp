@@ -76,7 +76,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_field, field)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_op, col_name, operator_, expression)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_null, col_name, is_not_null)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where, where)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_set, col_name)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_set, col_name, val)
 
 // 表演完成
 
@@ -244,9 +244,9 @@ namespace Orange {
                 //                 <add_primary_key> | <add_constraint_primary_key> |
                 //                 <drop_primary_key> | <add_constraint_foreign_key> |
                 //                 <drop_foreign_key>
-                alter %= add_field | drop_col | change_col | rename_tb | add_primary_key |
+                alter %= drop_col | change_col | rename_tb | add_primary_key |
                          add_constraint_primary_key | drop_primary_key |
-                         add_constraint_foreign_key | drop_foreign_key;
+                         add_constraint_foreign_key | drop_foreign_key | add_field;
                 // <add_field> := 'ALTER' 'TABLE' [tb_name] 'ADD' <field>
                 add_field %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >> field;
                 // <drop_col> := 'ALTER' 'TABLE' [tb_name] 'DROP' [col_name]
@@ -260,15 +260,15 @@ namespace Orange {
                 // <add_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'PRIMARY' 'KEY'
                 //                      '(' <column_list> ')'
                 add_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >>
-                                   kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
+                                   kw(+"PRIMARY") >> kw(+"KEY") > '(' > columns > ')';
                 // <add_constraint_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [pk_name] 'PRIMARY' 'KEY' '(' <column_list> ')'
                 add_constraint_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >>
                                               kw(+"ADD") >> kw(+"CONSTRAINT") > identifier >>
-                                              kw(+"PRIMARY") > kw(+"KEY") > '(' > columns > ')';
+                                              kw(+"PRIMARY") >> kw(+"KEY") > '(' > columns > ')';
                 // <drop_primary_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'PRIMARY' 'KEY' [pk_name]?
                 drop_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"DROP") >>
-                                    kw(+"PRIMARY") > kw(+"KEY") > -(identifier);
+                                    kw(+"PRIMARY") >> kw(+"KEY") > -(identifier);
                 // <add_constraint_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [fk_name] 'FOREIGN' 'KEY' '(' <column_list> ')'
                 //                                 'REFERENCES' [ref_tb_name] '(' <column_list> ')'
@@ -427,12 +427,12 @@ namespace Orange {
         std::ostream& operator<<(std::ostream& os, const show_db_stmt& stmt) {
             return os << "<show_db_stmt>";
         }
-        std::ostream& operator<<(std::ostream& os, const DataTypeKind& kind) {
+        std::ostream& operator<<(std::ostream& os, const data_value_kind& kind) {
             switch (kind) {
-                case DataTypeKind::Int: os << "INT"; break;
-                case DataTypeKind::VarChar: os << "VARCHAR"; break;
-                case DataTypeKind::Date: os << "DATE"; break;
-                case DataTypeKind::Float: os << "FLOAT"; break;
+                case data_value_kind::Int: os << "INT"; break;
+//                case data_value_kind::VarChar: os << "VARCHAR"; break;
+//                case data_value_kind::Date: os << "DATE"; break;
+                case data_value_kind::Float: os << "FLOAT"; break;
             }
             return os;
         }
