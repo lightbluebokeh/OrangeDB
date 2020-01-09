@@ -185,4 +185,10 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
 TEST_CASE("Testing idx_stmt", "[parser]") {}
 
 // 测试alter statement
-TEST_CASE("alter_stmt", "[parser]") {}
+TEST_CASE("alter_stmt", "[parser]") {
+    sql_ast ast;
+
+    parse_sql("alter table test add primary key (a);", ast);
+    REQUIRE(ast.stmt_list[0].kind() == StmtKind::Alter);
+    REQUIRE(ast.stmt_list[0].alter().kind() == AlterStmtKind::AddPrimaryKey);
+}
