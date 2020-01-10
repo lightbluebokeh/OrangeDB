@@ -21,13 +21,10 @@ private:
 public:
     explicit Column() = default;
     // 适合打印名称的那种
-    explicit Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
-    Column(const String& name,
-           // int id,
-           const ast::data_type& type, bool nullable, ast::data_value dft) :
-        name(name),
-        // id(id),
-        type(type), nullable(nullable), dft(dft) {
+    explicit Column(String name) :
+        name(std::move(name)), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
+    Column(String name, const ast::data_type& type, bool nullable, ast::data_value dft) : // int id
+        name(std::move(name)), type(type), nullable(nullable), dft(std::move(dft)) {
         switch (type.kind) {
             case orange_t::Int:
                 // do nothing
@@ -38,7 +35,7 @@ public:
             case orange_t::Char:
                 orange_check(type.int_value() <= MAX_CHAR_LEN, "char limit too long");
                 break;
-            case orange_t::Date: ORANGE_UNIMPL break;
+            case orange_t::Date: break;
             case orange_t::Numeric: {
                 int p = type.int_value() / 40;
                 int s = type.int_value() % 40;
@@ -93,7 +90,7 @@ public:
                                        String("limit exceeded"));
                         return std::make_pair(1, "");
                     }
-                    case orange_t::Date: ORANGE_UNIMPL
+                    case orange_t::Date: break;
                     default:
                         return std::make_pair(0, "column constraint failed: incompatible type");
                 }
