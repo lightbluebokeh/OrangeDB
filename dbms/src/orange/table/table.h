@@ -228,6 +228,11 @@ private:
         for (auto &[name, f_key_def]: f_key_defs) {
             ofs << ' ' << f_key_def;
         }
+        ofs << ' ' << f_key_rev.size();
+        for (auto &[_, src_fk_def]: f_key_rev) {
+            auto &[src, fk_def] = src_fk_def;
+            ofs << ' ' << src << ' ' << fk_def;
+        }
         ofs << ' ' << indexes.size();
         for (auto &[idx_name, idx]: indexes) {
             ofs << ' ' << idx_name;
@@ -243,6 +248,14 @@ private:
             f_key_t f_key_def;
             ifs >> f_key_def;
             f_key_defs[f_key_def.name] = f_key_def;
+        }
+        size_t fk_rev_size;
+        ifs >> fk_rev_size;
+        for (size_t i = 0; i < fk_rev_size; i++) {
+            String src;
+            f_key_t fk_def;
+            ifs >> src >> fk_def;
+            f_key_rev[fk_def.name] = {src, fk_def};
         }
         for (auto &col: cols) {
             col_data.push_back(new ColumnDataHelper(File::open(data_name(col.get_name())), col, data_root(), name));
@@ -957,9 +970,14 @@ public:
 
     static void rename(const String& old_name, const String& new_name) {
         check_db();
-        auto table = SavedTable::get_opened(old_name);  // 防止文件系统出 bug，先关掉表再重命名
-        if (table) table->close();
+        SavedTable::get(old_name)->close(); // 防止文件系统出 bug，先关掉表再重命名
         fs::rename(old_name, new_name);
+        auto table = SavedTable::get(new_name);
+        for (auto &[_, src_fk_def]: table->f_key_rev) {
+            auto &[src, fk_def] = src_fk_def;
+            fk_def.ref_tbl = new_name;
+            SavedTable::get(src)->f_key_defs[fk_def.name].ref_tbl = new_name;
+        }
     }
 
     static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, ast::select_tb_stmt select) {
