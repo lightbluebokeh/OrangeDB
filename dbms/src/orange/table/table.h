@@ -19,6 +19,7 @@
 #include "orange/parser/sql_ast.h"
 #include "fs/allocator/allocator.h"
 #include "exceptions.h"
+#include "orange/syntax/syntax.h"
 
 // 数据库中的表
 class SavedTable : public Table {
@@ -929,6 +930,155 @@ public:
         auto table = SavedTable::get_opened(old_name);  // 防止文件系统出 bug，先关掉表再重命名
         if (table) table->close();
         fs::rename(old_name, new_name);
+    }
+
+    static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, const ast::select_tb_stmt& select) {
+        if (select.select.empty()) {         // select *
+            if (select.where.has_value()) {  // 带where
+                const ast::where_clause& where = select.where.get();
+                ast::where_clause table1_where, table2_where, between_where;
+                // 把where条件分割到上面三个
+                for (auto& cond : where) {
+                    if (cond.is_op()) {
+                        auto& col = cond.op().col;
+                        if (!col.table_name.has_value()) {
+                            return {{"You need to add table name."}};
+                        }
+                        if (col.table_name != table1->get_name() &&
+                            col.table_name != table2->get_name()) {
+                            return {{"table not found"}};
+                        }
+                        auto& expr = cond.op().expression;
+                        if (expr.is_column()) {
+                            auto& expr_col = expr.col();
+                            if (!expr_col.table_name.has_value()) {
+                                return {{"You need to add table name."}};
+                            }
+                            if (expr_col.table_name == table1->get_name() ||
+                                expr_col.table_name == table2->get_name()) {
+                                between_where.push_back(cond);
+                            } else {
+                                return {{"table not found."}};
+                            }
+                        } else {
+                            if (col.table_name == table1->get_name()) {
+                                table1_where.push_back(cond);
+                            } else {
+                                table2_where.push_back(cond);
+                            }
+                        }
+                    } else {  // cond is null check
+                        const auto& col = cond.null_check().col;
+                        if (!col.table_name.has_value()) {
+                            return {{"You need to add table name."}};
+                        }
+                        if (col.table_name == table1->get_name()) {
+                            table1_where.push_back(cond);
+                        } else if (col.table_name == table2->get_name()) {
+                            table2_where.push_back(cond);
+                        } else {
+                            return {{"Table not found."}};
+                        }
+                    }
+                }
+
+                TmpTable result1 = table1->select_star(table1_where);
+                TmpTable result2 = table2->select_star(table2_where);
+                for (rid_t i = 0; i < result1.recs.size(); i++) {
+                    for (rid_t j = 0; j < result2.recs.size(); j++) {
+                        for (auto single_where: between_where) {
+                            auto op = single_where.op();
+                            auto col_expr = op.expression.col();
+                            auto col1_name = op.col.col_name, col2_name = col_expr.col_name;
+                            if (op.col.table_name == table2->get_name()) {
+                                std::swap(col1_name, col2_name);
+                            }
+                            
+                        }
+                    }
+                }
+                // TODO: 做笛卡尔积，需要注意between_where
+            } else {  // 不带where
+                // std::vector<TmpTable> results;
+                TmpTable result1 = table1->select_star({});
+                TmpTable result2 = table2->select_star({});
+                // for (const auto& it : tables) {
+                //     const SavedTable* table = it.second;
+                //     results.emplace_back(table->select_star({}));
+                // }
+                // TODO: 做笛卡尔积
+            }
+        } else {  // select something
+            std::vector<String> names1, names2;
+            for (const auto& col : select.select) {
+                if (!col.table_name.has_value()) {
+                    return {{"You need to add table name before column."}};
+                }
+                if (col.table_name == table1->get_name()) {
+                    names1.push_back(col.col_name);
+                } else if (col.table_name == table2->get_name()) {
+                    names2.push_back(col.col_name);
+                } else {
+                    return {{"Table not found"}};
+                }
+            }
+            if (select.where.has_value()) {  // 带where
+                const ast::where_clause& where = select.where.get();
+                ast::where_clause table1_where, table2_where, between_where;
+                // 把where条件分开到上面三个
+                for (auto& cond : where) {
+                    if (cond.is_op()) {
+                        auto& col = cond.op().col;
+                        if (!col.table_name.has_value()) {
+                            return {{"You need to add table name."}};
+                        }
+                        if (col.table_name != table1->get_name() &&
+                            col.table_name != table2->get_name()) {
+                            return {{"table not found"}};
+                        }
+                        auto& expr = cond.op().expression;
+                        if (expr.is_column()) {
+                            auto& expr_col = expr.col();
+                            if (!expr_col.table_name.has_value()) {
+                                return {{"You need to add table name."}};
+                            }
+                            if (expr_col.table_name == table1->get_name() ||
+                                expr_col.table_name == table2->get_name()) {
+                                between_where.push_back(cond);
+                            } else {
+                                return {{"table not found."}};
+                            }
+                        } else {
+                            if (col.table_name == table1->get_name()) {
+                                table1_where.push_back(cond);
+                            } else {
+                                table2_where.push_back(cond);
+                            }
+                        }
+                    } else {  // cond is null check
+                        const auto& col = cond.null_check().col;
+                        if (!col.table_name.has_value()) {
+                            return {{"You need to add table name."}};
+                        }
+                        if (col.table_name == table1->get_name()) {
+                            table1_where.push_back(cond);
+                        } else if (col.table_name == table2->get_name()) {
+                            table2_where.push_back(cond);
+                        } else {
+                            return {{"Table not found."}};
+                        }
+                    }
+                }
+
+                TmpTable result1 = table1->select(names1, table1_where);
+                TmpTable result2 = table1->select(names2, table2_where);
+                // TODO: 做笛卡尔积，要注意 between_where
+            } else {  // 不带where
+                TmpTable result1 = table1->select(names1, {});
+                TmpTable result2 = table2->select(names2, {});
+                // TODO: 做笛卡尔积
+            }
+        }        
     }
 
     friend class Index;
