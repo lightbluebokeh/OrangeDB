@@ -171,6 +171,18 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().insert_into().columns.get()[0] == "col1");
     REQUIRE(ast.stmt_list[0].tb().insert_into().columns.get()[1] == "col2");
 
+    // delete from
+    parse_sql("delete from test where a=3;", ast);
+    REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::DeleteFrom);
+    REQUIRE(ast.stmt_list[0].tb().delete_from().name == "test");
+    REQUIRE(ast.stmt_list[0].tb().delete_from().where.size() == 1);
+    REQUIRE(ast.stmt_list[0].tb().delete_from().where[0].is_op());
+    REQUIRE(ast.stmt_list[0].tb().delete_from().where[0].op().col.col_name == "a");
+    REQUIRE(ast.stmt_list[0].tb().delete_from().where[0].op().expression.is_value());
+    REQUIRE(ast.stmt_list[0].tb().delete_from().where[0].op().expression.value().is_int());
+    REQUIRE(ast.stmt_list[0].tb().delete_from().where[0].op().expression.value().to_int() == 3);
+
+    // update
     parse_sql("update test set b = 5 where a = 6;", ast);
     REQUIRE(ast.stmt_list[0].kind() == StmtKind::Tb);
     REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Update);
@@ -179,10 +191,38 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().update().set[0].col_name == "b");
     REQUIRE(ast.stmt_list[0].tb().update().set[0].val.is_int());
     REQUIRE(ast.stmt_list[0].tb().update().set[0].val.to_int() == 5);
+
+    // select from
+    parse_sql("select * from table1, table2;", ast);
+    REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Select);
+    REQUIRE(ast.stmt_list[0].tb().select().select.size() == 0);
+    REQUIRE(ast.stmt_list[0].tb().select().tables.size() == 2);
+    REQUIRE(ast.stmt_list[0].tb().select().tables[0] == "table1");
+    REQUIRE(ast.stmt_list[0].tb().select().tables[1] == "table2");
+    REQUIRE(ast.stmt_list[0].tb().select().where.has_value() == false);
+    parse_sql(
+        "select table1.col1, table2.col2 from table1, table2 where table1.col1 > table2.col2;",
+        ast);
+    REQUIRE(ast.stmt_list[0].tb().select().select.size() == 2);
+    REQUIRE(ast.stmt_list[0].tb().select().select[0].table_name.get() == "table1");
+    REQUIRE(ast.stmt_list[0].tb().select().select[0].col_name == "col1");
+    REQUIRE(ast.stmt_list[0].tb().select().select[1].table_name.get() == "table2");
+    REQUIRE(ast.stmt_list[0].tb().select().select[1].col_name == "col2");
+    REQUIRE(ast.stmt_list[0].tb().select().where->size() == 1);
+    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].is_op());
+    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().col.table_name.get() == "table1");
+    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().col.col_name == "col1");
+    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().operator_ == op::Gt);
+    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.is_column());
+    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.col().table_name.get() ==
+            "table2");
+    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.col().col_name == "col2");
 }
 
 // 测试index statement
-TEST_CASE("Testing idx_stmt", "[parser]") {}
+TEST_CASE("Testing idx_stmt", "[parser]") {
+
+}
 
 // 测试alter statement
 TEST_CASE("alter_stmt", "[parser]") {

@@ -1,6 +1,7 @@
+#include <fstream>
 #include <iostream>
 #include <sstream>
-#include <fstream>
+#include <regex>
 
 #include "defs.h"
 #include "orange/orange.h"
@@ -22,7 +23,7 @@ static std::string generate_error_message(const char* sql, const ast::parse_erro
     return ss.str();
 }
 
-auto &cout = std::cout;
+auto& cout = std::cout;
 using std::endl;
 
 static ErrorCode manage(const std::string& sql) {
@@ -32,9 +33,11 @@ static ErrorCode manage(const std::string& sql) {
     try {
         sql_ast ast = parser.parse(sql);
         auto results = Orange::program(ast);
-        for (auto &result: results) {
-            if (!result.ok()) cout << RED << "FAILED: " << RESET << result.what() << endl;
-            else if (result.has()) cout << result.get() << endl;
+        for (auto& result : results) {
+            if (!result.ok())
+                cout << RED << "FAILED: " << RESET << result.what() << endl;
+            else if (result.has())
+                cout << result.get() << endl;
         }
     }
     catch (const parse_error& e) {
@@ -87,9 +90,47 @@ int main(int argc, char* argv[]) {
                 continue;
             }
             ret_code = (int)from_file(name);
-        } else {
-            ret_code = (int)manage(sql);
+            continue;
         }
+        if (sql == "load") {
+            printf("table name: ");
+            String table;
+            std::getline(std::cin, table);
+            if (table.empty()) continue;
+
+            printf("path: ");
+            String path;
+            std::getline(std::cin, path);
+            if (path.empty()) continue;
+
+            std::ifstream fin(path);
+            if (!fin) {
+                std::cout << "failed to open '" << path << "'\n";
+                continue;
+            }
+            String line;
+            const std::regex is_number("((\\+|-)?[[:digit:]]+)(\\.(([[:digit:]]+)?))?");
+            while (std::getline(fin, line)) {
+                std::stringstream ss(line);
+                String token, values;
+                while (std::getline(ss, token, '|')) {
+                    std::cout << token << '\n';
+                    if (std::regex_match(token, is_number)) {
+                        values += token + ',';
+                    } else {
+                        values += '\'' + token + '\'' + ',';
+                    }
+                }
+                values.pop_back();
+                ret_code = (int)manage("INSERT INTO " + table + " VALUES (" + values + ");");
+                if (ret_code != 0) {
+                    printf("insertion failed\n");
+                    break;
+                }
+            }
+        }
+
+        ret_code = (int)manage(sql);
     }
 
     Orange::unuse();  // 可能需要捕获ctrl+c信号
