@@ -48,7 +48,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::select_tb_stmt, select, tables, where)
 
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::idx_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_idx_stmt, idx_name, tb_name, col_list)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_idx_stmt, name)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_idx_stmt, idx_name, tb_name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::alter_add_idx_stmt, tb_name, idx_name, col_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::alter_drop_idx_stmt, tb_name, idx_name)
 
@@ -67,7 +67,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_foreign_key_stmt, table_name, fk_
 
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::column, table_name, col_name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_value, value)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_type, kind, value)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_type, kind, value, value2)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::expr, expression)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_def, col_name, type, is_not_null, default_value)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_primary_key, col_list)
@@ -230,8 +230,8 @@ namespace Orange {
                 // <create_idx> := 'CREATE' 'INDEX' [idx_name] 'ON' [tb_name] '(' <column_list> ')'
                 create_idx %= kw(+"CREATE") >> kw(+"INDEX") > identifier > kw(+"ON") > identifier >
                               '(' > columns > ')';
-                // <drop_idx> := 'DROP' 'INDEX' [idx_name]
-                drop_idx %= kw(+"DROP") >> kw(+"INDEX") > identifier;
+                // <drop_idx> := 'DROP' 'INDEX' [idx_name] 'ON' [tb_name]
+                drop_idx %= kw(+"DROP") >> kw(+"INDEX") > identifier > kw(+"ON") > identifier;
                 // <alter_add_idx> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'INDEX' [idx_name]
                 //                    '(' column_list ')'
                 alter_add_idx %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >>
@@ -252,11 +252,11 @@ namespace Orange {
                 // <drop_col> := 'ALTER' 'TABLE' [tb_name] 'DROP' [col_name]
                 drop_col %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"DROP") >> identifier;
                 // <change_col> := 'ALTER' 'TABLE' [tb_name] 'CHANGE' [col_name] <field>
-                change_col %=
-                    kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"CHANGE") > identifier > field;
+                change_col %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"CHANGE") >
+                              identifier > field;
                 // <rename_tb> := 'ALTER' 'TABLE' [tb_name] 'RENAME' 'TO' [new_tb_name]
-                rename_tb %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"RENAME") > kw(+"TO") >
-                             identifier;
+                rename_tb %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"RENAME") >
+                             kw(+"TO") > identifier;
                 // <add_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'PRIMARY' 'KEY'
                 //                      '(' <column_list> ')'
                 add_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >>
@@ -330,7 +330,12 @@ namespace Orange {
                      ')') |
                     kw(+"DATE")[at_c<0>(qi::_val) = orange_t::Date] |
                     kw(+"FLOAT")[at_c<0>(qi::_val) = orange_t::Numeric,
-                                 at_c<1>(qi::_val) = 40 * 18 + 2];
+                                 at_c<1>(qi::_val) = 40 * 18 + 2] |
+                    kw(+"NUMERIC")[at_c<0>(qi::_val) = orange_t::Numeric] >> '(' >>
+                        qi::int_[at_c<1>(qi::_val) = qi::_1] >> ',' >>
+                        qi::int_[at_c<2>(qi::_val) = qi::_1] >> ')' |
+                    kw(+"NUMERIC")[at_c<0>(qi::_val) = orange_t::Numeric,
+                                   at_c<1>(qi::_val) = 40 * 18 + 2];
 
                 // <value> := <int> | <string> | <float> | 'NULL'
                 value = (qi::int_[at_c<0>(qi::_val) = qi::_1] >> &!qi::no_skip['.']) |
@@ -429,9 +434,11 @@ namespace Orange {
         }
         std::ostream& operator<<(std::ostream& os, const data_value_kind& kind) {
             switch (kind) {
-                case data_value_kind::Int: os << "INT"; break;
-//                case data_value_kind::VarChar: os << "VARCHAR"; break;
-//                case data_value_kind::Date: os << "DATE"; break;
+                case data_value_kind::Int:
+                    os << "INT";
+                    break;
+                    //                case data_value_kind::VarChar: os << "VARCHAR"; break;
+                    //                case data_value_kind::Date: os << "DATE"; break;
                 case data_value_kind::Float: os << "FLOAT"; break;
             }
             return os;

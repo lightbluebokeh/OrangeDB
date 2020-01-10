@@ -344,11 +344,9 @@ namespace Orange {
             case IdxStmtKind::Drop: {
                 auto& drop = stmt.drop();
                 ss_debug << "  drop index" << endl;
-                ss_debug << "   index name: " << drop.name << endl;
-                for (const auto& tbl_name : all_tables()) {
-                    auto table = SavedTable::get(tbl_name);
-                    if (table->has_index(drop.name)) table->drop_index(drop.name);
-                }
+                ss_debug << "   index name: " << drop.idx_name << endl;
+                auto table = SavedTable::get(drop.tb_name);
+                table->drop_index(drop.idx_name);
             } break;
         }
         return {{}};

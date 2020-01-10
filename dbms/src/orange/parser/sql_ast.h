@@ -49,6 +49,7 @@ namespace Orange::parser {
     struct data_type {
         orange_t kind;
         boost::variant<boost::blank, int> value;
+        int value2;
 
         bool has_value() const { return value.which() != 0; }
 
@@ -365,7 +366,8 @@ namespace Orange::parser {
     };
 
     struct drop_idx_stmt {
-        std::string name;
+        std::string idx_name;
+        std::string tb_name;
     };
 
     struct alter_add_idx_stmt {
