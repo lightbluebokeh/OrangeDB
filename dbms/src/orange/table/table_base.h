@@ -88,7 +88,7 @@ protected:
     [[nodiscard]] virtual byte_arr_t get_field(int col_id, rid_t rid) const = 0;
     auto get_fields(const std::vector<Column>& cols, rid_t rid) const {
         std::vector<byte_arr_t> ret;
-        for (auto &col: cols) ret.push_back(get_field(get_col_id(col.get_name()), rid));
+        for (auto& col : cols) ret.push_back(get_field(get_col_id(col.get_name()), rid));
         return ret;
     }
 
@@ -116,6 +116,7 @@ protected:
 
 public:
     virtual String get_name() const { return ANONYMOUS_NAME; }
+    [[nodiscard]] const std::vector<Column>& get_cols() const { return cols; }
 
     // 返回满足 where clause 的所有 rid
     // 为了测试放到了 public
@@ -147,6 +148,7 @@ private:
 
 public:
     byte_arr_t get_field(int col_id, rid_t rid) const override { return recs[rid][col_id]; }
+    const std::vector<rec_t>& get_recs() const { return recs; }
 
     static TmpTable from_strings(const String& title, const std::vector<String>& strs) {
         TmpTable ret;
@@ -244,7 +246,7 @@ inline std::ostream& operator<<(std::ostream& os, const TmpTable& table) {
             case orange_t::Date: {
                 std::tm date = {};
                 std::ostringstream ss;
-                ss << std::put_time(&date, "%x");
+                ss << std::put_time(&date, "%Y-%m-%d");
                 return ss.str();
             }
             default: return "<error>???";

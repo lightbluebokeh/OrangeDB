@@ -72,7 +72,7 @@ namespace Orange {
                 if (v2.is_string()) {
                     std::tm v2_tm = {};
                     std::istringstream ss(v2.to_string());
-                    ss >> std::get_time(&v2_tm, "%x");
+                    ss >> std::get_time(&v2_tm, "%Y-%m-%d");
                     return cmp(std::mktime(&v1), op, std::mktime(&v2_tm));
                 } else {
                     ORANGE_UNREACHABLE
