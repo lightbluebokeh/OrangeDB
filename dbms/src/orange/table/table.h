@@ -420,7 +420,7 @@ private:
             orange_check(ok, msg);
         }
         // 检查 unique 约束和外键约束
-        for (auto &[name, index]: indexes) if (index->is_unique()) {
+        for (auto &[name, index]: indexes) {
             bool has_null = 0, all_null = 1;
             std::vector<byte_arr_t> vals;
             for (auto &col: index->get_cols()) {
@@ -431,15 +431,18 @@ private:
                 }
                 vals.push_back(Orange::value_to_bytes(values[get_col_id(col.get_name())], col.get_datatype()));
             }
-            // unique 无法约束 null
-            if (!has_null) orange_check(!index->constains(vals), "fail unique constraint");
+            if (index->is_unique()) {
+                // unique 无法约束 null
+                if (!has_null) orange_check(!index->constains(vals), "fail unique constraint");
+            }
             // 检查外键约束
             if (f_key_defs.count(name)) {
                 auto &f_key_def = f_key_defs.at(name);
                 if (has_null) {
                     orange_check(all_null, "foreign key columns must either be null or non-null together");
                 } else {
-                    orange_check(SavedTable::get(f_key_def.ref_tbl)->get_p_key()->constains(vals), "foreign key map missed");
+                    auto pk = SavedTable::get(f_key_def.ref_tbl)->get_p_key();
+                    orange_check(pk->constains(vals), "foreign key map missed");
                 }
             }
         }
@@ -463,6 +466,15 @@ private:
     // }
     rid_t delete_record(rid_t rid) {
         if (rid_pool.contains(rid)) return 0;
+        // 要放到前面来
+        auto p_key = get_p_key();
+        // 主键级联删除备用
+        byte_arr_t raws;
+        std::vector<byte_arr_t> vals;
+        if (p_key) {
+            raws = get_raws(p_key->get_cols(), rid);
+            vals = get_fields(p_key->get_cols(), rid);
+        }
         for (auto &[idx_name, index]: indexes) {
             index->remove(get_raws(index->get_cols(), rid), rid);
         }
@@ -472,10 +484,8 @@ private:
         rid_pool.free_id(rid);
 
         auto ret = 1;
-        auto p_key = get_p_key();
-        if (p_key) {
+        if (p_key && !p_key->constains(vals)) {
             // 级联删除
-            auto raws = get_raws(p_key->get_cols(), rid);
             for (auto &[idx_name, src_f_key]: f_key_rev) {
                 auto &[src_name, f_key_def] = src_f_key;
                 auto src = SavedTable::get(src_name);
@@ -764,7 +774,7 @@ public:
             return 0;
         };
 
-        // 更新索引
+        // 先更新索引吧
         for (auto [_, index]: indexes) if (has_update(index->get_cols())) {
             std::vector<int> col_ids;
             for (auto col: index->get_cols()) col_ids.push_back(get_col_id(col.get_name()));
@@ -784,10 +794,10 @@ public:
             }
         }
 
-        // 更新了主键需要在另外的表的外键上 set null
+        // 更新了主键需要在外键源表上 set null
         auto pk = get_p_key();
         if (has_update(pk->get_cols())) {
-            for (auto rid: all()) {
+            for (auto rid: rids) {
                 auto raws = get_raws(pk->get_cols(), rid);
                 for (auto &[name, src_fk]: f_key_rev) {
                     auto &[src_name, fk_def] = src_fk;
@@ -857,10 +867,12 @@ public:
         auto ref_tbl = SavedTable::get(f_key_def.ref_tbl);
         auto ref_p_key = ref_tbl->get_p_key();
         // 没有映射到那张表的主键
-        orange_check(![&] {
-            if (!ref_p_key || ref_p_key->get_cols().size() != f_key_def.ref_list.size()) return 0;
+        orange_check([&] {
+            if (!ref_p_key || ref_p_key->get_cols().size() != f_key_def.ref_list.size()) 
+                return 0;
             for (unsigned i = 0; i < f_key_def.ref_list.size(); i++) {
-                if (ref_p_key->get_cols()[i].get_name() != f_key_def.ref_list[i]) return 0;
+                if (ref_p_key->get_cols()[i].get_name() != f_key_def.ref_list[i]) 
+                    return 0;
             }
             return 1;
         }(), "should map to the primary key of table `" + f_key_def.ref_tbl + "`");

@@ -264,8 +264,8 @@ namespace Orange {
                 // <add_constraint_primary_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
                 //                                 [pk_name] 'PRIMARY' 'KEY' '(' <column_list> ')'
                 add_constraint_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >>
-                                              kw(+"ADD") >> kw(+"CONSTRAINT") > identifier >>
-                                              kw(+"PRIMARY") >> kw(+"KEY") > '(' > columns > ')';
+                                              kw(+"ADD") >> kw(+"CONSTRAINT") >> identifier >>
+                                              kw(+"PRIMARY") >> kw(+"KEY") >> '(' >> columns >> ')';
                 // <drop_primary_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'PRIMARY' 'KEY' [pk_name]?
                 drop_primary_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"DROP") >>
                                     kw(+"PRIMARY") >> kw(+"KEY") > -(identifier);
