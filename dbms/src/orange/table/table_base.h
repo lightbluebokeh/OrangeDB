@@ -136,6 +136,7 @@ class SavedTable;
 
 class TmpTable : public Table {
 private:
+    std::vector<rec_t> recs;
     [[nodiscard]] std::vector<rid_t> all() const override {
         std::vector<rid_t> ret;
         for (rid_t i = 0; i < recs.size(); i++) {
@@ -145,7 +146,6 @@ private:
     }
 
 public:
-    std::vector<rec_t> recs;
     byte_arr_t get_field(int col_id, rid_t rid) const override { return recs[rid][col_id]; }
 
     static TmpTable from_strings(const String& title, const std::vector<String>& strs) {
