@@ -12,7 +12,6 @@ using std::endl;
 constexpr auto a = std::make_pair(1, 2), b = std::make_pair(2, 3);
 static_assert(a < b);
 
-
 namespace Orange {
     [[noreturn]] void unexpected() { throw std::runtime_error("unexpected error"); }
 
@@ -381,8 +380,7 @@ namespace Orange {
         switch (stmt.kind()) {
             case IdxStmtKind::AlterAdd: {
                 auto alter_add = stmt.alter_add();
-                SavedTable::get(alter_add.tb_name)
-                    ->create_index(alter_add.idx_name, alter_add.col_list, 0, 0);
+                SavedTable::get(alter_add.tb_name)->create_index(alter_add.idx_name, alter_add.col_list, 0, 0);
             } break;
             case IdxStmtKind::AlterDrop: {
                 auto alter_drop = stmt.alter_drop();
@@ -419,9 +417,8 @@ namespace Orange {
                 auto table = SavedTable::get(table_name);
                 const single_field& new_field = add_field.new_field;
                 if (new_field.kind() == FieldKind::Def) {
-                    auto& def = new_field.def();
-                    Column col(def.col_name, def.type, !def.is_not_null,
-                               def.default_value.get_value_or(ast::data_value::null_value()));
+                    auto &def = new_field.def();
+                    auto col = Column::from_def(def);
                     table->add_col(col);
                 } else {
                     unexpected();

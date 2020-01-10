@@ -798,6 +798,7 @@ public:
         auto p_key = get_p_key();
         orange_check(p_key && p_key->get_name() == p_key_name, "primary key named `" + p_key_name + "` does not exist");
         orange_check(f_key_rev.empty(), Exception::drop_pk_fk_ref(name));
+        indexes.erase(p_key->get_name());
         Index::drop(p_key);
     }
 
@@ -819,10 +820,11 @@ public:
     void drop_f_key(const String& f_key_name) {
         auto f_key = get_f_key(f_key_name);
         orange_check(f_key, "foreign key named `" + f_key_name + "` does not exist");
+        indexes.erase(f_key_name);
         Index::drop(f_key);
-        auto &f_key_def = f_key_defs[f_key_name];
+        auto ref_tbl = f_key_defs[f_key_name].ref_tbl;
         f_key_defs.erase(f_key_name);
-        SavedTable::get(f_key_def.ref_tbl)->f_key_rev.erase(f_key_name);
+        SavedTable::get(ref_tbl)->f_key_rev.erase(f_key_name);
     }
 
     void add_col(const Column& new_col) {
