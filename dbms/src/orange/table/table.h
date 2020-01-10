@@ -551,40 +551,34 @@ private:
         }
         return nullptr;
     }
-    // 获取首列相同，其余列包含的索引；尽可能选键大小小的
+    // 找有没有列完全一致的索引
     Index* get_index(const std::vector<String>& col_names) {
-        Index* ret = nullptr;
         for (auto &[idx_name, index]: indexes) {
-            if (index->get_cols().front().get_name() == col_names.front()) {
-                // 暴力判包含关系
-                bool test = 1;
-                for (unsigned i = 1; i < col_names.size(); i++) {
-                    if (index->get_col_rank(col_names[i]) == -1) {
-                        test = 0;
-                        break;
-                    }
+            // 暴力判相等关系
+            bool test = 1;
+            for (unsigned i = 0; i < col_names.size(); i++) {
+                if (index->get_col_rank(col_names[i]) == -1) {
+                    test = 0;
+                    break;
                 }
-                if (test && (!ret || ret->get_key_size() > index->get_key_size())) ret = index;
             }
+            if (test) return index;
         }
-        return ret;
+        return nullptr;
     }
     const Index* get_index(const std::vector<String>& col_names) const {
-        const Index* ret = nullptr;
         for (auto &[idx_name, index]: indexes) {
-            if (index->get_cols().front().get_name() == col_names.front()) {
-                // 暴力判包含关系
-                bool test = 1;
-                for (unsigned i = 1; i < col_names.size(); i++) {
-                    if (index->get_col_rank(col_names[i]) == -1) {
-                        test = 0;
-                        break;
-                    }
+            // 暴力判相等关系
+            bool test = 1;
+            for (unsigned i = 0; i < col_names.size(); i++) {
+                if (index->get_col_rank(col_names[i]) == -1) {
+                    test = 0;
+                    break;
                 }
-                if (test && (!ret || ret->get_key_size() > index->get_key_size())) ret = index;
             }
+            if (test) return index;
         }
-        return ret;
+        return nullptr;
     }
 
     // 检查各列是不是不同
@@ -794,7 +788,7 @@ public:
                     auto src = SavedTable::get(src_name);
                     auto fk = src->get_f_key(fk_def.name); 
                     for (auto other: fk->get_on_key(raws.data())) {
-                        src->set_null(rid, fk_def.list);
+                        src->set_null(other, fk_def.list);
                     }
                 }
             }
@@ -859,9 +853,22 @@ public:
             }
             return 1;
         }(), "should map to the primary key of table `" + f_key_def.ref_tbl + "`");
+        auto fk_cols = get_cols(f_key_def.list);
         // 检查外键列是否有对应的主键值，或者是否全 null
         for (auto rid: all()) {
-
+            // auto raws = get_raws(fk_cols, rid);
+            auto vals = get_fields(fk_cols, rid);
+            auto all_null = [&] (const std::vector<byte_arr_t>& vals) {
+                for (auto val: vals) {
+                    if (val.front() != DATA_NULL) return 0;
+                }
+                return 1;
+            };
+            if (all_null(vals)) continue;
+            for (auto val: vals) {
+                orange_check(val.front() != DATA_NULL, "foreign key columns must be all null or all non-null");
+            }
+            orange_check(ref_p_key->constains(vals), "foreign key reference failed");
         }
         create_index(f_key_def.name, f_key_def.list, false, false);
         f_key_defs[f_key_def.name] = f_key_def;
