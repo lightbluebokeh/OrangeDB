@@ -5,4 +5,5 @@ alter table test add primary key(a, b);
 alter table test drop primary key;
 alter table test add constraint test primary key (a, b, c);
 alter table test drop primary key test;
+
 desc test;

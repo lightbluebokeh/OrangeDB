@@ -734,6 +734,24 @@ public:
         return ret;
     }
 
+    void set_null(rid_t rid, const std::vector<String>& col_names) {
+        auto cols = get_cols(col_names);
+        std::set<String> name_set;
+        for (auto name: col_names) name_set.insert(name);
+        auto has_update = [&] (const std::vector<Column>& cols) {
+            for (auto col: cols) if (name_set.count(col.get_name())) return 1;
+            return 0;
+        };
+        // 因为是 setnull，相关引用中直接删除
+        for (auto [_, index]: indexes) if (has_update(index->get_cols())) {
+            index->remove(get_raws(cols, rid), rid);
+        }
+        // 更新数据
+        for (auto col_name: col_names) {
+            col_data[get_col_id(col_name)]->insert(rid, ast::data_value::null_value());
+        }
+    }
+
     void update_where(const ast::set_clause& set, const ast::where_clause& where) {
         auto rids = this->where(where);
         std::map<String, ast::data_value> new_vals;
@@ -760,7 +778,24 @@ public:
                     }
                     new_raw.insert(new_raw.end(), tmp.begin(), tmp.end());
                 }
+                // auto old_raws = get_raws(index->get_cols(), rid);
                 index->update(get_raws(index->get_cols(), rid), new_raw, rid);
+            }
+        }
+
+        // 更新了主键需要在另外的表的外键上 set null
+        auto pk = get_p_key();
+        if (has_update(pk->get_cols())) {
+            for (auto rid: all()) {
+                auto raws = get_raws(pk->get_cols(), rid);
+                for (auto &[name, src_fk]: f_key_rev) {
+                    auto &[src_name, fk_def] = src_fk;
+                    auto src = SavedTable::get(src_name);
+                    auto fk = src->get_f_key(fk_def.name); 
+                    for (auto other: fk->get_on_key(raws.data())) {
+                        src->set_null(rid, fk_def.list);
+                    }
+                }
             }
         }
 
@@ -803,6 +838,16 @@ public:
     }
 
     void add_f_key(const f_key_t& f_key_def) {
+        auto pk = get_p_key();
+        // 考虑到 setnull 的存在，一列不能既是主键又是外键
+        if (pk) {
+            auto pk_cols = pk->get_cols();
+            for (auto fk_col_name: f_key_def.list) {
+                for (auto pk_col: pk_cols) {
+                    orange_check(fk_col_name != pk_col.get_name(), "column cannot be pk and fk at the same time");
+                }
+            }
+        }
         auto ref_tbl = SavedTable::get(f_key_def.ref_tbl);
         auto ref_p_key = ref_tbl->get_p_key();
         // 没有映射到那张表的主键
@@ -813,6 +858,10 @@ public:
             }
             return 1;
         }(), "should map to the primary key of table `" + f_key_def.ref_tbl + "`");
+        // 检查外键列是否有对应的主键值，或者是否全 null
+        for (auto rid: all()) {
+
+        }
         create_index(f_key_def.name, f_key_def.list, false, false);
         f_key_defs[f_key_def.name] = f_key_def;
         SavedTable::get(f_key_def.ref_tbl)->f_key_rev[f_key_def.name] = std::make_pair(this->name, f_key_def);
