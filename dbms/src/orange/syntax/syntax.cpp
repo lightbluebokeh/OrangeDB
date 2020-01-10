@@ -1,7 +1,7 @@
+#include <algorithm>
+#include <iostream>
 #include <map>
 #include <sstream>
-#include <iostream>
-#include <algorithm>
 
 #include "orange/orange.h"
 #include "orange/table/table.h"
@@ -218,12 +218,12 @@ namespace Orange {
                 for (auto& cond : delete_from.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
-                        ss_debug << "      " << null.col_name << " IS "
+                        ss_debug << "      " << null.col.col_name << " IS "
                                  << (null.is_not_null ? "NOT " : "") << "NULL";
 
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
-                        ss_debug << "      " << o.col_name << " " << o.operator_ << " "
+                        ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
                                  << expression_string(o.expression);
                     }
                     ss_debug << std::endl;
@@ -244,11 +244,11 @@ namespace Orange {
                 for (auto& cond : update.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
-                        ss_debug << "      " << null.col_name << " IS "
+                        ss_debug << "      " << null.col.col_name << " IS "
                                  << (null.is_not_null ? "NOT " : "") << "NULL";
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
-                        ss_debug << "      " << o.col_name << " " << o.operator_ << " "
+                        ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
                                  << expression_string(o.expression);
                     }
                     ss_debug << std::endl;
@@ -285,11 +285,11 @@ namespace Orange {
                     for (auto& cond : select.where.get()) {
                         if (cond.is_null_check()) {
                             const auto& null = cond.null_check();
-                            ss_debug << "      " << null.col_name << " IS "
+                            ss_debug << "      " << null.col.col_name << " IS "
                                      << (null.is_not_null ? "NOT " : "") << "NULL";
                         } else if (cond.is_op()) {
                             const auto& o = cond.op();
-                            ss_debug << "      " << o.col_name << " " << o.operator_ << " "
+                            ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
                                      << expression_string(o.expression);
                         }
                         ss_debug << std::endl;
@@ -297,10 +297,68 @@ namespace Orange {
                 }
                 if (select.select.empty()) {
                     if (tables.size() == 1) {
-                        auto table = tables.begin()->second;
+                        const auto& table = tables.begin()->second;
                         return {table->select_star(select.where.get_value_or({}))};
-                    } else {
-                        ORANGE_UNIMPL
+                    } else if (tables.size() == 2) {
+                        if (select.where.has_value()) {
+                            const auto &table1 = tables.begin()->second,
+                                       &table2 = std::next(tables.begin(), 1)->second;
+                            const ast::where_clause& where = select.where.get();
+                            ast::where_clause table1_where, table2_where, between_where;
+                            for (auto& cond : where) {
+                                if (cond.is_op()) {
+                                    auto& col = cond.op().col;
+                                    if (!col.table_name.has_value()) {
+                                        return {{"You need to add table name."}};
+                                    }
+                                    if (col.table_name != table1->get_name() &&
+                                        col.table_name != table2->get_name()) {
+                                        return {{"table not found"}};
+                                    }
+                                    auto& expr = cond.op().expression;
+                                    if (expr.is_column()) {
+                                        auto& expr_col = expr.col();
+                                        if (!expr_col.table_name.has_value()) {
+                                            return {{"You need to add table name."}};
+                                        }
+                                        if (expr_col.table_name == table1->get_name() ||
+                                            expr_col.table_name == table2->get_name()) {
+                                            between_where.push_back(cond);
+                                        } else {
+                                            return {{"table not found."}};
+                                        }
+                                    } else {
+                                        if (col.table_name == table1->get_name()) {
+                                            table1_where.push_back(cond);
+                                        } else {
+                                            table2_where.push_back(cond);
+                                        }
+                                    }
+                                } else {  // cond is null check
+                                    const auto& col = cond.null_check().col;
+                                    if (!col.table_name.has_value()) {
+                                        return {{"You need to add table name."}};
+                                    }
+                                    if (col.table_name == table1->get_name()) {
+                                        table1_where.push_back(cond);
+                                    } else if (col.table_name == table2->get_name()) {
+                                        table2_where.push_back(cond);
+                                    } else {
+                                        return {{"Table not found."}};
+                                    }
+                                }
+                            }
+                            TmpTable result1 = table1->select_star(table1_where);
+                            TmpTable result2 = table2->select_star(table2_where);
+                            // TODO
+                        } else {
+                            std::vector<TmpTable> results;
+                            for (const auto& it : tables) {
+                                const SavedTable* table = it.second;
+                                results.emplace_back(table->select_star({}));
+                            }
+                            // TODO
+                        }
                     }
                 } else {
                     if (tables.size() == 1) {
@@ -361,8 +419,9 @@ namespace Orange {
                 auto table = SavedTable::get(table_name);
                 const single_field& new_field = add_field.new_field;
                 if (new_field.kind() == FieldKind::Def) {
-                    auto &def = new_field.def();
-                    Column col(def.col_name, def.type, !def.is_not_null, def.default_value.get_value_or(ast::data_value::null_value()));
+                    auto& def = new_field.def();
+                    Column col(def.col_name, def.type, !def.is_not_null,
+                               def.default_value.get_value_or(ast::data_value::null_value()));
                     table->add_col(col);
                 } else {
                     unexpected();
@@ -417,7 +476,8 @@ namespace Orange {
                 const column_list& col_list = add_constraint_primary_key.col_list;
                 ss_debug << "  add primary key: " << endl;
                 ss_debug << "   table: " + add_constraint_primary_key.table_name << endl;
-                ss_debug << String("   primary key name: ") + add_constraint_primary_key.pk_name << endl;
+                ss_debug << String("   primary key name: ") + add_constraint_primary_key.pk_name
+                         << endl;
                 ss_debug << "   columns: " << endl;
                 for (const std::string& col : col_list) {
                     ss_debug << "       " << col << endl;

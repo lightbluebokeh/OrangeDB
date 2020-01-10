@@ -325,7 +325,7 @@ private:
     std::vector<rid_t> filt(const std::vector<rid_t>& rids, const ast::single_where& where) const override {
         if (where.is_null_check()) {    // is [not] null 直接暴力，反正对半
             auto &null = where.null_check();
-            return col_data[get_col_id(null.col_name)]->filt_null(rids, null.is_not_null);
+            return col_data[get_col_id(null.col.col_name)]->filt_null(rids, null.is_not_null);
         } else {
             auto &where_op = where.op();
             auto &expr = where_op.expression;
@@ -336,14 +336,14 @@ private:
                 // 尝试用单列索引
                 auto [ok, ret] = filt_index(rids, op, value);
                 if (ok) return ret;
-                return col_data[get_col_id(where_op.col_name)]->filt_value(rids, op, value);
+                return col_data[get_col_id(where_op.col.col_name)]->filt_value(rids, op, value);
             } else if (expr.is_column()) {
                 auto &col = where_op.expression.col();
                 if (col.table_name.has_value()) {
                     auto &table_name = col.table_name.get();
                     orange_check(table_name == name, "unknown table name in selector: `" + table_name);
                 }
-                auto &col1 = get_col(where_op.col_name), &col2 = get_col(col.col_name);
+                auto &col1 = get_col(where_op.col.col_name), &col2 = get_col(col.col_name);
                 auto kind1 = col1.get_datatype_kind(), kind2 = col2.get_datatype_kind();
                 auto data1 = col_data[get_col_id(col1.get_name())], data2 = col_data[get_col_id(col2.get_name())];
                 std::vector<rid_t> ret;
@@ -374,11 +374,11 @@ private:
             if (expr.is_column() || op.operator_ == ast::op::Neq) return {0, {}};
             auto &value = expr.value();
             if (value.is_null()) return {1, {}};
-            int col_id = get_col_id(op.col_name);
+            int col_id = get_col_id(op.col.col_name);
             col_ids.push_back(col_id);
-            col_names.push_back(op.col_name);
+            col_names.push_back(op.col.col_name);
             // all_preds.push_back({op.operator_, value});
-            all_preds.push_back(std::make_pair(op.col_name, Orange::pred_t{op.operator_, value}));
+            all_preds.push_back(std::make_pair(op.col.col_name, Orange::pred_t{op.operator_, value}));
         }
         std::sort(col_names.begin(), col_names.end());
         col_names.resize(std::unique(col_names.begin(), col_names.end()) - col_names.begin());

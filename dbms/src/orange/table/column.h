@@ -1,7 +1,7 @@
 #pragma once
 
-#include "orange/parser/sql_ast.h"
 #include "fs/allocator/allocator.h"
+#include "orange/parser/sql_ast.h"
 
 #include <cstring>
 #include <utility>
@@ -23,14 +23,15 @@ public:
     // 适合打印名称的那种
     explicit Column(const String& name) : name(name), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
     Column(const String& name,
-    // int id,
-    const ast::data_type& type, bool nullable, ast::data_value dft) : name(name),
-    // id(id),
-    type(type), nullable(nullable), dft(dft) {
+           // int id,
+           const ast::data_type& type, bool nullable, ast::data_value dft) :
+        name(name),
+        // id(id),
+        type(type), nullable(nullable), dft(dft) {
         switch (type.kind) {
             case orange_t::Int:
                 // do nothing
-            break;
+                break;
             case orange_t::Varchar:
                 orange_check(type.int_value() <= MAX_VARCHAR_LEN, "varchar limit too long");
                 break;
@@ -85,7 +86,11 @@ public:
                     case orange_t::Varchar:
                     case orange_t::Char: {
                         auto& str = value.to_string();
-                        if (int(str.length()) > type.int_value()) return std::make_pair(0, String("column constraint failed: ") + (type.kind == orange_t::Char ? "char" : "varchar") + String("limit exceeded"));
+                        if (int(str.length()) > type.int_value())
+                            return std::make_pair(
+                                0, String("column constraint failed: ") +
+                                       (type.kind == orange_t::Char ? "char" : "varchar") +
+                                       String("limit exceeded"));
                         return std::make_pair(1, "");
                     }
                     case orange_t::Date: ORANGE_UNIMPL
@@ -108,24 +113,23 @@ public:
 
     static Column from_def(const ast::field_def& def) {
         return Column(def.col_name, def.type, !def.is_not_null,
-            def.default_value.get_value_or(ast::data_value::null_value()));
+                      def.default_value.get_value_or(ast::data_value::null_value()));
     }
 
-    friend std::istream& operator >> (std::istream& is, Column& col);
-    friend std::ostream& operator << (std::ostream& os, const Column& col);
+    friend std::istream& operator>>(std::istream& is, Column& col);
+    friend std::ostream& operator<<(std::ostream& os, const Column& col);
 };
 
-inline std::ostream& operator << (std::ostream& os, const Column& col) {
+inline std::ostream& operator<<(std::ostream& os, const Column& col) {
     // print(os, ' ', col.name, col.id, col.type, col.nullable, col.dft, col.checks, col.key_size);
     os << col.name << ' ' <<
-    // col.id << ' ' <<
-    col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks;
+        // col.id << ' ' <<
+        col.type << ' ' << col.nullable << ' ' << col.dft << ' ' << col.checks;
     return os;
 }
-inline std::istream& operator >> (std::istream& is, Column& col) {
+inline std::istream& operator>>(std::istream& is, Column& col) {
     is >> col.name >>
-    // col.id >>
-    col.type >> col.nullable >> col.dft >> col.checks;
+        // col.id >>
+        col.type >> col.nullable >> col.dft >> col.checks;
     return is;
 }
-

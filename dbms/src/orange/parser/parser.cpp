@@ -73,8 +73,8 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_def, col_name, type, is_not_null
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_primary_key, col_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_foreign_key, col, ref_table_name, ref_col_name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_field, field)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_op, col_name, operator_, expression)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_null, col_name, is_not_null)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_op, col, operator_, expression)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_null, col, is_not_null)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_set, col_name, val)
 
@@ -349,11 +349,11 @@ namespace Orange {
                 // <where> := <where_op> | <where_null>
                 where %= where_op | where_null;
                 // <where_op> := <col> <op> <expr>
-                where_op = identifier[at_c<0>(qi::_val) = qi::_1] >>
+                where_op = col[at_c<0>(qi::_val) = qi::_1] >>
                            operator_[at_c<1>(qi::_val) = qi::_1] >
                            expression[at_c<2>(qi::_val) = qi::_1];
                 // <where_null> := <col> 'IS' 'NOT'? 'NULL'
-                where_null %= identifier >> (kw(+"IS") > qi::matches[kw(+"NOT")] > kw(+"NULL"));
+                where_null %= col >> (kw(+"IS") > qi::matches[kw(+"NOT")] > kw(+"NULL"));
 
                 // <where_clause> := <where> ('AND' <where>)*
                 where_list %= where % ',';

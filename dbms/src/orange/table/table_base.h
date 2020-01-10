@@ -14,12 +14,12 @@ private:
     bool check_where(rid_t rid, const ast::single_where& where) const {
         if (where.is_null_check()) {
             auto& null = where.null_check();
-            auto flag = get_field(get_col_id(null.col_name), rid).front();
+            auto flag = get_field(get_col_id(null.col.col_name), rid).front();
             return (null.is_not_null && flag != DATA_NULL) ||
                    (!null.is_not_null && flag == DATA_NULL);
         } else if (where.is_op()) {
             auto& op = where.op();
-            auto col1_id = get_col_id(op.col_name);
+            auto col1_id = get_col_id(op.col.col_name);
             auto& expr = op.expression;
             if (expr.is_column()) {
                 auto& col2 = expr.col();
@@ -38,7 +38,6 @@ private:
             }
         } else {
             ORANGE_UNREACHABLE
-            return 0;
         }
     }
 
@@ -173,6 +172,7 @@ public:
         }
         return ret;
     }
+
 
     friend class Table;
     friend class SavedTable;

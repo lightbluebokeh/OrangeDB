@@ -101,7 +101,7 @@ TEST_CASE("table", "[fs]") {
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        parser::single_where where = {parser::single_where_op{"test", parser::op::Eq, parser::data_value{x}}};
+        parser::single_where where = {parser::single_where_op{{{}, "test"}, parser::op::Eq, parser::data_value{x}}};
         auto delete_size = table->delete_where({where});
         REQUIRE(delete_size == all.count(x));
         while (all.count(x)) all.erase(x);
@@ -153,7 +153,7 @@ TEST_CASE("btree", "[index]") {
     std::cerr << "testing remove" << std::endl;
     int i = 0;
     for (int x : rm) {
-        parser::single_where where = {parser::single_where_op{"test", parser::op::Eq, parser::data_value{x}}};
+        parser::single_where where = {parser::single_where_op{{{}, "test"}, parser::op::Eq, parser::data_value{x}}};
         auto delete_size = table->delete_where({where});
         REQUIRE(delete_size == all.count(x));
         all.erase(x);

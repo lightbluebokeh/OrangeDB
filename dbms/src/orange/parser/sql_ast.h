@@ -208,13 +208,13 @@ namespace Orange::parser {
 
     /** where clause */
     struct single_where_op {
-        std::string col_name;
+        column col;
         op operator_;
         expr expression;
     };
 
     struct single_where_null {
-        std::string col_name;
+        column col;
         bool is_not_null;
     };
 

@@ -165,7 +165,7 @@ enum class orange_t {
 };
 
 using numeric_t = long double;
-//static_assert(sizeof(numeric_t) == 16u);
+// static_assert(sizeof(numeric_t) == 16u);
 
 // 可能换成高精度的
 using int_t = int;
