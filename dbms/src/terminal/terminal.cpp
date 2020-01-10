@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <regex>
+#include <signal.h>
 
 #include "defs.h"
 #include "orange/orange.h"
@@ -67,6 +68,7 @@ int main(int argc, char* argv[]) {
         // 消 warning
         printf("%s\n", argv[i]);
     }
+    signal(SIGINT, [](int){Orange::unuse();});
     Orange::setup();
     std::cout << CYAN << "Welcome to OrangeDB terminal!" << RESET << std::endl;
 
@@ -95,14 +97,14 @@ int main(int argc, char* argv[]) {
         if (sql == "load") {
             printf("table name: ");
             String table;
-            std::getline(std::cin, table, ';');
+            std::getline(std::cin, table);
             if (table.empty()) continue;
 
             printf("path: ");
             String path;
             std::getline(std::cin, path);
             if (path.empty()) continue;
-
+            if (path.front() != '/') path = cwd + path;
             std::ifstream fin(path);
             if (!fin) {
                 std::cout << "failed to open '" << path << "'\n";
@@ -128,6 +130,7 @@ int main(int argc, char* argv[]) {
                     break;
                 }
             }
+            continue;
         }
 
         ret_code = (int)manage(sql);

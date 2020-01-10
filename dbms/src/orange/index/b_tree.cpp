@@ -7,6 +7,10 @@ void BTree::node_t::check_order() {
 #ifdef DEBUG
     for (int i = 0; i + 1 < key_num(); i++) {
         auto& index = tree.index;
+        if (tree.cmp(index.restore(key(i)), val(i), index.restore(key(i + 1)), val(i + 1)) >= 0) {
+            int a;
+            a++;
+        }
         orange_assert(tree.cmp(index.restore(key(i)), val(i), index.restore(key(i + 1)), val(i + 1)) < 0, "btree gua le");
     }
 #endif
@@ -28,6 +32,10 @@ void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const std::vector
     orange_assert(!i || cmp(ks, v, index.restore(x->key(i - 1)), x->val(i - 1)) != 0,
            "try to insert something already exists");
     if (x->leaf()) {
+        if (v == 198) {
+            int a;
+            a++;
+        }
         for (int j = x->key_num() - 1; j >= i; j--) {
             x->set_key(j + 1, x->key(j));
             x->val(j + 1) = x->val(j);
@@ -186,7 +194,8 @@ bool BTree::query_exists(const node_ptr_t& x, const std::vector<byte_arr_t>& ks)
     int l = 0, r = x->key_num() - 1;
     while (l <= r) {
         int m = (l + r) >> 1;
-        int code = cmp_key(ks, index.restore(x->key(m)));
+        auto tmp = index.restore(x->key(m));
+        int code = cmp_key(ks, tmp);
         if (code == 0) return 1;
         if (code < 0)
             i = m, r = m - 1;
@@ -194,7 +203,7 @@ bool BTree::query_exists(const node_ptr_t& x, const std::vector<byte_arr_t>& ks)
             l = m + 1;
     }
     // 此时 i 为 key 的 upper bound
-    return !x->leaf() && i ? query_exists(read_node(x->ch(i - 1)), ks) : 0;
+    return !x->leaf() && query_exists(read_node(x->ch(i)), ks);
 }
 
 void BTree::query_eq(const node_ptr_t& x, const std::vector<byte_arr_t>& ks, std::vector<rid_t>& result, rid_t lim) const {
