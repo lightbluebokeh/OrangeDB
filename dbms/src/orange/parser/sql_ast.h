@@ -591,7 +591,7 @@ namespace Orange {
                     case orange_t::Date: {
                         std::tm t = {};
                         std::istringstream ss(value.to_string());
-                        ss >> std::get_time(&t, "%x");
+                        ss >> std::get_time(&t, "%Y-%m-%d");
                         byte_arr_t bytes(1 + sizeof(std::tm));
                         memcpy(1 + bytes.data(), &t, sizeof(std::tm));
                         return bytes;

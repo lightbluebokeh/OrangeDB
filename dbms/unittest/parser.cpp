@@ -137,6 +137,23 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().type.has_value() == false);
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().is_not_null == false);
     REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().default_value.get().is_null() == true);
+    parse_sql(" CREATE TABLE CUSTOMER (  C_CUSTKEY int,  C_NAME   VARCHAR(25),  C_ADDRESS  "
+              "VARCHAR(40),  C_NATIONKEY  int NOT NULL,  C_PHONE   CHAR(15),  C_ACCTBAL  float,  "
+              "C_MKTSEGMENT CHAR(10),  C_COMMENT  VARCHAR(117), PRIMARY key (C_CUSTKEY) );",
+              ast);
+    REQUIRE(ast.stmt_list[0].kind() == StmtKind::Tb);
+    REQUIRE(ast.stmt_list[0].tb().kind() == TbStmtKind::Create);
+    REQUIRE(ast.stmt_list[0].tb().create().name == "CUSTOMER");
+    REQUIRE(ast.stmt_list[0].tb().create().fields.size() == 9);
+    REQUIRE(ast.stmt_list[0].tb().create().fields[0].def().col_name == "C_CUSTKEY");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[1].def().col_name == "C_NAME");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[2].def().col_name == "C_ADDRESS");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[3].def().col_name == "C_NATIONKEY");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[4].def().col_name == "C_PHONE");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[5].def().col_name == "C_ACCTBAL");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[6].def().col_name == "C_MKTSEGMENT");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[7].def().col_name == "C_COMMENT");
+    REQUIRE(ast.stmt_list[0].tb().create().fields[8].primary_key().col_list[0] == "C_CUSTKEY");
 
     // drop table
     parse_sql("Drop table t1;Drop table t2;drop table t3;", ast);
@@ -220,9 +237,7 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
 }
 
 // 测试index statement
-TEST_CASE("Testing idx_stmt", "[parser]") {
-
-}
+TEST_CASE("Testing idx_stmt", "[parser]") {}
 
 // 测试alter statement
 TEST_CASE("alter_stmt", "[parser]") {

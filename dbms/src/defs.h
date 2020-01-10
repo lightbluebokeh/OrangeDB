@@ -212,6 +212,12 @@ namespace Orange {
         ret.resize(strlen(ret.data()));
         return ret;
     }
+
+    inline std::tm bytes_to_date(const byte_arr_t& bytes) {
+        std::tm date = {};
+        memcpy(&date, 1 + bytes.data(), sizeof(std::tm));
+        return date;
+    }
 }  // namespace Orange
 
 template <typename T>
