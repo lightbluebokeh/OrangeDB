@@ -31,11 +31,13 @@ API const char* exec(const char* sql) {
 
     using namespace rapidjson;
     Document d;
-    auto& allocator = d.GetAllocator();
     d.SetArray();
+    auto& allocator = d.GetAllocator();
+    printf("%llu\n", results.size());
     for (auto& result : results) {
         if (!result.ok()) {
             Value msg;
+            msg.SetObject();
             msg.AddMember(Value("error", allocator).Move(),
                           Value(result.what().data(), allocator).Move(), allocator);
             d.PushBack(msg, allocator);
@@ -43,6 +45,8 @@ API const char* exec(const char* sql) {
         }
         if (result.has()) {
             Value table;
+            table.SetObject();
+
             Value headers;
             headers.SetArray();
             auto& cols = result.get().get_cols();
@@ -87,6 +91,7 @@ API const char* exec(const char* sql) {
             }
         } else {  // 只有信息
             Value table;
+            table.SetObject();
 
             Value headers;
             headers.SetArray();
@@ -128,4 +133,8 @@ API const char* exec(const char* sql) {
     // ]
     // 如果某一条语句失败了，就换成类似于 { "error": "插入失败" }，并且不执行失败语句之后的语句
     return buffer;
+}
+
+API const char* info() {
+    return "";
 }
