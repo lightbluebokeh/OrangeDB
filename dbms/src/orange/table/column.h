@@ -115,6 +115,8 @@ public:
 
     friend std::istream& operator>>(std::istream& is, Column& col);
     friend std::ostream& operator<<(std::ostream& os, const Column& col);
+
+    friend class SavedTable;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Column& col) {

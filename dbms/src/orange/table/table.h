@@ -291,7 +291,13 @@ private:
             col_data.push_back(new ColumnDataHelper(File::create_open(data_name(col.get_name())), col, data_root(), name));
         }
         fs::create_directory(index_root());
-        if (!p_key_cols.empty()) add_p_key("", p_key_cols);
+        if (!p_key_cols.empty()) {
+            for (auto pk_col: p_key_cols) {
+                // 主键不能为 null
+                get_col(pk_col).nullable = 0;
+            }
+            add_p_key(PRIMARY_KEY_NAME, p_key_cols);
+        }
         for (auto &f_key_def: f_key_defs) add_f_key(f_key_def);
     }
 
@@ -821,6 +827,9 @@ public:
 
     void add_p_key(String p_key_name, const std::vector<String>& col_names) {
         orange_check(get_p_key() == nullptr, "already has primary key");
+        for (auto col_name: col_names) {
+            orange_check(!get_col(col_name).is_nullable(), "cannot add primary key on nullable column");
+        }
         if (p_key_name.empty()) p_key_name = PRIMARY_KEY_NAME;
         create_index(p_key_name, col_names, true, true);
     }
@@ -833,13 +842,15 @@ public:
     }
 
     void add_f_key(const f_key_t& f_key_def) {
-        auto pk = get_p_key();
-        // 考虑到 setnull 的存在，一列不能既是主键又是外键
-        if (pk) {
-            auto pk_cols = pk->get_cols();
-            for (auto fk_col_name: f_key_def.list) {
-                for (auto pk_col: pk_cols) {
-                    orange_check(fk_col_name != pk_col.get_name(), "column cannot be pk and fk at the same time");
+        // 考虑到有 set null，需要是　nullable
+        for (auto col_name: f_key_def.list) {
+            orange_check(get_col(col_name).is_nullable(), "foreign key column must be nullable");
+        }
+        // 考虑到 setnull 的存在，一列只能存在于一个外键中，不然太麻烦了
+        for (auto [_, other_fk_def]: f_key_defs) {
+            for (auto col_name: f_key_def.list) {
+                for (auto other_col_name: other_fk_def.list) {
+                    orange_check(col_name != other_col_name, "one column can only be in one foreign key");
                 }
             }
         }
@@ -939,153 +950,82 @@ public:
         fs::rename(old_name, new_name);
     }
 
-    static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, const ast::select_tb_stmt& select) {
-        if (select.select.empty()) {         // select *
-            if (select.where.has_value()) {  // 带where
-                const ast::where_clause& where = select.where.get();
-                ast::where_clause table1_where, table2_where, between_where;
-                // 把where条件分割到上面三个
-                for (auto& cond : where) {
-                    if (cond.is_op()) {
-                        auto& col = cond.op().col;
-                        if (!col.table_name.has_value()) {
+    static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, ast::select_tb_stmt select) {
+        // 补充 select *
+        if (select.select.empty()) {
+            for (auto col: table1->cols) select.select.push_back({table1->name, col.get_name()});
+            for (auto col: table2->cols) select.select.push_back({table2->name, col.get_name()});
+        }
+        // select something
+        std::vector<String> names1, names2;
+        for (const auto& col : select.select) {
+            if (!col.table_name.has_value()) {
+                return {{"You need to add table name before column."}};
+            }
+            if (col.table_name == table1->get_name()) {
+                names1.push_back(col.col_name);
+            } else if (col.table_name == table2->get_name()) {
+                names2.push_back(col.col_name);
+            } else {
+                return {{"Table not found"}};
+            }
+        }
+        if (select.where.has_value()) {  // 带where
+            const ast::where_clause& where = select.where.get();
+            ast::where_clause table1_where, table2_where, between_where;
+            // 把where条件分开到上面三个
+            for (auto& cond : where) {
+                if (cond.is_op()) {
+                    auto& col = cond.op().col;
+                    if (!col.table_name.has_value()) {
+                        return {{"You need to add table name."}};
+                    }
+                    if (col.table_name != table1->get_name() &&
+                        col.table_name != table2->get_name()) {
+                        return {{"table not found"}};
+                    }
+                    auto& expr = cond.op().expression;
+                    if (expr.is_column()) {
+                        auto& expr_col = expr.col();
+                        if (!expr_col.table_name.has_value()) {
                             return {{"You need to add table name."}};
                         }
-                        if (col.table_name != table1->get_name() &&
-                            col.table_name != table2->get_name()) {
-                            return {{"table not found"}};
-                        }
-                        auto& expr = cond.op().expression;
-                        if (expr.is_column()) {
-                            auto& expr_col = expr.col();
-                            if (!expr_col.table_name.has_value()) {
-                                return {{"You need to add table name."}};
-                            }
-                            if (expr_col.table_name == table1->get_name() ||
-                                expr_col.table_name == table2->get_name()) {
-                                between_where.push_back(cond);
-                            } else {
-                                return {{"table not found."}};
-                            }
+                        if (expr_col.table_name == table1->get_name() ||
+                            expr_col.table_name == table2->get_name()) {
+                            between_where.push_back(cond);
                         } else {
-                            if (col.table_name == table1->get_name()) {
-                                table1_where.push_back(cond);
-                            } else {
-                                table2_where.push_back(cond);
-                            }
+                            return {{"table not found."}};
                         }
-                    } else {  // cond is null check
-                        const auto& col = cond.null_check().col;
-                        if (!col.table_name.has_value()) {
-                            return {{"You need to add table name."}};
-                        }
+                    } else {
                         if (col.table_name == table1->get_name()) {
                             table1_where.push_back(cond);
-                        } else if (col.table_name == table2->get_name()) {
+                        } else {
                             table2_where.push_back(cond);
-                        } else {
-                            return {{"Table not found."}};
                         }
                     }
+                } else {  // cond is null check
+                    const auto& col = cond.null_check().col;
+                    if (!col.table_name.has_value()) {
+                        return {{"You need to add table name."}};
+                    }
+                    if (col.table_name == table1->get_name()) {
+                        table1_where.push_back(cond);
+                    } else if (col.table_name == table2->get_name()) {
+                        table2_where.push_back(cond);
+                    } else {
+                        return {{"Table not found."}};
+                    }
                 }
+            }
 
-                TmpTable result1 = table1->select_star(table1_where);
-                TmpTable result2 = table2->select_star(table2_where);
-                for (rid_t i = 0; i < result1.recs.size(); i++) {
-                    for (rid_t j = 0; j < result2.recs.size(); j++) {
-                        for (auto single_where: between_where) {
-                            auto op = single_where.op();
-                            auto col_expr = op.expression.col();
-                            auto col1_name = op.col.col_name, col2_name = col_expr.col_name;
-                            if (op.col.table_name == table2->get_name()) {
-                                std::swap(col1_name, col2_name);
-                            }
-                            
-                        }
-                    }
-                }
-                // TODO: 做笛卡尔积，需要注意between_where
-            } else {  // 不带where
-                // std::vector<TmpTable> results;
-                TmpTable result1 = table1->select_star({});
-                TmpTable result2 = table2->select_star({});
-                // for (const auto& it : tables) {
-                //     const SavedTable* table = it.second;
-                //     results.emplace_back(table->select_star({}));
-                // }
-                // TODO: 做笛卡尔积
-            }
-        } else {  // select something
-            std::vector<String> names1, names2;
-            for (const auto& col : select.select) {
-                if (!col.table_name.has_value()) {
-                    return {{"You need to add table name before column."}};
-                }
-                if (col.table_name == table1->get_name()) {
-                    names1.push_back(col.col_name);
-                } else if (col.table_name == table2->get_name()) {
-                    names2.push_back(col.col_name);
-                } else {
-                    return {{"Table not found"}};
-                }
-            }
-            if (select.where.has_value()) {  // 带where
-                const ast::where_clause& where = select.where.get();
-                ast::where_clause table1_where, table2_where, between_where;
-                // 把where条件分开到上面三个
-                for (auto& cond : where) {
-                    if (cond.is_op()) {
-                        auto& col = cond.op().col;
-                        if (!col.table_name.has_value()) {
-                            return {{"You need to add table name."}};
-                        }
-                        if (col.table_name != table1->get_name() &&
-                            col.table_name != table2->get_name()) {
-                            return {{"table not found"}};
-                        }
-                        auto& expr = cond.op().expression;
-                        if (expr.is_column()) {
-                            auto& expr_col = expr.col();
-                            if (!expr_col.table_name.has_value()) {
-                                return {{"You need to add table name."}};
-                            }
-                            if (expr_col.table_name == table1->get_name() ||
-                                expr_col.table_name == table2->get_name()) {
-                                between_where.push_back(cond);
-                            } else {
-                                return {{"table not found."}};
-                            }
-                        } else {
-                            if (col.table_name == table1->get_name()) {
-                                table1_where.push_back(cond);
-                            } else {
-                                table2_where.push_back(cond);
-                            }
-                        }
-                    } else {  // cond is null check
-                        const auto& col = cond.null_check().col;
-                        if (!col.table_name.has_value()) {
-                            return {{"You need to add table name."}};
-                        }
-                        if (col.table_name == table1->get_name()) {
-                            table1_where.push_back(cond);
-                        } else if (col.table_name == table2->get_name()) {
-                            table2_where.push_back(cond);
-                        } else {
-                            return {{"Table not found."}};
-                        }
-                    }
-                }
-
-                TmpTable result1 = table1->select(names1, table1_where);
-                TmpTable result2 = table1->select(names2, table2_where);
-                // TODO: 做笛卡尔积，要注意 between_where
-            } else {  // 不带where
-                TmpTable result1 = table1->select(names1, {});
-                TmpTable result2 = table2->select(names2, {});
-                // TODO: 做笛卡尔积
-            }
-        }        
+            TmpTable result1 = table1->select(names1, table1_where);
+            TmpTable result2 = table1->select(names2, table2_where);
+            // TODO: 做笛卡尔积，要注意 between_where
+        } else {  // 不带where
+            TmpTable result1 = table1->select(names1, {});
+            TmpTable result2 = table2->select(names2, {});
+            // TODO: 做笛卡尔积
+        }
     }
 
     friend class Index;

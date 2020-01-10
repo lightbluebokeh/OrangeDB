@@ -1,6 +1,10 @@
 create database test;
-show databases;
 use test;
-create table test(a int, b int not null, c varchar(10));
+show databases;
+create table a(a int not null, b int, c varchar(20));
+create table b(a int, b int, c date);
 show tables;
-desc test;
+desc a;
+desc b;
+alter table a add primary key(a);
+alter table b add primary key(a);
