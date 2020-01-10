@@ -58,7 +58,7 @@ namespace Orange {
     inline result_t sys(sys_stmt& stmt) {
         switch (stmt.kind()) {
             case SysStmtKind::ShowDb: {
-                return {TmpTable::from_strings("tables", all())};
+                return {TmpTable::from_strings("Databases", all())};
             }
             default: unexpected();
         }
@@ -67,7 +67,7 @@ namespace Orange {
     inline result_t db(db_stmt& stmt) {
         switch (stmt.kind()) {
             case DbStmtKind::Show: {
-                return result_t(TmpTable::from_strings("tables", all_tables()));
+                return result_t(TmpTable::from_strings("Tables", all_tables()));
             }
             case DbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
