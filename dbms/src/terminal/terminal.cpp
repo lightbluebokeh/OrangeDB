@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
         if (sql == "load") {
             printf("table name: ");
             String table;
-            std::getline(std::cin, table);
+            std::getline(std::cin, table, ';');
             if (table.empty()) continue;
 
             printf("path: ");

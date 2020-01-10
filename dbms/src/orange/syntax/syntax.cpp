@@ -136,7 +136,7 @@ namespace Orange {
                             ss_debug << "        ref table: " << foreign_key.ref_table_name;
                             ss_debug << "        ref col name: " << foreign_key.col << endl;
 
-                            f_keys.push_back(f_key_t(foreign_key.col, foreign_key.ref_table_name,
+                            f_keys.push_back(f_key_t("<" + foreign_key.col + ">", foreign_key.ref_table_name,
                                                      {foreign_key.col},
                                                      {foreign_key.ref_col_name}));
                         } break;
