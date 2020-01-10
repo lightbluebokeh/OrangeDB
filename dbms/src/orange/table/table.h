@@ -971,18 +971,19 @@ public:
         TmpTable ret;
         // select something
         std::vector<String> names1, names2;
-        for (const auto& col : select.select) {
-            if (!col.table_name.has_value()) {
+        for (const auto& tb_col : select.select) {
+            if (!tb_col.table_name.has_value()) {
                 return {{"You need to add table name before column."}};
             }
-            if (col.table_name == table1->get_name()) {
-                names1.push_back(col.col_name);
-            } else if (col.table_name == table2->get_name()) {
-                names2.push_back(col.col_name);
+            if (tb_col.table_name == table1->get_name()) {
+                names1.push_back(tb_col.col_name);
+            } else if (tb_col.table_name == table2->get_name()) {
+                names2.push_back(tb_col.col_name);
             } else {
                 return {{"Table not found"}};
             }
-            ret.cols.push_back(Column(col.table_name.get() + "." + col.col_name));
+            auto col = SavedTable::get(tb_col.table_name.get())->get_col(tb_col.col_name);
+            ret.cols.push_back(Column(tb_col.table_name.get() + "." + tb_col.col_name, col.get_datatype(), col.is_nullable(), col.get_dft()));
         }
         auto where = select.where.get_value_or({});
         ast::where_clause table1_where, table2_where, between_where;
@@ -1032,7 +1033,7 @@ public:
         }
 
         TmpTable result1 = table1->select(names1, table1_where);
-        TmpTable result2 = table1->select(names2, table2_where);
+        TmpTable result2 = table2->select(names2, table2_where);
         // TODO: 做笛卡尔积，要注意 between_where
         for (auto &rec1: result1.recs) {
             for (auto &rec2: result2.recs) {
@@ -1062,9 +1063,9 @@ public:
                     for (unsigned i = 0; i < select.select.size(); i++) {
                         auto col = select.select[i];
                         if (col.table_name == table1->name) {
-                            cur[i] = rec1[table1->get_col_id(col.col_name)];
+                            cur.push_back(rec1[table1->get_col_id(col.col_name)]);
                         } else {
-                            cur[i] = rec2[table2->get_col_id(col.col_name)];
+                            cur.push_back(rec2[table2->get_col_id(col.col_name)]);
                         }
                     }
                     ret.recs.push_back(cur);

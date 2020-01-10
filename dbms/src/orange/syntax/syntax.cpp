@@ -23,6 +23,8 @@ namespace Orange {
         switch (type.kind) {
             case orange_t::Int:
                 return type.has_value() ? "INT, " + std::to_string(type.int_value()) : "INT";
+            case orange_t::Char:
+                return "CHAR, " + std::to_string(type.int_value());
             case orange_t::Varchar: return "VARCHAR, " + std::to_string(type.int_value());
             case orange_t::Date: return "DATE";
             case orange_t::Numeric:
