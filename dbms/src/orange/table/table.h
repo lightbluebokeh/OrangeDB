@@ -787,7 +787,26 @@ public:
             return 0;
         };
 
-        // 先更新索引吧
+        // 先检查是否可以 set null
+        auto pk = get_p_key();
+        if (has_update(pk->get_cols())) {
+            for (auto rid: rids) {
+                auto raws = get_raws(pk->get_cols(), rid);
+                auto vals = get_fields(pk->get_cols(), rid);
+                if (!pk->constains(vals)) {
+                    for (auto &[name, src_fk]: f_key_rev) {
+                        auto &[src_name, fk_def] = src_fk;
+                        auto src = SavedTable::get(src_name);
+                        auto fk = src->get_f_key(fk_def.name); 
+                        for (auto col: src->get_cols(fk_def.list)) {
+                            orange_check(col.is_nullable(), "cannot set null");
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        // 先更新索引
         for (auto [_, index]: indexes) if (has_update(index->get_cols())) {
             std::vector<int> col_ids;
             for (auto col: index->get_cols()) col_ids.push_back(get_col_id(col.get_name()));
@@ -807,17 +826,19 @@ public:
             }
         }
 
-        // 更新了主键需要在外键源表上 set null
-        auto pk = get_p_key();
+        // 更新了主键，如果对应值不存在了，需要在外键源表上 set null
         if (has_update(pk->get_cols())) {
             for (auto rid: rids) {
                 auto raws = get_raws(pk->get_cols(), rid);
-                for (auto &[name, src_fk]: f_key_rev) {
-                    auto &[src_name, fk_def] = src_fk;
-                    auto src = SavedTable::get(src_name);
-                    auto fk = src->get_f_key(fk_def.name); 
-                    for (auto other: fk->get_on_key(raws.data())) {
-                        src->set_null(other, fk_def.list);
+                auto vals = get_fields(pk->get_cols(), rid);
+                if (!pk->constains(vals)) {
+                    for (auto &[name, src_fk]: f_key_rev) {
+                        auto &[src_name, fk_def] = src_fk;
+                        auto src = SavedTable::get(src_name);
+                        auto fk = src->get_f_key(fk_def.name); 
+                        for (auto other: fk->get_on_key(raws.data())) {
+                            src->set_null(other, fk_def.list);
+                        }
                     }
                 }
             }
@@ -865,10 +886,10 @@ public:
     }
 
     void add_f_key(const f_key_t& f_key_def) {
-        // 考虑到有 set null，需要是　nullable
-        for (auto col_name: f_key_def.list) {
-            orange_check(get_col(col_name).is_nullable(), "foreign key column must be nullable");
-        }
+        // // 考虑到有 set null，需要是　nullable
+        // for (auto col_name: f_key_def.list) {
+        //     orange_check(get_col(col_name).is_nullable(), "foreign key column must be nullable");
+        // }
         // 考虑到 setnull 的存在，一列只能存在于一个外键中，不然太麻烦了
         for (auto [_, other_fk_def]: f_key_defs) {
             for (auto col_name: f_key_def.list) {
