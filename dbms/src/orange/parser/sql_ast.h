@@ -7,7 +7,6 @@
 
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
-#include <boost/variant/recursive_variant.hpp>
 
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -15,6 +14,7 @@
 
 #include "defs.h"
 #include <fs/allocator/allocator.h>
+#include <sstream>
 #include <vector>
 
 namespace Orange::parser {
@@ -66,10 +66,10 @@ namespace Orange::parser {
                 case orange_t::Varchar:
                     return 1 + sizeof(decltype(std::declval<FileAllocator>().allocate(0)));
                 case orange_t::Char: return 1 + int_value();
-                case orange_t::Date: ORANGE_UNIMPL break;
+                case orange_t::Date: return 1 + sizeof(std::tm);
                 case orange_t::Numeric: return 1 + sizeof(numeric_t);
             }
-            return 233;
+            return 0;
         }
     };
 
@@ -556,21 +556,20 @@ namespace Orange {
                 byte_arr_t ret = {DATA_NULL};
                 switch (type.kind) {
                     case orange_t::Char: ret.resize(type.int_value() + 1); break;
-                    case orange_t::Date: ORANGE_UNIMPL
+                    case orange_t::Date: ret.resize(1 + sizeof(std::tm)); break;
                     case orange_t::Int: ret.resize(sizeof(int_t) + 1); break;
                     case orange_t::Numeric: ret.resize(sizeof(numeric_t) + 1); break;
                     case orange_t::Varchar:  // do nothing
                         break;
                 }
                 return ret;
-            } break;
+            }
             case data_value_kind::Int:
                 switch (type.kind) {
                     case orange_t::Int: return Orange::to_bytes(value.to_int());
                     case orange_t::Numeric: return Orange::to_bytes<numeric_t>(value.to_int());
                     default: ORANGE_UNREACHABLE
                 }
-                break;
             case data_value_kind::Float:
                 if (type.kind == orange_t::Numeric) return Orange::to_bytes(value.to_float());
                 ORANGE_UNREACHABLE
@@ -587,8 +586,15 @@ namespace Orange {
                         if (type.kind == orange_t::Char)
                             ret.resize(type.int_value() + 1);  // 对于 char 补齐
                         return ret;
-                    } break;
-                    case orange_t::Date: ORANGE_UNIMPL
+                    }
+                    case orange_t::Date: {
+                        std::tm t = {};
+                        std::istringstream ss(value.to_string());
+                        ss >> std::get_time(&t, "%x");
+                        byte_arr_t bytes(1 + sizeof(std::tm));
+                        memcpy(1 + bytes.data(), &t, sizeof(std::tm));
+                        return bytes;
+                    }
                     default: ORANGE_UNREACHABLE
                 }
                 break;

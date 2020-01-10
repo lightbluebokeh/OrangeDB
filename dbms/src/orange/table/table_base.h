@@ -33,7 +33,7 @@ private:
                 return Orange::cmp(get_field(col1_id, rid), cols[col1_id].get_datatype_kind(),
                                    op.operator_, value);
             } else {
-                ORANGE_UNIMPL
+                ORANGE_UNREACHABLE
                 return 0;
             }
         } else {
@@ -241,7 +241,12 @@ inline std::ostream& operator<<(std::ostream& os, const TmpTable& table) {
             case orange_t::Char: return Orange::bytes_to_string(bytes);
             case orange_t::Int: return std::to_string(Orange::bytes_to_int(bytes));
             case orange_t::Numeric: return std::to_string(Orange::bytes_to_numeric(bytes));
-            case orange_t::Date: ORANGE_UNIMPL
+            case orange_t::Date: {
+                std::tm date = {};
+                std::ostringstream ss;
+                ss << std::put_time(&date, "%x");
+                return ss.str();
+            }
             default: return "<error>???";
         }
     };

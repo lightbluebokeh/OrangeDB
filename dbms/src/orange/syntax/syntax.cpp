@@ -294,16 +294,26 @@ namespace Orange {
                         ss_debug << std::endl;
                     }
                 }
-                if (select.select.empty()) {
-                    if (tables.size() == 1) {
+                if (tables.size() == 1) {  // 单表格
+                    if (select.select.empty()) {
                         const auto& table = tables.begin()->second;
                         return {table->select_star(select.where.get_value_or({}))};
-                    } else if (tables.size() == 2) {
-                        if (select.where.has_value()) {
-                            const auto &table1 = tables.begin()->second,
-                                       &table2 = std::next(tables.begin(), 1)->second;
+                    } else {
+                        auto table = tables.begin()->second;
+                        std::vector<String> names;
+                        for (const auto& col : select.select) {
+                            names.push_back(col.col_name);
+                        }
+                        return {table->select(names, select.where.get_value_or({}))};
+                    }
+                } else if (tables.size() == 2) {  // 两个表格
+                    const auto &table1 = tables.begin()->second,
+                               &table2 = std::next(tables.begin(), 1)->second;
+                    if (select.select.empty()) {         // select *
+                        if (select.where.has_value()) {  // 带where
                             const ast::where_clause& where = select.where.get();
                             ast::where_clause table1_where, table2_where, between_where;
+                            // 把where条件分割到上面三个
                             for (auto& cond : where) {
                                 if (cond.is_op()) {
                                     auto& col = cond.op().col;
@@ -347,29 +357,91 @@ namespace Orange {
                                     }
                                 }
                             }
+
                             TmpTable result1 = table1->select_star(table1_where);
                             TmpTable result2 = table2->select_star(table2_where);
-                            // TODO
-                        } else {
+                            // TODO: 做笛卡尔积，需要注意between_where
+                        } else {  // 不带where
                             std::vector<TmpTable> results;
                             for (const auto& it : tables) {
                                 const SavedTable* table = it.second;
                                 results.emplace_back(table->select_star({}));
                             }
-                            // TODO
+                            // TODO: 做笛卡尔积
                         }
-                    }
-                } else {
-                    if (tables.size() == 1) {
-                        auto table = tables.begin()->second;
-                        std::vector<String> names;
+                    } else {  // select something
+                        std::vector<String> names1, names2;
                         for (const auto& col : select.select) {
-                            names.push_back(col.col_name);
+                            if (!col.table_name.has_value()) {
+                                return {{"You need to add table name before column."}};
+                            }
+                            if (col.table_name == table1->get_name()) {
+                                names1.push_back(col.col_name);
+                            } else if (col.table_name == table2->get_name()) {
+                                names2.push_back(col.col_name);
+                            } else {
+                                return {{"Table not found"}};
+                            }
                         }
-                        return {table->select(names, select.where.get_value_or({}))};
-                    } else {
-                        ORANGE_UNIMPL
+                        if (select.where.has_value()) {  // 带where
+                            const ast::where_clause& where = select.where.get();
+                            ast::where_clause table1_where, table2_where, between_where;
+                            // 把where条件分开到上面三个
+                            for (auto& cond : where) {
+                                if (cond.is_op()) {
+                                    auto& col = cond.op().col;
+                                    if (!col.table_name.has_value()) {
+                                        return {{"You need to add table name."}};
+                                    }
+                                    if (col.table_name != table1->get_name() &&
+                                        col.table_name != table2->get_name()) {
+                                        return {{"table not found"}};
+                                    }
+                                    auto& expr = cond.op().expression;
+                                    if (expr.is_column()) {
+                                        auto& expr_col = expr.col();
+                                        if (!expr_col.table_name.has_value()) {
+                                            return {{"You need to add table name."}};
+                                        }
+                                        if (expr_col.table_name == table1->get_name() ||
+                                            expr_col.table_name == table2->get_name()) {
+                                            between_where.push_back(cond);
+                                        } else {
+                                            return {{"table not found."}};
+                                        }
+                                    } else {
+                                        if (col.table_name == table1->get_name()) {
+                                            table1_where.push_back(cond);
+                                        } else {
+                                            table2_where.push_back(cond);
+                                        }
+                                    }
+                                } else {  // cond is null check
+                                    const auto& col = cond.null_check().col;
+                                    if (!col.table_name.has_value()) {
+                                        return {{"You need to add table name."}};
+                                    }
+                                    if (col.table_name == table1->get_name()) {
+                                        table1_where.push_back(cond);
+                                    } else if (col.table_name == table2->get_name()) {
+                                        table2_where.push_back(cond);
+                                    } else {
+                                        return {{"Table not found."}};
+                                    }
+                                }
+                            }
+
+                            TmpTable result1 = table1->select(names1, table1_where);
+                            TmpTable result2 = table1->select(names2, table2_where);
+                            // TODO: 做笛卡尔积，要注意 between_where
+                        } else {  // 不带where
+                            TmpTable result1 = table1->select(names1, {});
+                            TmpTable result2 = table2->select(names2, {});
+                            // TODO: 做笛卡尔积
+                        }
                     }
+                } else {  // tables.size() >= 3
+                    return {{"Too many tables!"}};
                 }
             } break;
             default: unexpected();
@@ -380,7 +452,8 @@ namespace Orange {
         switch (stmt.kind()) {
             case IdxStmtKind::AlterAdd: {
                 auto alter_add = stmt.alter_add();
-                SavedTable::get(alter_add.tb_name)->create_index(alter_add.idx_name, alter_add.col_list, 0, 0);
+                SavedTable::get(alter_add.tb_name)
+                    ->create_index(alter_add.idx_name, alter_add.col_list, 0, 0);
             } break;
             case IdxStmtKind::AlterDrop: {
                 auto alter_drop = stmt.alter_drop();
@@ -417,7 +490,7 @@ namespace Orange {
                 auto table = SavedTable::get(table_name);
                 const single_field& new_field = add_field.new_field;
                 if (new_field.kind() == FieldKind::Def) {
-                    auto &def = new_field.def();
+                    auto& def = new_field.def();
                     auto col = Column::from_def(def);
                     table->add_col(col);
                 } else {
