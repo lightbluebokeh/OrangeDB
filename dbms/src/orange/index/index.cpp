@@ -29,10 +29,13 @@ Index* Index::load(SavedTable& table, const String& name) {
     return index;
 }
 
+// 获取多值索引中的第 i 项的真实值
 byte_arr_t Index::restore(const_bytes_t k_raw, int i) const {
     int offset = 0;
-    for (int j = 0; j < i; j++) offset += cols[i].get_key_size();
-    return table.col_data[i]->restore(k_raw + offset);
+    // 计算偏移
+    for (int j = 0; j < i; j++) offset += cols[j].get_key_size();
+
+    return table.col_data[table.get_col_id(cols[i].get_name())]->restore(k_raw + offset);
 }
 std::vector<byte_arr_t> Index::restore(const_bytes_t k_raw) const {
     std::vector<byte_arr_t> ret;

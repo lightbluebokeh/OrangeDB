@@ -74,7 +74,7 @@ public:
                                                 "null column");  // 懒了，都返回消息
             case data_value_kind::Int:
                 return std::make_pair(type.kind == orange_t::Int || type.kind == orange_t::Numeric,
-                                      "incompatible type");
+                                      "column constraint failed: incompatible type");
             case data_value_kind::Float:
                 return std::make_pair(type.kind == orange_t::Numeric,
                                       "column constraint failed: incompatible type");

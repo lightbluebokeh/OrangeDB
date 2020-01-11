@@ -142,7 +142,11 @@ namespace Orange {
                 }
                 if (k1.size() == k2.size()) return 0;
                 return k1.size() < k2.size() ? -int(k2[k1.size()]) : k1[k2.size()];
-            case orange_t::Numeric: break;
+            case orange_t::Numeric: {
+                auto v1 = *(numeric_t*)(k1.data() + 1), v2 = *(numeric_t*)(k2.data() + 1);
+                if (v1 == v2) return 0;
+                return v1 < v2 ? -1 : 1;
+            }
             case orange_t::Date:
                 std::tm v1 = {}, v2 = {};
                 memcpy(&v1, 1 + k1.data(), sizeof(std::tm));
