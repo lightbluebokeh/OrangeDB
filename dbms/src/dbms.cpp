@@ -30,39 +30,32 @@ API const char* exec(const char* sql) {
     auto results = program(ast);
 
     using namespace rapidjson;
-    Document d;
-    d.SetArray();
+    Document d(kArrayType);
     auto& allocator = d.GetAllocator();
-    printf("%llu\n", results.size());
+
     for (auto& result : results) {
         if (!result.ok()) {
-            Value msg;
-            msg.SetObject();
-            msg.AddMember(Value("error", allocator).Move(),
-                          Value(result.what().data(), allocator).Move(), allocator);
-            d.PushBack(msg, allocator);
+            Value msg(kObjectType);
+            msg.AddMember("error", Value(result.what().data(), allocator).Move(), allocator);
+            d.PushBack(msg.Move(), allocator);
             break;
         }
         if (result.has()) {
-            Value table;
-            table.SetObject();
+            Value table(kObjectType);
 
-            Value headers;
-            headers.SetArray();
+            Value headers(kArrayType);
             auto& cols = result.get().get_cols();
             for (auto& col : cols) {
-                Value v;
+                Value v(kStringType);
                 v.SetString(col.get_name().c_str(), col.get_name().length(), allocator);
                 headers.PushBack(v, allocator);
             }
-            table.AddMember(Value("headers", allocator).Move(), headers.Move(), allocator);
+            table.AddMember("headers", headers.Move(), allocator);
 
-            Value data;
-            data.SetArray();
+            Value data(kArrayType);
             auto& recs = result.get().get_recs();
             for (auto& rec : recs) {
-                Value row;
-                row.SetArray();
+                Value row(kArrayType);
                 for (size_t i = 0; i < rec.size(); i++) {
                     Value elem;
                     switch (cols[i].get_datatype().kind) {
@@ -89,31 +82,31 @@ API const char* exec(const char* sql) {
                 }
                 data.PushBack(row.Move(), allocator);
             }
+            table.AddMember("data", data.Move(), allocator);
+
+            d.PushBack(table.Move(), allocator);
         } else {  // 只有信息
-            Value table;
-            table.SetObject();
+            Value table(kObjectType);
 
-            Value headers;
-            headers.SetArray();
-            headers.PushBack(Value("操作结果", allocator).Move(), allocator);
-            table.AddMember(Value("headers", allocator).Move(), headers.Move(), allocator);
+            Value headers(kArrayType);
+            headers.PushBack("操作结果", allocator);
+            table.AddMember("headers", headers.Move(), allocator);
 
-            Value data;
-            data.SetArray();
-            Value row;
-            row.SetArray();
+            Value data(kArrayType);
+            Value row(kArrayType);
             row.PushBack(Value("操作成功完成", allocator).Move(), allocator);
             data.PushBack(row.Move(), allocator);
-            table.AddMember(Value("data", allocator).Move(), table.Move(), allocator);
+            table.AddMember("data", data.Move(), allocator);
 
-            d.PushBack(table, allocator);
+            d.PushBack(table.Move(), allocator);
         }
     }
 
     StringBuffer strbuf;
     Writer<StringBuffer> writer(strbuf);
     d.Accept(writer);
-    memcpy(buffer, strbuf.GetString(), sizeof(buffer));
+    memcpy(buffer, strbuf.GetString(), std::min(sizeof(buffer), strbuf.GetSize()));
+    buffer[strbuf.GetSize()] = '\0';
 
     // 返回数据的格式是一个数组，数组每个元素对应每一条语句的执行结果；
     // 一条语句的执行结果包括一个一维数组 "headers"，表头，还有一个二维数组 "data"，代表数据
