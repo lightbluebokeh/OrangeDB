@@ -822,7 +822,6 @@ public:
                     orange_check(ref_pk->constains(vals), "fails foreign key constraint");
                 }
             }
-            // auto fk = get_f_key(fk_name);
         }
 
         // 先更新索引
@@ -1020,118 +1019,257 @@ public:
         }
     }
 
-    static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, ast::select_tb_stmt select) {
-        // 补充 select *
-        if (select.select.empty()) {
-            for (auto col: table1->cols) select.select.push_back({table1->name, col.get_name()});
-            for (auto col: table2->cols) select.select.push_back({table2->name, col.get_name()});
-        }
-        TmpTable ret;
-        // select something
-        std::vector<String> names1, names2;
-        for (const auto& tb_col : select.select) {
-            if (!tb_col.table_name.has_value()) {
-                return {{"You need to add table name before column."}};
-            }
-            if (tb_col.table_name == table1->get_name()) {
-                names1.push_back(tb_col.col_name);
-            } else if (tb_col.table_name == table2->get_name()) {
-                names2.push_back(tb_col.col_name);
+    // static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, ast::select_tb_stmt select) {
+    //     // 补充 select *
+    //     if (select.select.empty()) {
+    //         for (auto col: table1->cols) select.select.push_back({table1->name, col.get_name()});
+    //         for (auto col: table2->cols) select.select.push_back({table2->name, col.get_name()});
+    //     }
+    //     TmpTable ret;
+    //     // select something
+    //     std::vector<String> names1, names2;
+    //     for (const auto& tb_col : select.select) {
+    //         if (!tb_col.table_name.has_value()) {
+    //             return {{"You need to add table name before column."}};
+    //         }
+    //         if (tb_col.table_name == table1->get_name()) {
+    //             names1.push_back(tb_col.col_name);
+    //         } else if (tb_col.table_name == table2->get_name()) {
+    //             names2.push_back(tb_col.col_name);
+    //         } else {
+    //             return {{"Table not found"}};
+    //         }
+    //         auto col = SavedTable::get(tb_col.table_name.get())->get_col(tb_col.col_name);
+    //         ret.cols.push_back(Column(tb_col.table_name.get() + "." + tb_col.col_name, col.get_datatype(), col.is_nullable(), col.get_dft()));
+    //     }
+    //     auto where = select.where.get_value_or({});
+    //     ast::where_clause table1_where, table2_where, between_where;
+    //     // 把where条件分开到上面三个
+    //     for (auto& cond : where) {
+    //         if (cond.is_op()) {
+    //             auto& col = cond.op().col;
+    //             if (!col.table_name.has_value()) {
+    //                 return {{"You need to add table name."}};
+    //             }
+    //             if (col.table_name != table1->get_name() &&
+    //                 col.table_name != table2->get_name()) {
+    //                 return {{"table not found"}};
+    //             }
+    //             auto& expr = cond.op().expression;
+    //             if (expr.is_column()) {
+    //                 auto& expr_col = expr.col();
+    //                 if (!expr_col.table_name.has_value()) {
+    //                     return {{"You need to add table name."}};
+    //                 }
+    //                 if (expr_col.table_name == table1->get_name() ||
+    //                     expr_col.table_name == table2->get_name()) {
+    //                     between_where.push_back(cond);
+    //                 } else {
+    //                     return {{"table not found."}};
+    //                 }
+    //             } else {
+    //                 if (col.table_name == table1->get_name()) {
+    //                     table1_where.push_back(cond);
+    //                 } else {
+    //                     table2_where.push_back(cond);
+    //                 }
+    //             }
+    //         } else {  // cond is null check
+    //             const auto& col = cond.null_check().col;
+    //             if (!col.table_name.has_value()) {
+    //                 return {{"You need to add table name."}};
+    //             }
+    //             if (col.table_name == table1->get_name()) {
+    //                 table1_where.push_back(cond);
+    //             } else if (col.table_name == table2->get_name()) {
+    //                 table2_where.push_back(cond);
+    //             } else {
+    //                 return {{"Table not found."}};
+    //             }
+    //         }
+    //     }
+
+    //     TmpTable result1 = table1->select(names1, table1_where);
+    //     TmpTable result2 = table2->select(names2, table2_where);
+    //     // TODO: 做笛卡尔积，要注意 between_where
+    //     for (auto &rec1: result1.recs) {
+    //         for (auto &rec2: result2.recs) {
+    //             bool test = 1;
+    //             for (auto single_where: where) {
+    //                 auto op = single_where.op();
+    //                 auto col_expr = op.expression.col();
+    //                 auto col1_name = op.col.col_name, col2_name = col_expr.col_name;
+    //                 auto get_val_type = [&] (const ast::column& tb_col) {
+    //                     if (tb_col.table_name == table1->name) {
+    //                         Column col = table1->get_col(tb_col.col_name);
+    //                         return std::make_pair(rec1[table1->get_col_id(col)], col.get_datatype_kind());
+    //                     } else {
+    //                         Column col = table2->get_col(tb_col.col_name);
+    //                         return std::make_pair(rec2[table2->get_col_id(col)], col.get_datatype_kind());
+    //                     }
+    //                 };
+    //                 auto [v1, t1] = get_val_type(op.col);
+    //                 auto [v2, t2] = get_val_type(col_expr);
+    //                 if (!Orange::cmp(v1, t1, op.operator_, v2, t2)) {
+    //                     test = 0;
+    //                     break;
+    //                 }
+    //             }
+    //             if (test) {
+    //                 rec_t cur;
+    //                 for (unsigned i = 0; i < select.select.size(); i++) {
+    //                     auto col = select.select[i];
+    //                     if (col.table_name == table1->name) {
+    //                         cur.push_back(rec1[table1->get_col_id(col.col_name)]);
+    //                     } else {
+    //                         cur.push_back(rec2[table2->get_col_id(col.col_name)]);
+    //                     }
+    //                 }
+    //                 ret.recs.push_back(cur);
+    //             }
+    //         }
+    //     }
+    //     return {{ret}};
+    // }
+
+    static TmpTable select_join(const ast::select_tb_stmt& select) {
+        auto where_clause = select.where.get_value_or({});
+        for (auto &single_where: where_clause) {
+            if (single_where.is_null_check()) {
+                auto &null = single_where.null_check();
+                orange_check(null.col.table_name.has_value(), "must specify table name");
             } else {
-                return {{"Table not found"}};
-            }
-            auto col = SavedTable::get(tb_col.table_name.get())->get_col(tb_col.col_name);
-            ret.cols.push_back(Column(tb_col.table_name.get() + "." + tb_col.col_name, col.get_datatype(), col.is_nullable(), col.get_dft()));
-        }
-        auto where = select.where.get_value_or({});
-        ast::where_clause table1_where, table2_where, between_where;
-        // 把where条件分开到上面三个
-        for (auto& cond : where) {
-            if (cond.is_op()) {
-                auto& col = cond.op().col;
-                if (!col.table_name.has_value()) {
-                    return {{"You need to add table name."}};
-                }
-                if (col.table_name != table1->get_name() &&
-                    col.table_name != table2->get_name()) {
-                    return {{"table not found"}};
-                }
-                auto& expr = cond.op().expression;
-                if (expr.is_column()) {
-                    auto& expr_col = expr.col();
-                    if (!expr_col.table_name.has_value()) {
-                        return {{"You need to add table name."}};
-                    }
-                    if (expr_col.table_name == table1->get_name() ||
-                        expr_col.table_name == table2->get_name()) {
-                        between_where.push_back(cond);
-                    } else {
-                        return {{"table not found."}};
-                    }
-                } else {
-                    if (col.table_name == table1->get_name()) {
-                        table1_where.push_back(cond);
-                    } else {
-                        table2_where.push_back(cond);
-                    }
-                }
-            } else {  // cond is null check
-                const auto& col = cond.null_check().col;
-                if (!col.table_name.has_value()) {
-                    return {{"You need to add table name."}};
-                }
-                if (col.table_name == table1->get_name()) {
-                    table1_where.push_back(cond);
-                } else if (col.table_name == table2->get_name()) {
-                    table2_where.push_back(cond);
-                } else {
-                    return {{"Table not found."}};
+                auto &op = single_where.op();
+                orange_check(op.col.table_name.has_value(), "must specify table name");
+                if (op.expression.is_column()) {
+                    auto col_expr = op.expression.col();
+                    orange_check(col_expr.table_name.has_value(), "must specify table name");
                 }
             }
         }
 
-        TmpTable result1 = table1->select(names1, table1_where);
-        TmpTable result2 = table2->select(names2, table2_where);
-        // TODO: 做笛卡尔积，要注意 between_where
-        for (auto &rec1: result1.recs) {
-            for (auto &rec2: result2.recs) {
-                bool test = 1;
-                for (auto single_where: where) {
-                    auto op = single_where.op();
-                    auto col_expr = op.expression.col();
-                    auto col1_name = op.col.col_name, col2_name = col_expr.col_name;
-                    auto get_val_type = [&] (const ast::column& tb_col) {
-                        if (tb_col.table_name == table1->name) {
-                            Column col = table1->get_col(tb_col.col_name);
-                            return std::make_pair(rec1[table1->get_col_id(col)], col.get_datatype_kind());
-                        } else {
-                            Column col = table2->get_col(tb_col.col_name);
-                            return std::make_pair(rec2[table2->get_col_id(col)], col.get_datatype_kind());
-                        }
-                    };
-                    auto [v1, t1] = get_val_type(op.col);
-                    auto [v2, t2] = get_val_type(col_expr);
-                    if (!Orange::cmp(v1, t1, op.operator_, v2, t2)) {
-                        test = 0;
-                        break;
-                    }
-                }
-                if (test) {
-                    rec_t cur;
-                    for (unsigned i = 0; i < select.select.size(); i++) {
-                        auto col = select.select[i];
-                        if (col.table_name == table1->name) {
-                            cur.push_back(rec1[table1->get_col_id(col.col_name)]);
-                        } else {
-                            cur.push_back(rec2[table2->get_col_id(col.col_name)]);
-                        }
-                    }
-                    ret.recs.push_back(cur);
+        std::vector<SavedTable*> tables;
+        for (auto tbl_name: select.tables)  {
+            auto table = SavedTable::get(tbl_name);
+            tables.push_back(table);
+        }
+
+        auto selector = select.select;
+        // select *，手动填充
+        if (selector.empty()) {
+            for (auto table: tables) {
+                for (auto col: table->cols) {
+                    selector.push_back({table->name, col.get_name()});
                 }
             }
         }
-        return {{ret}};
+        TmpTable ret;
+        for (auto &[op_tbl_name, col_name]: selector) {
+            orange_check(op_tbl_name.has_value(), "must specify table name");
+            auto tbl_name = op_tbl_name.get();
+            auto col = SavedTable::get(tbl_name)->get_col(col_name);
+            ret.cols.push_back(Column(tbl_name + "." + col.get_name(), col.get_datatype(), col.is_nullable(), col.get_dft()));
+        }
+
+        std::vector<rid_t> rids(tables.size());
+        dfs_join(0, tables, selector, where_clause, rids, ret.recs);
+        return ret;
     }
 
     friend class Index;
+
+private:
+    static void dfs_join(unsigned cur, const std::vector<SavedTable*>& tables, const ast::selector& selector, const ast::where_clause& where_clause, std::vector<rid_t>& rids, std::vector<rec_t>& recs) {
+        auto get_tbl_id = [&] (const String& tbl_name) -> int{
+            for (unsigned i = 0; i < tables.size(); i++) {
+                if (tbl_name == tables[i]->name) return i;
+            }
+            ORANGE_UNREACHABLE
+            return -1;
+        };        
+        if (cur == tables.size()) {
+            rec_t rec;
+            for (auto tbl_col: selector) {
+                auto tbl_name = tbl_col.table_name.get(), col_name = tbl_col.col_name;
+                int tbl_id = get_tbl_id(tbl_name);
+                auto table = tables[tbl_id];
+                rec.push_back(table->get_field(table->get_col_id(tbl_col.col_name), rids[tbl_id]));
+            }
+            recs.push_back(rec);
+        } else {
+            auto table = tables[cur];
+            // 找出当前会判断的 where clause 集合
+            ast::where_clause used;
+
+            // 表名在 cur 及之前是否已经出现过了
+            auto occur = [&] (const String& tbl_name) {
+                for (unsigned i = 0; i <= cur; i++) {
+                    if (tables[i]->name == tbl_name) {
+                        return 1;
+                    }
+                }
+                return 0;
+            };
+            for (auto &single_where: where_clause) {
+                if (single_where.is_null_check()) {
+                    auto &null = single_where.null_check();
+                    if (null.col.table_name == table->name) used.push_back(single_where);
+                } else {
+                    if (single_where.is_null_check()) {
+                        auto &null = single_where.null_check();
+                        if (occur(null.col.table_name.get())) used.push_back(single_where);
+                    } else {
+                        auto &op = single_where.op();
+                        if (occur(op.col.table_name.get())) {
+                            if (op.expression.is_value()) {
+                                used.push_back(single_where);
+                            } else {
+                                auto col_expr = op.expression.col();
+                                if (occur(col_expr.table_name.get())) {
+                                    used.push_back(single_where);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            auto check_single_where = [&] (rid_t rid, const ast::single_where& single_where) {
+                if (single_where.is_null_check()) {
+                    auto &null = single_where.null_check();
+                    auto ret = table->get_field(table->get_col_id(null.col.col_name), rid).front() == DATA_NULL;
+                    if (null.is_not_null) ret = !ret;
+                    return ret;
+                } else {
+                    auto &op = single_where.op();
+                    if (op.expression.is_value()) {
+                        int col_id = table->get_col_id(op.col.col_name);
+                        auto col = table->cols[col_id];
+                        auto value = op.expression.value();
+                        return Orange::cmp(table->get_field(col_id, rid), col.get_datatype_kind(), op.operator_, value);
+                    } else {
+                        auto col_expr = op.expression.col();
+                        int tbl1_id = get_tbl_id(op.col.table_name.get()), tbl2_id = get_tbl_id(col_expr.table_name.get());
+                        auto table1 = tables[tbl1_id], table2 = tables[tbl2_id];
+                        int col1_id = table1->get_col_id(op.col.col_name), col2_id = table2->get_col_id(col_expr.col_name);
+                        auto col1 = table1->cols[col1_id], col2 = table2->cols[col2_id];
+                        rid_t rid1 = rids[tbl1_id], rid2 = rids[tbl2_id];
+                        return Orange::cmp(table1->get_field(col1_id, rid1), col1.get_datatype_kind(), op.operator_, table2->get_field(col2_id, rid2), col2.get_datatype_kind());
+                    }
+                }
+            };
+            for (auto rid: table->all()) {
+                // 上面检查要用 牛皮
+                rids[cur] = rid;
+                bool check = 1;
+                for (auto &single_where: used) {
+                    if (!check_single_where(rid, single_where)) {
+                        check = 0;
+                        break;
+                    }
+                }
+                if (check) dfs_join(cur + 1, tables, selector, where_clause, rids, recs);
+            }
+        }
+    }
 };
