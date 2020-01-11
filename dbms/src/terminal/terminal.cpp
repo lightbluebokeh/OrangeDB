@@ -116,7 +116,6 @@ int main(int argc, char* argv[]) {
                 std::stringstream ss(line);
                 String token, values;
                 while (std::getline(ss, token, '|')) {
-                    std::cout << token << '\n';
                     if (std::regex_match(token, is_number)) {
                         values += token + ',';
                     } else {

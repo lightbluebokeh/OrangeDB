@@ -14,9 +14,9 @@
 
 #include "defs.h"
 #include <fs/allocator/allocator.h>
+#include <iomanip>
 #include <sstream>
 #include <vector>
-#include <iomanip>
 
 namespace Orange::parser {
     // 这些都是ast结点
@@ -220,16 +220,24 @@ namespace Orange::parser {
         bool is_not_null;
     };
 
+    struct single_where_like {
+        column col;
+        std::string pattern;
+    };
+
     struct single_where {
-        boost::variant<single_where_op, single_where_null> where;
+        boost::variant<single_where_op, single_where_null, single_where_like> where;
 
         bool is_op() const { return where.which() == 0; }
         bool is_null_check() const { return where.which() == 1; }
+        bool is_like() const { return where.which() == 2; }
 
         const single_where_op& op() const { return boost::get<single_where_op>(where); }
         single_where_op& op() { return boost::get<single_where_op>(where); }
         const single_where_null& null_check() const { return boost::get<single_where_null>(where); }
         single_where_null& null_check() { return boost::get<single_where_null>(where); }
+        const single_where_like& like() const { return boost::get<single_where_like>(where); }
+        single_where_like& like() { return boost::get<single_where_like>(where); }
     };
 
     using where_clause = std::vector<single_where>;
@@ -327,6 +335,8 @@ namespace Orange::parser {
         selector select;
         table_list tables;
         boost::optional<where_clause> where;
+        boost::optional<column> group_by;
+        boost::optional<int> limit;
     };
 
     struct tb_stmt {

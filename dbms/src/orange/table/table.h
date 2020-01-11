@@ -806,6 +806,13 @@ public:
                 }
             }
         }
+        for (auto [_, fk_def]: f_key_defs) {
+            auto ref_pk = SavedTable::get(fk_def.ref_tbl)->get_p_key();
+            for (auto rid: rids) {
+                auto vals = get_fields(get_cols(fk_def.list), rid);
+                orange_check(ref_pk->constains(vals), "a foreign key constraint fails");
+            }
+        }
         // 先更新索引
         for (auto [_, index]: indexes) if (has_update(index->get_cols())) {
             std::vector<int> col_ids;

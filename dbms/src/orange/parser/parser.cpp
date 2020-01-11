@@ -44,7 +44,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::desc_tb_stmt, name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::insert_into_tb_stmt, name, columns, values_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::delete_from_tb_stmt, name, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::update_tb_stmt, name, set, where)
-BOOST_FUSION_ADAPT_STRUCT(Orange::parser::select_tb_stmt, select, tables, where)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::select_tb_stmt, select, tables, where, group_by, limit)
 
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::idx_stmt, stmt)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::create_idx_stmt, idx_name, tb_name, col_list)
@@ -75,6 +75,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::field_foreign_key, col, ref_table_name
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_field, field)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_op, col, operator_, expression)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_null, col, is_not_null)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where_like, col, pattern)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_where, where)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::single_set, col_name, val)
 
@@ -160,6 +161,7 @@ namespace Orange {
             rule<single_where()> where;
             rule<single_where_op()> where_op;
             rule<single_where_null()> where_null;
+            rule<single_where_like()> where_like;
             rule<where_clause()> where_list;
 
             rule<single_set()> set;
@@ -221,9 +223,12 @@ namespace Orange {
                 update_tb %=
                     kw(+"UPDATE") > identifier > kw(+"SET") > set_list > kw(+"WHERE") > where_list;
                 // <select_tb> := 'SELECT' <selector> 'FROM' <table_list> ('WHERE' <where_clause>)?
+                //                ('GROUP' 'BY' <col>) ('LIMIT' <int>)
                 select_tb = kw(+"SELECT") > selectors[at_c<0>(qi::_val) = qi::_1] > kw(+"FROM") >
                             tables[at_c<1>(qi::_val) = qi::_1] >
-                            -(kw(+"WHERE") > where_list)[at_c<2>(qi::_val) = qi::_1];
+                            -(kw(+"WHERE") > where_list)[at_c<2>(qi::_val) = qi::_1] >
+                            -(kw(+"GROUP") > kw(+"BY") > col[at_c<3>(qi::_val) = qi::_1]) >
+                            -(kw(+"LIMIT") > qi::int_)[at_c<4>(qi::_val) = qi::_1];
 
                 // <idx_stmt> := <create_idx> | <drop_idx> | <alter_add_idx> | <alter_drop_idx>
                 idx %= create_idx | drop_idx | alter_add_idx | alter_drop_idx;
@@ -352,13 +357,15 @@ namespace Orange {
                 expression %= value | col;
 
                 // <where> := <where_op> | <where_null>
-                where %= where_op | where_null;
+                where %= where_op | where_null | where_like;
                 // <where_op> := <col> <op> <expr>
                 where_op = col[at_c<0>(qi::_val) = qi::_1] >>
                            operator_[at_c<1>(qi::_val) = qi::_1] >
                            expression[at_c<2>(qi::_val) = qi::_1];
                 // <where_null> := <col> 'IS' 'NOT'? 'NULL'
                 where_null %= col >> (kw(+"IS") > qi::matches[kw(+"NOT")] > kw(+"NULL"));
+                // <where_like> := <col> 'LIKE' [pattern]
+                where_like %= col >> kw(+"LIKE") >> value_string;
 
                 // <where_clause> := <where> ('AND' <where>)*
                 where_list %= where % ',';
