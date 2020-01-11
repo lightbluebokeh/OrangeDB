@@ -245,6 +245,7 @@ inline std::ostream& operator<<(std::ostream& os, const TmpTable& table) {
             case orange_t::Numeric: return std::to_string(Orange::bytes_to_numeric(bytes));
             case orange_t::Date: {
                 std::tm date = {};
+                memcpy(&date, 1 + bytes.data(), sizeof(std::tm));
                 std::ostringstream ss;
                 ss << std::put_time(&date, "%Y-%m-%d");
                 return ss.str();

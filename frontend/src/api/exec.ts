@@ -18,7 +18,7 @@ export interface ExecResponse {
 
 export default async function exec(sql: string): Promise<ExecResponse> {
   const { data } = await axios.post('/api/exec', { sql });
-  if (data && data.time && data.results) {
+  if (data && typeof data.time === 'number' && data.results) {
     data.results = JSON.parse(data.results);
     return data;
   }

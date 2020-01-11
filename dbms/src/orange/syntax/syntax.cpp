@@ -71,22 +71,22 @@ namespace Orange {
             }
             case DbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
-                ss_debug << "  create database:" << std::endl;
-                ss_debug << "    name: " << create_stmt.name << std::endl;
+                //ss_debug << "  create database:" << std::endl;
+                //ss_debug << "    name: " << create_stmt.name << std::endl;
                 create(create_stmt.name);
                 return {{}};
             }
             case DbStmtKind::Drop: {
                 auto& drop_stmt = stmt.drop();
-                ss_debug << "  drop database:" << std::endl;
-                ss_debug << "    name: " << drop_stmt.name << std::endl;
+                //ss_debug << "  drop database:" << std::endl;
+                //ss_debug << "    name: " << drop_stmt.name << std::endl;
                 drop(drop_stmt.name);
                 return {{}};
             }
             case DbStmtKind::Use: {
                 auto& use_stmt = stmt.use();
-                ss_debug << "  use database:" << std::endl;
-                ss_debug << "    name: " << use_stmt.name << std::endl;
+                //ss_debug << "  use database:" << std::endl;
+                //ss_debug << "    name: " << use_stmt.name << std::endl;
                 use(use_stmt.name);
                 return {{}};
             }
@@ -98,9 +98,9 @@ namespace Orange {
         switch (stmt.kind()) {
             case TbStmtKind::Create: {
                 auto& create_stmt = stmt.create();
-                ss_debug << "  create table:" << std::endl;
-                ss_debug << "    table: " << create_stmt.name << std::endl;
-                ss_debug << "    fields:" << std::endl;
+                //ss_debug << "  create table:" << std::endl;
+                //ss_debug << "    table: " << create_stmt.name << std::endl;
+                //ss_debug << "    fields:" << std::endl;
                 std::vector<Column> cols;
                 std::vector<String> p_key;
                 std::vector<f_key_t> f_keys;
@@ -108,33 +108,33 @@ namespace Orange {
                     switch (field.kind()) {
                         case FieldKind::Def: {
                             auto& def = field.def();
-                            ss_debug << "      def:" << std::endl;
-                            ss_debug << "        col name: " << def.col_name << std::endl;
-                            ss_debug << "        type: " << type_string(def.type) << std::endl;
-                            ss_debug << "        is not null: " << def.is_not_null << std::endl;
-                            ss_debug << "        default value: "
-                                     << (def.default_value.has_value()
-                                             ? value_string(def.default_value.get())
-                                             : "<none>")
-                                     << std::endl;
+                            //ss_debug << "      def:" << std::endl;
+                            //ss_debug << "        col name: " << def.col_name << std::endl;
+                            //ss_debug << "        type: " << type_string(def.type) << std::endl;
+                            //ss_debug << "        is not null: " << def.is_not_null << std::endl;
+                            //ss_debug << "        default value: "
+//                                     << (def.default_value.has_value()
+//                                             ? value_string(def.default_value.get())
+//                                             : "<none>")
+//                                     << std::endl;
                             cols.emplace_back(Column::from_def(def));
                         } break;
                         case FieldKind::PrimaryKey: {
                             auto& primary_key = field.primary_key();
-                            ss_debug << "      primary key:" << std::endl;
-                            ss_debug << "        col list: ";
+                            //ss_debug << "      primary key:" << std::endl;
+                            //ss_debug << "        col list: ";
                             for (auto& col : primary_key.col_list) {
-                                ss_debug << col << ' ';
+                                //ss_debug << col << ' ';
                             }
-                            ss_debug << std::endl;
+                            //ss_debug << std::endl;
                             p_key = primary_key.col_list;
                         } break;
                         case FieldKind::ForeignKey: {
                             auto& foreign_key = field.foreign_key();
-                            ss_debug << "      foreign key:" << std::endl;
-                            ss_debug << "        col name: " << foreign_key.col;
-                            ss_debug << "        ref table: " << foreign_key.ref_table_name;
-                            ss_debug << "        ref col name: " << foreign_key.col << endl;
+                            //ss_debug << "      foreign key:" << std::endl;
+                            //ss_debug << "        col name: " << foreign_key.col;
+                            //ss_debug << "        ref table: " << foreign_key.ref_table_name;
+                            //ss_debug << "        ref col name: " << foreign_key.col << endl;
 
                             f_keys.push_back(f_key_t("<" + foreign_key.col + ">", foreign_key.ref_table_name,
                                                      {foreign_key.col},
@@ -148,21 +148,21 @@ namespace Orange {
             }
             case TbStmtKind::Drop: {
                 auto& drop = stmt.drop();
-                ss_debug << "  drop table:" << std::endl;
-                ss_debug << "    table name: " << drop.name << endl;
+                //ss_debug << "  drop table:" << std::endl;
+                //ss_debug << "    table name: " << drop.name << endl;
                 SavedTable::drop(drop.name);
                 return {{}};
             }
             case TbStmtKind::Desc: {
                 auto& desc = stmt.desc();
-                ss_debug << "  describe table:" << std::endl;
-                ss_debug << "    table name: " << desc.name << endl;
+                //ss_debug << "  describe table:" << std::endl;
+                //ss_debug << "    table name: " << desc.name << endl;
                 return {SavedTable::get(desc.name)->description()};
             }
             case TbStmtKind::InsertInto: {
                 auto& insert = stmt.insert_into();
-                ss_debug << "  insert into table:" << std::endl;
-                ss_debug << "    table name: " << insert.name << std::endl;
+                //ss_debug << "  insert into table:" << std::endl;
+                //ss_debug << "    table name: " << insert.name << std::endl;
                 auto table = SavedTable::get(insert.name);
                 if (insert.columns.has_value()) {
                     auto& columns = insert.columns.get();
@@ -170,42 +170,42 @@ namespace Orange {
                     [&] {
                         for (auto& values : values_list) {
                             if (columns.size() != values.size()) {
-                                ss_debug << "    * columns and values not match *" << std::endl;
-                                ss_debug << "    columns:";
+                                //ss_debug << "    * columns and values not match *" << std::endl;
+                                //ss_debug << "    columns:";
                                 for (auto& col : insert.columns.get()) {
-                                    ss_debug << ' ' << col;
+                                    //ss_debug << ' ' << col;
                                 }
-                                ss_debug << std::endl;
-                                ss_debug << "    values:";
+                                //ss_debug << std::endl;
+                                //ss_debug << "    values:";
                                 for (auto& val : values) {
-                                    ss_debug << ' ' << value_string(val) << endl;
+                                    //ss_debug << ' ' << value_string(val) << endl;
                                 }
                                 return;
                             }
                         }
                         for (const auto& column : columns) {
-                            ss_debug << "      " << column << " ";
+                            //ss_debug << "      " << column << " ";
                         }
-                        ss_debug << endl;
+                        //ss_debug << endl;
                         for (auto& values : values_list) {
                             std::vector<std::pair<String, byte_arr_t>> data;
                             for (auto& val : values) {
-                                ss_debug << "       " << value_string(val);
+                                //ss_debug << "       " << value_string(val);
                                 // data.push_back(std::make_pair(columns[i],
                                 // Orange::to_bytes(val)));
                             }
                             // table->insert(data);
-                            ss_debug << endl;
+                            //ss_debug << endl;
                         }
                         table->insert(insert.columns.get(), insert.values_list);
                     }();
                 } else {
                     for (auto& values : insert.values_list) {
-                        ss_debug << "    values:";
+                        //ss_debug << "    values:";
                         for (auto& val : values) {
-                            ss_debug << ' ' << value_string(val);
+                            //ss_debug << ' ' << value_string(val);
                         }
-                        ss_debug << endl;
+                        //ss_debug << endl;
                     }
                     table->insert(insert.values_list);
                 }
@@ -213,88 +213,88 @@ namespace Orange {
             }
             case TbStmtKind::DeleteFrom: {
                 auto& delete_from = stmt.delete_from();
-                ss_debug << "  delete from table:" << std::endl;
-                ss_debug << "    table name: " << delete_from.name << std::endl;
-                ss_debug << "    where:" << std::endl;
+                //ss_debug << "  delete from table:" << std::endl;
+                //ss_debug << "    table name: " << delete_from.name << std::endl;
+                //ss_debug << "    where:" << std::endl;
                 for (auto& cond : delete_from.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
-                        ss_debug << "      " << null.col.col_name << " IS "
-                                 << (null.is_not_null ? "NOT " : "") << "NULL";
+                        //ss_debug << "      " << null.col.col_name << " IS "
+                                 //<< (null.is_not_null ? "NOT " : "") << "NULL";
 
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
-                        ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
-                                 << expression_string(o.expression);
+                        //ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
+                                 //<< expression_string(o.expression);
                     }
-                    ss_debug << std::endl;
+                    //ss_debug << std::endl;
                 }
                 SavedTable::get(delete_from.name)->delete_where(delete_from.where);
                 return {{}};
             }
             case TbStmtKind::Update: {
                 auto& update = stmt.update();
-                ss_debug << "  update:" << std::endl;
-                ss_debug << "    table name: " << update.name << std::endl;
-                ss_debug << "    set:" << std::endl;
+                //ss_debug << "  update:" << std::endl;
+                //ss_debug << "    table name: " << update.name << std::endl;
+                //ss_debug << "    set:" << std::endl;
                 for (auto& set : update.set) {
-                    ss_debug << "      " << set.col_name << ": " << value_string(set.val)
-                             << std::endl;
+                    //ss_debug << "      " << set.col_name << ": " << value_string(set.val)
+                             //<< std::endl;
                 }
-                ss_debug << "    where:" << std::endl;
+                //ss_debug << "    where:" << std::endl;
                 for (auto& cond : update.where) {
                     if (cond.is_null_check()) {
                         const auto& null = cond.null_check();
-                        ss_debug << "      " << null.col.col_name << " IS "
-                                 << (null.is_not_null ? "NOT " : "") << "NULL";
+                        //ss_debug << "      " << null.col.col_name << " IS "
+                                 //<< (null.is_not_null ? "NOT " : "") << "NULL";
                     } else if (cond.is_op()) {
                         const auto& o = cond.op();
-                        ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
-                                 << expression_string(o.expression);
+                        //ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
+                                 //<< expression_string(o.expression);
                     }
-                    ss_debug << std::endl;
+                    //ss_debug << std::endl;
                 }
                 SavedTable::get(update.name)->update_where(update.set, update.where);
                 return {{}};
             }
             case TbStmtKind::Select: {
                 auto& select = stmt.select();
-                ss_debug << "  select from table:" << std::endl;
+                // ss_debug << "  select from table:" << std::endl;
                 std::set<String> table_set;
-                ss_debug << "    table list: ";
+                // ss_debug << "    table list: ";
                 for (auto& table : select.tables) {
-                    ss_debug << table << ' ';
+                    // ss_debug << table << ' ';
                     orange_check(!table_set.count(table), "table name occurs multiple times in table join is not allowed");
                     table_set.insert(table);
                 }
-                ss_debug << std::endl;
-                ss_debug << "    selected cols: ";
+                //ss_debug << std::endl;
+                //ss_debug << "    selected cols: ";
                 if (select.select.empty()) {  // empty时认为是select *
-                    ss_debug << "*" << std::endl;
+                    //ss_debug << "*" << std::endl;
                 } else {
                     for (auto& col : select.select) {
                         if (col.table_name.has_value()) {
                             auto name = col.table_name.get();
                             orange_check(table_set.count(name), "unknown table name: `" + name + "`");
-                            ss_debug << name << ".";
+                            // ss_debug << name << ".";
                         }
-                        ss_debug << col.col_name << " ";
+                        //ss_debug << col.col_name << " ";
                     }
-                    ss_debug << std::endl;
+                    //ss_debug << std::endl;
                 }
                 if (select.where.has_value()) {
-                    ss_debug << "    where:" << std::endl;
+                    //ss_debug << "    where:" << std::endl;
                     for (auto& cond : select.where.get()) {
                         if (cond.is_null_check()) {
                             const auto& null = cond.null_check();
-                            ss_debug << "      " << null.col.col_name << " IS "
-                                     << (null.is_not_null ? "NOT " : "") << "NULL";
+                            //ss_debug << "      " << null.col.col_name << " IS "
+                                     //<< (null.is_not_null ? "NOT " : "") << "NULL";
                         } else if (cond.is_op()) {
                             const auto& o = cond.op();
-                            ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
-                                     << expression_string(o.expression);
+                            //ss_debug << "      " << o.col.col_name << " " << o.operator_ << " "
+                                     //<< expression_string(o.expression);
                         }
-                        ss_debug << std::endl;
+                        //ss_debug << std::endl;
                     }
                 }
                 if (table_set.size() == 1) {  // 单表格
@@ -330,18 +330,18 @@ namespace Orange {
             } break;
             case IdxStmtKind::Create: {
                 auto& create = stmt.create();
-                ss_debug << "  create index" << endl;
-                ss_debug << "   table: " + create.tb_name << endl;
-                ss_debug << "   index name: " + create.idx_name << endl;
-                ss_debug << "   columns: " << endl;
-                for (auto& col : create.col_list) ss_debug << "       " << col << endl;
+                //ss_debug << "  create index" << endl;
+                //ss_debug << "   table: " + create.tb_name << endl;
+                //ss_debug << "   index name: " + create.idx_name << endl;
+                //ss_debug << "   columns: " << endl;
+                for (auto& col : create.col_list) //ss_debug << "       " << col << endl;
                 SavedTable::get(create.tb_name)
                     ->create_index(create.idx_name, create.col_list, 0, 0);  // unique 不知道
             } break;
             case IdxStmtKind::Drop: {
                 auto& drop = stmt.drop();
-                ss_debug << "  drop index" << endl;
-                ss_debug << "   index name: " << drop.idx_name << endl;
+                //ss_debug << "  drop index" << endl;
+                //ss_debug << "   index name: " << drop.idx_name << endl;
                 auto table = SavedTable::get(drop.tb_name);
                 table->drop_index(drop.idx_name);
             } break;
@@ -395,12 +395,12 @@ namespace Orange {
                 const auto& add_primary_key = stmt.add_primary_key();
                 const std::string& table_name = add_primary_key.table_name;
                 const column_list& col_list = add_primary_key.col_list;
-                ss_debug << "  add primary key: " << endl;
-                ss_debug << "   table: " + add_primary_key.table_name << endl;
-                ss_debug << String("   primary key name: ") + PRIMARY_KEY_NAME << endl;
-                ss_debug << "   columns: " << endl;
+                //ss_debug << "  add primary key: " << endl;
+                //ss_debug << "   table: " + add_primary_key.table_name << endl;
+                //ss_debug << String("   primary key name: ") + PRIMARY_KEY_NAME << endl;
+                //ss_debug << "   columns: " << endl;
                 for (const std::string& col : col_list) {
-                    ss_debug << "       " << col << endl;
+                    //ss_debug << "       " << col << endl;
                 }
 
                 auto table = SavedTable::get(table_name);
@@ -411,13 +411,13 @@ namespace Orange {
                 const std::string& table_name = add_constraint_primary_key.table_name;
                 const std::string& pk_name = add_constraint_primary_key.pk_name;
                 const column_list& col_list = add_constraint_primary_key.col_list;
-                ss_debug << "  add primary key: " << endl;
-                ss_debug << "   table: " + add_constraint_primary_key.table_name << endl;
-                ss_debug << String("   primary key name: ") + add_constraint_primary_key.pk_name
-                         << endl;
-                ss_debug << "   columns: " << endl;
+                //ss_debug << "  add primary key: " << endl;
+                //ss_debug << "   table: " + add_constraint_primary_key.table_name << endl;
+                //ss_debug << String("   primary key name: ") + add_constraint_primary_key.pk_name
+                         //<< endl;
+                //ss_debug << "   columns: " << endl;
                 for (const std::string& col : col_list) {
-                    ss_debug << "       " << col << endl;
+                    //ss_debug << "       " << col << endl;
                 }
 
                 auto table = SavedTable::get(table_name);
@@ -476,12 +476,12 @@ namespace Orange {
     std::vector<result_t> program(sql_ast& ast) noexcept {
         std::vector<result_t> ret;
         std::stringstream tmp;  // new 一对象
-        ss_debug.swap(tmp);
+        //ss_debug.swap(tmp);
         for (auto& stmt : ast.stmt_list) {
-            ss_debug.clear();
+            //ss_debug.clear();
             ret.push_back(Orange::stmt(stmt));
 #ifdef DEBUG
-            std::cerr << ss_debug.str() << std::endl;
+            //std::cerr << //ss_debug.str() << std::endl;
 #endif
         }
         return ret;
