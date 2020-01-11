@@ -787,7 +787,7 @@ public:
             return 0;
         };
 
-        // 先检查是否可以 set null
+        // 先检查是否可以 set null，即如果修改了主键，需要查看对应外键是否可以是 null
         auto pk = get_p_key();
         if (has_update(pk->get_cols())) {
             for (auto rid: rids) {
@@ -797,7 +797,6 @@ public:
                     for (auto &[name, src_fk]: f_key_rev) {
                         auto &[src_name, fk_def] = src_fk;
                         auto src = SavedTable::get(src_name);
-                        auto fk = src->get_f_key(fk_def.name); 
                         for (auto col: src->get_cols(fk_def.list)) {
                             orange_check(col.is_nullable(), "cannot set null");
                         }
@@ -806,8 +805,28 @@ public:
                 }
             }
         }
+
+        // 检查更新后的值是否满足外键约束
+        for (auto [fk_name, fk_def]: f_key_defs) {
+            if (has_update(get_cols(fk_def.list))) {
+                auto ref_pk = SavedTable::get(fk_def.ref_tbl)->get_p_key();
+                for (auto rid: rids) {
+                    std::vector<byte_arr_t> vals;
+                    for (auto col_name: fk_def.list) {
+                        if (new_vals.count(col_name)) {
+                            vals.push_back(Orange::value_to_bytes(new_vals[col_name], get_col(col_name).get_datatype()));
+                        } else {
+                            vals.push_back(col_data[get_col_id(col_name)]->get_val(rid));
+                        }
+                    }
+                    orange_check(ref_pk->constains(vals), "fails foreign key constraint");
+                }
+            }
+            // auto fk = get_f_key(fk_name);
+        }
+
         // 先更新索引
-        for (auto [_, index]: indexes) if (has_update(index->get_cols())) {
+        for (auto [idx_name, index]: indexes) if (has_update(index->get_cols())) {
             std::vector<int> col_ids;
             for (auto col: index->get_cols()) col_ids.push_back(get_col_id(col.get_name()));
             for (auto rid: rids) {
