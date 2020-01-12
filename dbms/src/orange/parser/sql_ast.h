@@ -63,8 +63,9 @@ namespace Orange::parser {
         int_t int_value() const { return boost::get<int_t>(value); }
         int_t int_value_or(int_t x) const { return has_value() ? int_value() : x; }
 
-        static data_type int_type() { return {orange_t::Int, {}}; }
-        static data_type varchar_type(int len) { return {orange_t::Varchar, int_t(len)}; }
+        static data_type int_type() { return {orange_t::Int, {}, 0}; }
+        static data_type numeric_type() { return {orange_t::Numeric, 18, 2}; }
+        static data_type varchar_type(int len) { return {orange_t::Varchar, int_t(len), 0}; }
 
         bool is_string() const { return kind == orange_t::Char || kind == orange_t::Varchar; }
 
