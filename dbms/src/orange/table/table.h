@@ -1173,7 +1173,7 @@ private:
         numeric_t numeric_val() { return boost::get<numeric_t>(val); }
     };
 
-    rid_t count_val(const String& col_name) const {
+    int_t count_val(const String& col_name) const {
         int count = 0;
         int col_id = get_col_id(col_name);
         for (auto rid: all()) {

@@ -273,11 +273,20 @@ namespace Orange {
                     //ss_debug << "*" << std::endl;
                 } else {
                     for (auto& col : select.select) {
-                        const auto& col_sel = boost::get<ast::column>(col);
-                        if (col_sel.table_name.has_value()) {
-                            auto name = col_sel.table_name.get();
-                            orange_check(table_set.count(name), "unknown table name: `" + name + "`");
-                            //ss_debug << name << ".";
+                        if (col.which() == 0) {
+                            const auto& col_sel = boost::get<ast::column>(col);
+                            if (col_sel.table_name.has_value()) {
+                                auto name = col_sel.table_name.get();
+                                orange_check(table_set.count(name), "unknown table name: `" + name + "`");
+                                //ss_debug << name << ".";
+                            }
+                        } else {
+                            auto func = boost::get<ast::aggregate_func_selector>(col);
+                            if (func.col.table_name.has_value()) {
+                                auto name = func.col.table_name.get();
+                                orange_check(table_set.count(name), "unknown table name: `" + name + "`");
+                                //ss_debug << name << ".";
+                            }
                         }
                         //ss_debug << col.col_name << " ";
                     }
@@ -299,17 +308,35 @@ namespace Orange {
                     }
                 }
                 if (table_set.size() == 1) {  // 单表格
+                    const auto& table = SavedTable::get(select.tables.front());
                     if (select.select.empty()) {
-                        const auto& table = SavedTable::get(select.tables.front());
                         return {table->select_star(select.where.get_value_or({}))};
                     } else {
-                        auto table = SavedTable::get(select.tables.front());
-                        std::vector<String> names;
-                        for (const auto& col : select.select) {
-                            const auto& col_sel = boost::get<ast::column>(col);
-                            names.push_back(col_sel.col_name);
+                        auto is_func = [&] (const ast::selector& selector) -> bool {
+                            if (selector.size() != 1) return 0;
+                            auto col_sel = selector.front();
+                            return col_sel.which() == 1;
+                        };
+                        if (is_func(select.select)) {
+                            auto func = boost::get<ast::aggregate_func_selector>(select.select.front());
+                            using ast::aggregate_func;
+                            auto col_name = func.col.col_name;
+                            switch (func.func) {
+                                case aggregate_func::Count: return {table->count(col_name)};
+                                case aggregate_func::Sum: return {table->sum(col_name)};
+                                case aggregate_func::Avg: return {table->avg(col_name)};
+                                case aggregate_func::Min: return {table->min(col_name)};
+                                case aggregate_func::Max: return {table->max(col_name)};
+                                case aggregate_func::Var: return {"buzuole"};
+                            }
+                        } else {
+                            std::vector<String> names;
+                            for (const auto& col : select.select) {
+                                const auto& col_sel = boost::get<ast::column>(col);
+                                names.push_back(col_sel.col_name);
+                            }
+                            return {table->select(names, select.where.get_value_or({}))};
                         }
-                        return {table->select(names, select.where.get_value_or({}))};
                     }
                 } else {
                     return { SavedTable::select_join(select) };

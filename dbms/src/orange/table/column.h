@@ -38,8 +38,8 @@ public:
                 break;
             case orange_t::Date: break;
             case orange_t::Numeric: {
-                int p = type.int_value() / 40;
-                int s = type.int_value() % 40;
+                int p = type.int_value();
+                int s = type.value2;
                 orange_check(0 <= s && s <= p && p <= 20, "bad numeric");
             } break;
         }
