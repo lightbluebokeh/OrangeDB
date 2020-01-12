@@ -36,7 +36,8 @@ namespace Orange::parser {
     };
 
     /** selector: empty时代表 '*' */
-    using selector = std::vector<boost::variant<column, aggregate_func_selector>>;  // 注意里面是column
+    using selector =
+        std::vector<boost::variant<column, aggregate_func_selector>>;  // 注意里面是column
 
     using table_list = std::vector<std::string>;
 
@@ -479,10 +480,17 @@ namespace Orange::parser {
         std::string fk_name;
     };
 
+    struct add_constraint_unique_stmt {
+        std::string table_name;
+        std::string unique_name;
+        column col;
+    };
+
     struct alter_stmt {
         boost::variant<add_field_stmt, drop_col_stmt, change_col_stmt, rename_tb_stmt,
                        add_primary_key_stmt, add_constraint_primary_key_stmt, drop_primary_key_stmt,
-                       add_constraint_foreign_key_stmt, drop_foreign_key_stmt>
+                       add_constraint_foreign_key_stmt, drop_foreign_key_stmt,
+                       add_constraint_unique_stmt>
             stmt;
 
         [[nodiscard]] AlterStmtKind kind() const { return (AlterStmtKind)stmt.which(); }
@@ -522,6 +530,12 @@ namespace Orange::parser {
         }
         drop_foreign_key_stmt& drop_foreign_key() {
             return boost::get<drop_foreign_key_stmt>(stmt);
+        }
+        const add_constraint_unique_stmt& add_constraint_unique() const {
+            return boost::get<add_constraint_unique_stmt>(stmt);
+        }
+        add_constraint_unique_stmt& add_constraint_unique() {
+            return boost::get<add_constraint_unique_stmt>(stmt);
         }
     };
 

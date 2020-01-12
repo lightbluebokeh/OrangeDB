@@ -64,6 +64,7 @@ BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_primary_key_stmt, table_name, pk_
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::add_constraint_foreign_key_stmt, table_name, fk_name,
                           col_list, ref_tb_name, ref_col_list)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::drop_foreign_key_stmt, table_name, fk_name)
+BOOST_FUSION_ADAPT_STRUCT(Orange::parser::add_constraint_unique_stmt, table_name, unique_name, col)
 
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::column, table_name, col_name)
 BOOST_FUSION_ADAPT_STRUCT(Orange::parser::data_value, value)
@@ -133,6 +134,7 @@ namespace Orange::parser {
         rule<drop_primary_key_stmt()> drop_primary_key;
         rule<add_constraint_foreign_key_stmt()> add_constraint_foreign_key;
         rule<drop_foreign_key_stmt()> drop_foreign_key;
+        rule<add_constraint_unique_stmt()> add_constraint_unique;
 
         // others
         rule<qi::unused_type(const char*)> kw;
@@ -249,7 +251,7 @@ namespace Orange::parser {
             //                 <drop_foreign_key>
             alter %= drop_col | change_col | rename_tb | add_primary_key |
                      add_constraint_primary_key | drop_primary_key | add_constraint_foreign_key |
-                     drop_foreign_key | add_field;
+                     drop_foreign_key | add_field | add_constraint_unique;
             // <add_field> := 'ALTER' 'TABLE' [tb_name] 'ADD' <field>
             add_field %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >> field;
             // <drop_col> := 'ALTER' 'TABLE' [tb_name] 'DROP' [col_name]
@@ -275,13 +277,21 @@ namespace Orange::parser {
             // <add_constraint_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT'
             //                                 [fk_name] 'FOREIGN' 'KEY' '(' <column_list> ')'
             //                                 'REFERENCES' [ref_tb_name] '(' <column_list> ')'
-            add_constraint_foreign_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >>
-                                          kw(+"ADD") >> kw(+"CONSTRAINT") > identifier >>
-                                          kw(+"FOREIGN") > kw(+"KEY") > '(' > columns > ')' >
-                                          kw(+"REFERENCES") > identifier > '(' > columns > ')';
+            add_constraint_foreign_key =
+                kw(+"ALTER") >> kw(+"TABLE") >> identifier[at_c<0>(qi::_val) = qi::_1] >>
+                kw(+"ADD") >> kw(+"CONSTRAINT") >> identifier[at_c<1>(qi::_val) = qi::_1] >>
+                kw(+"FOREIGN") >> kw(+"KEY") >> qi::omit['('] >>
+                columns[at_c<2>(qi::_val) = qi::_1] >> qi::omit[')'] >> kw(+"REFERENCES") >>
+                identifier[at_c<3>(qi::_val) = qi::_1] >> qi::omit['('] >
+                columns[at_c<4>(qi::_val) = qi::_1] >> qi::omit[')'];
             // <drop_foreign_key> := 'ALTER' 'TABLE' [tb_name] 'DROP' 'FOREIGN' 'KEY' [fk_name]
             drop_foreign_key %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"DROP") >>
                                 kw(+"FOREIGN") > kw(+"KEY") > identifier;
+            // <add_constraint_unique> := 'ALTER' 'TABLE' [tb_name] 'ADD' 'CONSTRAINT' [unique_name]
+            //                            'UNIQUE' '(' <col> ')';
+            add_constraint_unique %= kw(+"ALTER") >> kw(+"TABLE") >> identifier >> kw(+"ADD") >>
+                                     kw(+"CONSTRAINT") >> identifier >> kw(+"UNIQUE") >> '(' >>
+                                     col >> ')';
 
             // keyword
             kw = qi::no_case[qi::lit(qi::_r1)] >> qi::no_skip[&!(encoding::alnum | '_')];
@@ -343,14 +353,12 @@ namespace Orange::parser {
                  qi::int_[at_c<0>(qi::_val) = orange_t::Varchar, at_c<1>(qi::_val) = qi::_1] >
                  ')') |
                 kw(+"DATE")[at_c<0>(qi::_val) = orange_t::Date] |
-                kw(+"FLOAT")[at_c<0>(qi::_val) = orange_t::Numeric,
-                             at_c<1>(qi::_val) = 18,
+                kw(+"FLOAT")[at_c<0>(qi::_val) = orange_t::Numeric, at_c<1>(qi::_val) = 18,
                              at_c<1>(qi::_val) = 2] |
                 kw(+"NUMERIC")[at_c<0>(qi::_val) = orange_t::Numeric] >> '(' >>
                     qi::int_[at_c<1>(qi::_val) = qi::_1] >> ',' >>
                     qi::int_[at_c<2>(qi::_val) = qi::_1] >> ')' |
-                kw(+"NUMERIC")[at_c<0>(qi::_val) = orange_t::Numeric,
-                               at_c<1>(qi::_val) = 18,
+                kw(+"NUMERIC")[at_c<0>(qi::_val) = orange_t::Numeric, at_c<1>(qi::_val) = 18,
                                at_c<1>(qi::_val) = 2];
 
             // <value> := <int> | <string> | <float> | 'NULL'
