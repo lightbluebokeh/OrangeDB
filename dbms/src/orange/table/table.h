@@ -1023,25 +1023,26 @@ public:
     static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, ast::select_tb_stmt select) {
         // 补充 select *
         if (select.select.empty()) {
-            for (auto col: table1->cols) select.select.push_back({table1->name, col.get_name()});
-            for (auto col: table2->cols) select.select.push_back({table2->name, col.get_name()});
+            for (auto col: table1->cols) select.select.push_back(ast::column{table1->name, col.get_name()});
+            for (auto col: table2->cols) select.select.push_back(ast::column{table2->name, col.get_name()});
         }
         TmpTable ret;
         // select something
         std::vector<String> names1, names2;
         for (const auto& tb_col : select.select) {
-            if (!tb_col.table_name.has_value()) {
+            const auto& col_sel = boost::get<ast::column>(tb_col);
+            if (!col_sel.table_name.has_value()) {
                 return {{"You need to add table name before column."}};
             }
-            if (tb_col.table_name == table1->get_name()) {
-                names1.push_back(tb_col.col_name);
-            } else if (tb_col.table_name == table2->get_name()) {
-                names2.push_back(tb_col.col_name);
+            if (col_sel.table_name == table1->get_name()) {
+                names1.push_back(col_sel.col_name);
+            } else if (col_sel.table_name == table2->get_name()) {
+                names2.push_back(col_sel.col_name);
             } else {
                 return {{"Table not found"}};
             }
-            auto col = SavedTable::get(tb_col.table_name.get())->get_col(tb_col.col_name);
-            ret.cols.push_back(Column(tb_col.table_name.get() + "." + tb_col.col_name, col.get_datatype(), col.is_nullable(), col.get_dft()));
+            auto col = SavedTable::get(col_sel.table_name.get())->get_col(col_sel.col_name);
+            ret.cols.push_back(Column(col_sel.table_name.get() + "." + col_sel.col_name, col.get_datatype(), col.is_nullable(), col.get_dft()));
         }
         auto where = select.where.get_value_or({});
         ast::where_clause table1_where, table2_where, between_where;
@@ -1120,10 +1121,11 @@ public:
                     rec_t cur;
                     for (unsigned i = 0; i < select.select.size(); i++) {
                         auto col = select.select[i];
-                        if (col.table_name == table1->name) {
-                            cur.push_back(rec1[table1->get_col_id(col.col_name)]);
+                        const auto& col_sel = boost::get<ast::column>(col);
+                        if (col_sel.table_name == table1->name) {
+                            cur.push_back(rec1[table1->get_col_id(col_sel.col_name)]);
                         } else {
-                            cur.push_back(rec2[table2->get_col_id(col.col_name)]);
+                            cur.push_back(rec2[table2->get_col_id(col_sel.col_name)]);
                         }
                     }
                     ret.recs.push_back(cur);

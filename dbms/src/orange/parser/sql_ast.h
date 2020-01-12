@@ -29,8 +29,14 @@ namespace Orange::parser {
 
     using column_list = std::vector<std::string>;  // 注意里面不是column
 
+    enum class aggregate_func { Avg, Count, Max, Min, Sum, Var };
+    struct aggregate_func_selector {
+        aggregate_func func;
+        column col;
+    };
+
     /** selector: empty时代表 '*' */
-    using selector = std::vector<column>;  // 注意里面是column
+    using selector = std::vector<boost::variant<column, aggregate_func_selector>>;  // 注意里面是column
 
     using table_list = std::vector<std::string>;
 
