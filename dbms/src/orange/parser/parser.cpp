@@ -314,17 +314,17 @@ namespace Orange::parser {
             // <selector> := '*' | (col | <aggr_func>) (',' <col>)*
             selectors %= '*' | ((aggr_func | col) % ',');
             // <aggr_func> := [FUNC_NAME] '(' <col> ')'
-            aggr_func = (kw(+"Avg")[at_c<0>(qi::_val) = aggregate_func::Avg] > '(' >
+            aggr_func = (kw(+"Avg")[at_c<0>(qi::_val) = aggregate_func::Avg] >> '(' >
                          col[at_c<1>(qi::_val) = qi::_1] > ')') |
-                        (kw(+"COUNT")[at_c<0>(qi::_val) = aggregate_func::Count] > '(' >
+                        (kw(+"COUNT")[at_c<0>(qi::_val) = aggregate_func::Count] >> '(' >
                          col[at_c<1>(qi::_val) = qi::_1] > ')') |
-                        (kw(+"MAX")[at_c<0>(qi::_val) = aggregate_func::Max] > '(' >
+                        (kw(+"MAX")[at_c<0>(qi::_val) = aggregate_func::Max] >> '(' >
                          col[at_c<1>(qi::_val) = qi::_1] > ')') |
-                        (kw(+"MIN")[at_c<0>(qi::_val) = aggregate_func::Min] > '(' >
+                        (kw(+"MIN")[at_c<0>(qi::_val) = aggregate_func::Min] >> '(' >
                          col[at_c<1>(qi::_val) = qi::_1] > ')') |
-                        (kw(+"SUM")[at_c<0>(qi::_val) = aggregate_func::Sum] > '(' >
+                        (kw(+"SUM")[at_c<0>(qi::_val) = aggregate_func::Sum] >> '(' >
                          col[at_c<1>(qi::_val) = qi::_1] > ')') |
-                        (kw(+"VAR")[at_c<0>(qi::_val) = aggregate_func::Var] > '(' >
+                        (kw(+"VAR")[at_c<0>(qi::_val) = aggregate_func::Var] >> '(' >
                          col[at_c<1>(qi::_val) = qi::_1] > ')');
 
             // <op> := '=' | '<>' | '<=' | '>=' | '<' | '>'
