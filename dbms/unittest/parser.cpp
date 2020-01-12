@@ -217,23 +217,23 @@ TEST_CASE("Testing tb_stmt", "[parser]") {
     REQUIRE(ast.stmt_list[0].tb().select().tables[0] == "table1");
     REQUIRE(ast.stmt_list[0].tb().select().tables[1] == "table2");
     REQUIRE(ast.stmt_list[0].tb().select().where.has_value() == false);
-    parse_sql(
-        "select table1.col1, table2.col2 from table1, table2 where table1.col1 > table2.col2;",
-        ast);
-    REQUIRE(ast.stmt_list[0].tb().select().select.size() == 2);
-    REQUIRE(ast.stmt_list[0].tb().select().select[0].table_name.get() == "table1");
-    REQUIRE(ast.stmt_list[0].tb().select().select[0].col_name == "col1");
-    REQUIRE(ast.stmt_list[0].tb().select().select[1].table_name.get() == "table2");
-    REQUIRE(ast.stmt_list[0].tb().select().select[1].col_name == "col2");
-    REQUIRE(ast.stmt_list[0].tb().select().where->size() == 1);
-    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].is_op());
-    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().col.table_name.get() == "table1");
-    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().col.col_name == "col1");
-    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().operator_ == op::Gt);
-    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.is_column());
-    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.col().table_name.get() ==
-            "table2");
-    REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.col().col_name == "col2");
+    // parse_sql(
+    //     "select table1.col1, table2.col2 from table1, table2 where table1.col1 > table2.col2;",
+    //     ast);
+    // REQUIRE(ast.stmt_list[0].tb().select().select.size() == 2);
+    // REQUIRE(ast.stmt_list[0].tb().select().select[0]table_name.get() == "table1");
+    // REQUIRE(ast.stmt_list[0].tb().select().select[0].col_name == "col1");
+    // REQUIRE(ast.stmt_list[0].tb().select().select[1].table_name.get() == "table2");
+    // REQUIRE(ast.stmt_list[0].tb().select().select[1].col_name == "col2");
+    // REQUIRE(ast.stmt_list[0].tb().select().where->size() == 1);
+    // REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].is_op());
+    // REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().col.table_name.get() == "table1");
+    // REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().col.col_name == "col1");
+    // REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().operator_ == op::Gt);
+    // REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.is_column());
+    // REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.col().table_name.get() ==
+    //         "table2");
+    // REQUIRE(ast.stmt_list[0].tb().select().where.get()[0].op().expression.col().col_name == "col2");
 }
 
 // 测试index statement

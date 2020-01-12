@@ -54,8 +54,8 @@ public:
             case orange_t::Varchar: return "varchar(" + std::to_string(type.int_value()) + ")";
             case orange_t::Date: return "date";
             case orange_t::Numeric:
-                return "numeric(" + std::to_string(type.int_value() / 40) + "," +
-                       std::to_string(type.int_value() % 40) + ")";
+                return "numeric(" + std::to_string(type.int_value()) + "," +
+                       std::to_string(type.value2) + ")";
         }
         return "<error-type>";
     }

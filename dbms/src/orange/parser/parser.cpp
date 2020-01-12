@@ -344,12 +344,14 @@ namespace Orange::parser {
                  ')') |
                 kw(+"DATE")[at_c<0>(qi::_val) = orange_t::Date] |
                 kw(+"FLOAT")[at_c<0>(qi::_val) = orange_t::Numeric,
-                             at_c<1>(qi::_val) = 40 * 18 + 2] |
+                             at_c<1>(qi::_val) = 18,
+                             at_c<1>(qi::_val) = 2] |
                 kw(+"NUMERIC")[at_c<0>(qi::_val) = orange_t::Numeric] >> '(' >>
                     qi::int_[at_c<1>(qi::_val) = qi::_1] >> ',' >>
                     qi::int_[at_c<2>(qi::_val) = qi::_1] >> ')' |
                 kw(+"NUMERIC")[at_c<0>(qi::_val) = orange_t::Numeric,
-                               at_c<1>(qi::_val) = 40 * 18 + 2];
+                               at_c<1>(qi::_val) = 18,
+                               at_c<1>(qi::_val) = 2];
 
             // <value> := <int> | <string> | <float> | 'NULL'
             value = (qi::int_[at_c<0>(qi::_val) = qi::_1] >> &!qi::no_skip['.']) |
