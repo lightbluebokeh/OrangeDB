@@ -262,5 +262,7 @@ inline std::ostream& operator<<(std::ostream& os, const TmpTable& table) {
 
     // 下边线
     print_divide();
+
+    os << "total: " << table.recs.size() << endl;
     return os;
 }

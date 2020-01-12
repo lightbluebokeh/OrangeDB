@@ -200,7 +200,7 @@ bool BTree::query_exists(const node_ptr_t& x, const std::vector<byte_arr_t>& ks)
 
 void BTree::query_eq(const node_ptr_t& x, const std::vector<byte_arr_t>& ks, std::vector<rid_t>& result, rid_t lim) const {
     int i = 0;
-    while (i < x->key_num() && cmp_key(ks, index.restore(x->key(i))) < 0) i++;
+    while (i < x->key_num() && cmp_key(ks, index.restore(x->key(i))) > 0) i++;
     node_ptr_t y;
     if (!x->leaf()) {
         y = read_node(x->ch(i));
