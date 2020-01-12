@@ -1301,19 +1301,21 @@ private:
                     auto& null = single_where.null_check();
                     if (null.col.table_name == table->name) used.push_back(single_where);
                 } else {
-                    if (single_where.is_null_check()) {
-                        auto& null = single_where.null_check();
-                        if (occur(null.col.table_name.get())) used.push_back(single_where);
-                    } else {
-                        auto& op = single_where.op();
-                        if (occur(op.col.table_name.get())) {
-                            if (op.expression.is_value()) {
+                    auto& op = single_where.op();
+                    if (op.col.table_name.get() == table->name) {
+                        if (op.expression.is_value()) {
+                            used.push_back(single_where);
+                        } else {
+                            auto col_expr = op.expression.col();
+                            if (occur(col_expr.table_name.get())) {
                                 used.push_back(single_where);
-                            } else {
-                                auto col_expr = op.expression.col();
-                                if (occur(col_expr.table_name.get())) {
-                                    used.push_back(single_where);
-                                }
+                            }
+                        }
+                    } else if (occur(op.col.table_name.get())) {
+                        if (op.expression.is_column()) {
+                            auto col_expr = op.expression.col();
+                            if (table->name == col_expr.table_name.get()) {
+                                used.push_back(single_where);
                             }
                         }
                     }
