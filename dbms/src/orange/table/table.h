@@ -742,10 +742,10 @@ public:
         return ret;
     }
 
-    TmpTable select(const std::vector<String>& col_names, const ast::where_clause& where) const override {
+    TmpTable select(const std::vector<String>& col_names, const ast::where_clause& where, rid_t lim = MAX_RID) const override {
         TmpTable ret;
         std::vector<int> col_ids = get_col_ids(col_names);
-        auto rids = this->where(where);
+        auto rids = this->where(where, lim);
         ret.recs.resize(rids.size());
         for (auto col_id: col_ids) {
             ret.cols.push_back(cols[col_id]);
@@ -1019,120 +1019,7 @@ public:
         }
     }
 
-    // static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, ast::select_tb_stmt select) {
-    //     // 补充 select *
-    //     if (select.select.empty()) {
-    //         for (auto col: table1->cols) select.select.push_back({table1->name, col.get_name()});
-    //         for (auto col: table2->cols) select.select.push_back({table2->name, col.get_name()});
-    //     }
-    //     TmpTable ret;
-    //     // select something
-    //     std::vector<String> names1, names2;
-    //     for (const auto& tb_col : select.select) {
-    //         if (!tb_col.table_name.has_value()) {
-    //             return {{"You need to add table name before column."}};
-    //         }
-    //         if (tb_col.table_name == table1->get_name()) {
-    //             names1.push_back(tb_col.col_name);
-    //         } else if (tb_col.table_name == table2->get_name()) {
-    //             names2.push_back(tb_col.col_name);
-    //         } else {
-    //             return {{"Table not found"}};
-    //         }
-    //         auto col = SavedTable::get(tb_col.table_name.get())->get_col(tb_col.col_name);
-    //         ret.cols.push_back(Column(tb_col.table_name.get() + "." + tb_col.col_name, col.get_datatype(), col.is_nullable(), col.get_dft()));
-    //     }
-    //     auto where = select.where.get_value_or({});
-    //     ast::where_clause table1_where, table2_where, between_where;
-    //     // 把where条件分开到上面三个
-    //     for (auto& cond : where) {
-    //         if (cond.is_op()) {
-    //             auto& col = cond.op().col;
-    //             if (!col.table_name.has_value()) {
-    //                 return {{"You need to add table name."}};
-    //             }
-    //             if (col.table_name != table1->get_name() &&
-    //                 col.table_name != table2->get_name()) {
-    //                 return {{"table not found"}};
-    //             }
-    //             auto& expr = cond.op().expression;
-    //             if (expr.is_column()) {
-    //                 auto& expr_col = expr.col();
-    //                 if (!expr_col.table_name.has_value()) {
-    //                     return {{"You need to add table name."}};
-    //                 }
-    //                 if (expr_col.table_name == table1->get_name() ||
-    //                     expr_col.table_name == table2->get_name()) {
-    //                     between_where.push_back(cond);
-    //                 } else {
-    //                     return {{"table not found."}};
-    //                 }
-    //             } else {
-    //                 if (col.table_name == table1->get_name()) {
-    //                     table1_where.push_back(cond);
-    //                 } else {
-    //                     table2_where.push_back(cond);
-    //                 }
-    //             }
-    //         } else {  // cond is null check
-    //             const auto& col = cond.null_check().col;
-    //             if (!col.table_name.has_value()) {
-    //                 return {{"You need to add table name."}};
-    //             }
-    //             if (col.table_name == table1->get_name()) {
-    //                 table1_where.push_back(cond);
-    //             } else if (col.table_name == table2->get_name()) {
-    //                 table2_where.push_back(cond);
-    //             } else {
-    //                 return {{"Table not found."}};
-    //             }
-    //         }
-    //     }
-
-    //     TmpTable result1 = table1->select(names1, table1_where);
-    //     TmpTable result2 = table2->select(names2, table2_where);
-    //     // TODO: 做笛卡尔积，要注意 between_where
-    //     for (auto &rec1: result1.recs) {
-    //         for (auto &rec2: result2.recs) {
-    //             bool test = 1;
-    //             for (auto single_where: where) {
-    //                 auto op = single_where.op();
-    //                 auto col_expr = op.expression.col();
-    //                 auto col1_name = op.col.col_name, col2_name = col_expr.col_name;
-    //                 auto get_val_type = [&] (const ast::column& tb_col) {
-    //                     if (tb_col.table_name == table1->name) {
-    //                         Column col = table1->get_col(tb_col.col_name);
-    //                         return std::make_pair(rec1[table1->get_col_id(col)], col.get_datatype_kind());
-    //                     } else {
-    //                         Column col = table2->get_col(tb_col.col_name);
-    //                         return std::make_pair(rec2[table2->get_col_id(col)], col.get_datatype_kind());
-    //                     }
-    //                 };
-    //                 auto [v1, t1] = get_val_type(op.col);
-    //                 auto [v2, t2] = get_val_type(col_expr);
-    //                 if (!Orange::cmp(v1, t1, op.operator_, v2, t2)) {
-    //                     test = 0;
-    //                     break;
-    //                 }
-    //             }
-    //             if (test) {
-    //                 rec_t cur;
-    //                 for (unsigned i = 0; i < select.select.size(); i++) {
-    //                     auto col = select.select[i];
-    //                     if (col.table_name == table1->name) {
-    //                         cur.push_back(rec1[table1->get_col_id(col.col_name)]);
-    //                     } else {
-    //                         cur.push_back(rec2[table2->get_col_id(col.col_name)]);
-    //                     }
-    //                 }
-    //                 ret.recs.push_back(cur);
-    //             }
-    //         }
-    //     }
-    //     return {{ret}};
-    // }
-
-    static TmpTable select_join(const ast::select_tb_stmt& select) {
+    static TmpTable select_join(const ast::select_tb_stmt& select, rid_t lim = MAX_RID) {
         auto where_clause = select.where.get_value_or({});
         for (auto &single_where: where_clause) {
             if (single_where.is_null_check()) {
@@ -1172,21 +1059,21 @@ public:
         }
 
         std::vector<rid_t> rids(tables.size());
-        dfs_join(0, tables, selector, where_clause, rids, ret.recs);
+        dfs_join(0, tables, selector, where_clause, rids, ret.recs, lim);
         return ret;
     }
 
     friend class Index;
 
 private:
-    static void dfs_join(unsigned cur, const std::vector<SavedTable*>& tables, const ast::selector& selector, const ast::where_clause& where_clause, std::vector<rid_t>& rids, std::vector<rec_t>& recs) {
+    static void dfs_join(unsigned cur, const std::vector<SavedTable*>& tables, const ast::selector& selector, const ast::where_clause& where_clause, std::vector<rid_t>& rids, std::vector<rec_t>& recs, rid_t lim) {
         auto get_tbl_id = [&] (const String& tbl_name) -> int{
             for (unsigned i = 0; i < tables.size(); i++) {
                 if (tbl_name == tables[i]->name) return i;
             }
             ORANGE_UNREACHABLE
             return -1;
-        };        
+        };
         if (cur == tables.size()) {
             rec_t rec;
             for (auto tbl_col: selector) {
@@ -1268,7 +1155,10 @@ private:
                         break;
                     }
                 }
-                if (check) dfs_join(cur + 1, tables, selector, where_clause, rids, recs);
+                if (check) {
+                    dfs_join(cur + 1, tables, selector, where_clause, rids, recs, lim);
+                    if (recs.size() == lim) break;
+                }
             }
         }
     }

@@ -129,8 +129,8 @@ public:
         return ret;
     }
     virtual TmpTable select(const std::vector<String>& names,
-                            const ast::where_clause& where) const = 0;
-    TmpTable select_star(const ast::where_clause& where) const;
+                            const ast::where_clause& where, rid_t lim = MAX_RID) const = 0;
+    TmpTable select_star(const ast::where_clause& where, rid_t lim = MAX_RID) const;
 };
 
 class SavedTable;
@@ -161,9 +161,9 @@ public:
     }
 
     [[nodiscard]] TmpTable select(const std::vector<String>& names,
-                                  const ast::where_clause& where) const override {
+                                  const ast::where_clause& where, rid_t lim) const override {
         TmpTable ret;
-        auto rids = this->where(where);
+        auto rids = this->where(where, lim);
         auto col_ids = get_col_ids(names);
         ret.recs.resize(rids.size());
         for (auto col_id : col_ids) {
@@ -178,13 +178,13 @@ public:
 
     friend class Table;
     friend class SavedTable;
-    friend std::ostream& operator<<(std::ostream& os, const TmpTable& table);
+    friend std::ostream& operator << (std::ostream& os, const TmpTable& table);
 };
 
-inline TmpTable Table::select_star(const ast::where_clause& where) const {
+inline TmpTable Table::select_star(const ast::where_clause& where, rid_t lim) const {
     std::vector<String> names;
     for (auto& col : cols) names.push_back(col.get_name());
-    return select(names, where);
+    return select(names, where, lim);
 }
 
 
@@ -236,7 +236,7 @@ inline std::ostream& operator<<(std::ostream& os, const TmpTable& table) {
     // 中间线
     print_divide();
 
-    auto to_string = [](const byte_arr_t& bytes, orange_t type) -> String {
+    auto to_string = [] (const byte_arr_t& bytes, orange_t type) -> String {
         if (bytes.front() == DATA_NULL) return "null";
         switch (type) {
             case orange_t::Varchar:
