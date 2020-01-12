@@ -65,6 +65,8 @@ public:
     [[nodiscard]] String get_name() const { return name; }
     [[nodiscard]] ast::data_value get_dft() const { return dft; }
     [[nodiscard]] bool is_nullable() const { return nullable; }
+    // 主键用
+    void set_not_null() { nullable = 0; }
 
     // 列完整性约束，返回是否成功和错误消息
     [[nodiscard]] std::pair<bool, String> check(const ast::data_value& value) const {
@@ -126,7 +128,7 @@ public:
     friend std::istream& operator>>(std::istream& is, Column& col);
     friend std::ostream& operator<<(std::ostream& os, const Column& col);
 
-    friend class SavedTable;
+    // friend class SavedTable;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Column& col) {

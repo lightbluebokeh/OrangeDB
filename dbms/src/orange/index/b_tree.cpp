@@ -7,10 +7,6 @@ void BTree::node_t::check_order() {
 #ifdef DEBUG
     for (int i = 0; i + 1 < key_num(); i++) {
         auto& index = tree.index;
-        if (tree.cmp(index.restore(key(i)), val(i), index.restore(key(i + 1)), val(i + 1)) >= 0) {
-            int a;
-            a++;
-        }
         orange_assert(tree.cmp(index.restore(key(i)), val(i), index.restore(key(i + 1)), val(i + 1)) < 0, "btree gua le");
     }
 #endif
@@ -32,10 +28,6 @@ void BTree::insert_nonfull(node_ptr_t& x, const_bytes_t k_raw, const std::vector
     orange_assert(!i || cmp(ks, v, index.restore(x->key(i - 1)), x->val(i - 1)) != 0,
            "try to insert something already exists");
     if (x->leaf()) {
-        if (v == 198) {
-            int a;
-            a++;
-        }
         for (int j = x->key_num() - 1; j >= i; j--) {
             x->set_key(j + 1, x->key(j));
             x->val(j + 1) = x->val(j);

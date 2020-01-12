@@ -314,7 +314,7 @@ private:
         if (!p_key_cols.empty()) {
             for (auto pk_col : p_key_cols) {
                 // 主键不能为 null
-                get_col(pk_col).nullable = 0;
+                get_col(pk_col).set_not_null();
             }
             add_p_key(PRIMARY_KEY_NAME, p_key_cols);
         }
@@ -1108,9 +1108,162 @@ public:
         return ret;
     }
 
-    friend class Index;
+    TmpTable count(const String& col_name) const {
+        TmpTable ret;
+        ret.cols = {Column("count(" + col_name + ")", ast::data_type::int_type(), 0, {})};
+        ret.recs = {{Orange::to_bytes(count_val(col_name))}};
+        return ret;
+    }
 
+    TmpTable sum(const String& col_name) const {
+        TmpTable ret;
+        auto val = sum_val(col_name);
+        if (val.is_int()) {
+            ret.cols = {Column("sum(" + col_name + ")", ast::data_type::int_type(), 0, {})};
+            ret.recs = {{Orange::to_bytes(val.int_val())}};
+        } else {
+            ret.cols = {Column("sum(" + col_name + ")", ast::data_type::numeric_type(), 0, {})};
+            ret.recs = {{Orange::to_bytes(val.numeric_val())}};
+        }
+        return ret;    
+    }
+
+    TmpTable avg(const String& col_name) const {
+        TmpTable ret;
+        ret.cols = {Column("avg(" + col_name + ")", ast::data_type::numeric_type(), 0, {})};
+        ret.recs = {{Orange::to_bytes(avg_val(col_name))}};
+        return ret;
+    }
+
+    TmpTable min(const String& col_name) const {
+        TmpTable ret;
+        auto val = min_val(col_name);
+        if (val.is_int()) {
+            ret.cols = {Column("min(" + col_name + ")", ast::data_type::int_type(), 0, {})};
+            ret.recs = {{Orange::to_bytes(val.int_val())}};
+        } else {
+            ret.cols = {Column("min(" + col_name + ")", ast::data_type::numeric_type(), 0, {})};
+            ret.recs = {{Orange::to_bytes(val.numeric_val())}};
+        }
+        return ret;    
+    }
+
+    TmpTable max(const String& col_name) const {
+        TmpTable ret;
+        auto val = max_val(col_name);
+        if (val.is_int()) {
+            ret.cols = {Column("max(" + col_name + ")", ast::data_type::int_type(), 0, {})};
+            ret.recs = {{Orange::to_bytes(val.int_val())}};
+        } else {
+            ret.cols = {Column("max(" + col_name + ")", ast::data_type::numeric_type(), 0, {})};
+            ret.recs = {{Orange::to_bytes(val.numeric_val())}};
+        }
+        return ret;    
+    }
+
+    friend class Index;
 private:
+    struct number_t {
+        boost::variant<int_t, numeric_t> val;
+
+        bool is_int() { return val.which() == 0; }
+        bool is_numeric() { return val.which() == 1; }
+
+        int_t int_val() { return boost::get<int_t>(val); }
+        numeric_t numeric_val() { return boost::get<numeric_t>(val); }
+    };
+
+    rid_t count_val(const String& col_name) const {
+        int count = 0;
+        int col_id = get_col_id(col_name);
+        for (auto rid: all()) {
+            auto val = get_field(col_id, rid);
+            if (val.front() != DATA_NULL) count++;
+        }
+        return count;
+    }
+
+    number_t sum_val(const String& col_name) const {
+        auto col_id = get_col_id(col_name);
+        auto col = cols[col_id];
+        switch (col.get_datatype_kind()) {
+            case orange_t::Int: {
+                int_t sum = 0;
+                for (auto rid: all()) {
+                    auto val = get_field(col_id, rid);
+                    if (val.front() != DATA_NULL) sum += Orange::bytes_to_int(val);
+                }
+                return {sum};
+            } break;
+            case orange_t::Numeric: {
+                numeric_t sum = 0;
+                for (auto rid: all()) {
+                    auto val = get_field(col_id, rid);
+                    if (val.front() != DATA_NULL) sum += Orange::bytes_to_numeric(val);
+                }
+                return {sum};
+            } break;
+            default: throw OrangeException("the type of this column is not supported");
+        }
+    }
+
+    numeric_t avg_val(const String& col_name) const {
+        auto sum = sum_val(col_name);
+        auto count = count_val(col_name);
+        if (sum.is_int()) return numeric_t(sum.int_val()) / count;
+        else return sum.numeric_val() / count;
+    }
+
+    number_t min_val(const String& col_name) const {
+        auto col_id = get_col_id(col_name);
+        auto col = cols[col_id];
+        switch (col.get_datatype_kind()) {
+            case orange_t::Int: {
+                // 有可能一个值都没有，但是应该没有这种测例.jpg
+                int_t min = std::numeric_limits<int_t>::max();
+                for (auto rid: all()) {
+                    auto val = get_field(col_id, rid);
+                    if (val.front() != DATA_NULL) min = std::min(min, Orange::bytes_to_int(val));
+                }
+                return {min};
+            } break;
+            case orange_t::Numeric: {
+                numeric_t min = std::numeric_limits<numeric_t>::max();
+                for (auto rid: all()) {
+                    auto val = get_field(col_id, rid);
+                    if (val.front() != DATA_NULL) min = std::min(min, Orange::bytes_to_numeric(val));
+                }
+                return {min};
+            } break;
+            default: throw OrangeException("the type of this column is not supported");
+        }
+    }
+
+    number_t max_val(const String& col_name) const {
+        auto col_id = get_col_id(col_name);
+        auto col = cols[col_id];
+        switch (col.get_datatype_kind()) {
+            case orange_t::Int: {
+                // 有可能一个值都没有，但是应该没有这种测例.jpg
+                int_t max = std::numeric_limits<int_t>::min();
+                for (auto rid: all()) {
+                    auto val = get_field(col_id, rid);
+                    if (val.front() != DATA_NULL) max = std::max(max, Orange::bytes_to_int(val));
+                }
+                return {max};
+            } break;
+            case orange_t::Numeric: {
+                numeric_t max = std::numeric_limits<numeric_t>::min();
+                for (auto rid: all()) {
+                    auto val = get_field(col_id, rid);
+                    if (val.front() != DATA_NULL) max = std::max(max, Orange::bytes_to_numeric(val));
+                }
+                return {max};
+            } break;
+            default: throw OrangeException("the type of this column is not supported");
+        }
+    }
+
     static void dfs_join(unsigned cur, const std::vector<SavedTable*>& tables, const ast::selector& selector, const ast::where_clause& where_clause, std::vector<rid_t>& rids, std::vector<rec_t>& recs, rid_t lim) {
         auto get_tbl_id = [&] (const String& tbl_name) -> int{
             for (unsigned i = 0; i < tables.size(); i++) {
