@@ -45,3 +45,4 @@ db/
 Testing/
 cmake-build-*
 .idea
+backup
