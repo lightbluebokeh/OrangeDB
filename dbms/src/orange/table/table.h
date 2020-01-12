@@ -9,31 +9,33 @@
 #include <vector>
 
 #include "defs.h"
+#include "exceptions.h"
+#include "fs/allocator/allocator.h"
 #include "fs/file/file.h"
 #include "orange/index/index.h"
 #include "orange/orange.h"
+#include "orange/parser/sql_ast.h"
+#include "orange/syntax/syntax.h"
 #include "orange/table/column.h"
 #include "orange/table/key.h"
 #include "orange/table/table_base.h"
 #include "utils/id_pool.h"
-#include "orange/parser/sql_ast.h"
-#include "fs/allocator/allocator.h"
-#include "exceptions.h"
-#include "orange/syntax/syntax.h"
 
 // 数据库中的表
 class SavedTable : public Table {
 private:
     // 各列数据接口
     struct ColumnDataHelper {
-        File *f_data;
-        int size;   // 每个值的大小
+        File* f_data;
+        int size;  // 每个值的大小
         ast::data_type type;
-        FileAllocator *alloc;
+        FileAllocator* alloc;
         String root, name;
 
         // root 为数据文件夹目录
-        ColumnDataHelper(File* f_data, const Column& col, const String &root, const String& name) : f_data(f_data), size(col.get_key_size()), type(col.get_datatype()), root(root), name(name) {
+        ColumnDataHelper(File* f_data, const Column& col, const String& root, const String& name) :
+            f_data(f_data), size(col.get_key_size()), type(col.get_datatype()), root(root),
+            name(name) {
             if (type.kind == orange_t::Varchar) {
                 alloc = new FileAllocator(root + col.get_name() + ".v");
             } else {
@@ -48,7 +50,7 @@ private:
         // 对于 varchar 类型，得到最长的长度
         int max_len(const std::vector<rid_t>& rids) {
             int ret = 0;
-            for (auto rid: rids) {
+            for (auto rid : rids) {
                 auto val = get_val(rid);
                 ret = std::max(ret, int(strlen(String(val.begin() + 1, val.end()).data())));
             }
@@ -157,7 +159,8 @@ private:
 
         void remove(rid_t rid) {
             if (type.kind == orange_t::Varchar) {
-                alloc->free(f_data->read<size_t>(rid * size + 1));  // Varchar size=9，后 8 位为 offset
+                alloc->free(
+                    f_data->read<size_t>(rid * size + 1));  // Varchar size=9，后 8 位为 offset
             }
             f_data->write<byte_t>(rid * size, DATA_INVALID);
         }
@@ -165,7 +168,7 @@ private:
         auto filt_null(const std::vector<rid_t>& rids, bool not_null) const {
             auto bytes = new byte_t[size];
             std::vector<rid_t> ret;
-            for (auto i: rids) {
+            for (auto i : rids) {
                 f_data->read_bytes(i * size, bytes, size);
                 if ((not_null && *bytes != DATA_NULL) || (!not_null && *bytes == DATA_NULL)) {
                     ret.push_back(i);
@@ -174,11 +177,12 @@ private:
             delete[] bytes;
             return ret;
         }
-        auto filt_value(const std::vector<rid_t>& rids, const ast::op op, const ast::data_value& value) const {
+        auto filt_value(const std::vector<rid_t>& rids, const ast::op op,
+                        const ast::data_value& value) const {
             std::vector<rid_t> ret;
-            if (!value.is_null()) { // null 直接返回空
+            if (!value.is_null()) {  // null 直接返回空
                 auto bytes = new byte_t[size];
-                for (auto i: rids) {
+                for (auto i : rids) {
                     f_data->read_bytes(i * size, bytes, size);
                     if (Orange::cmp(restore(bytes), type.kind, op, value)) {
                         ret.push_back(i);
@@ -225,16 +229,16 @@ private:
     void write_info() {
         std::ofstream ofs(info_name());
         ofs << cols << ' ' << rec_cnt << ' ' << f_key_defs.size();
-        for (auto &[name, f_key_def]: f_key_defs) {
+        for (auto& [name, f_key_def] : f_key_defs) {
             ofs << ' ' << f_key_def;
         }
         ofs << ' ' << f_key_rev.size();
-        for (auto &[_, src_fk_def]: f_key_rev) {
-            auto &[src, fk_def] = src_fk_def;
+        for (auto& [_, src_fk_def] : f_key_rev) {
+            auto& [src, fk_def] = src_fk_def;
             ofs << ' ' << src << ' ' << fk_def;
         }
         ofs << ' ' << indexes.size();
-        for (auto &[idx_name, idx]: indexes) {
+        for (auto& [idx_name, idx] : indexes) {
             ofs << ' ' << idx_name;
         }
         ofs << std::endl;
@@ -257,8 +261,9 @@ private:
             ifs >> src >> fk_def;
             f_key_rev[fk_def.name] = {src, fk_def};
         }
-        for (auto &col: cols) {
-            col_data.push_back(new ColumnDataHelper(File::open(data_name(col.get_name())), col, data_root(), name));
+        for (auto& col : cols) {
+            col_data.push_back(new ColumnDataHelper(File::open(data_name(col.get_name())), col,
+                                                    data_root(), name));
         }
         int index_num;
         ifs >> index_num;
@@ -292,7 +297,8 @@ private:
 
     static void check_db() { orange_check(Orange::using_db(), Exception::no_database_used()); }
 
-    void on_create(const std::vector<Column>& cols, const std::vector<String>& p_key_cols, const std::vector<f_key_t>& f_key_defs) {
+    void on_create(const std::vector<Column>& cols, const std::vector<String>& p_key_cols,
+                   const std::vector<f_key_t>& f_key_defs) {
         this->cols = cols;
         check_unique();
         this->rec_cnt = 0;
@@ -300,18 +306,19 @@ private:
         write_info();
         rid_pool.init();
         fs::create_directory(data_root());
-        for (auto &col: cols) {
-            col_data.push_back(new ColumnDataHelper(File::create_open(data_name(col.get_name())), col, data_root(), name));
+        for (auto& col : cols) {
+            col_data.push_back(new ColumnDataHelper(File::create_open(data_name(col.get_name())),
+                                                    col, data_root(), name));
         }
         fs::create_directory(index_root());
         if (!p_key_cols.empty()) {
-            for (auto pk_col: p_key_cols) {
+            for (auto pk_col : p_key_cols) {
                 // 主键不能为 null
                 get_col(pk_col).nullable = 0;
             }
             add_p_key(PRIMARY_KEY_NAME, p_key_cols);
         }
-        for (auto &f_key_def: f_key_defs) add_f_key(f_key_def);
+        for (auto& f_key_def : f_key_defs) add_f_key(f_key_def);
     }
 
     // 表的文件夹名
@@ -333,7 +340,8 @@ private:
 
     // 尝试用单列索引
     // 懒了，慢就慢吧
-    std::pair<bool, std::vector<rid_t>> filt_index(const std::vector<rid_t>& , const ast::op& , const ast::data_value& ) const {
+    std::pair<bool, std::vector<rid_t>> filt_index(const std::vector<rid_t>&, const ast::op&,
+                                                   const ast::data_value&) const {
         return {false, {}};
         // constexpr int threshold = 1000;
         // if (value.is_null()) return {1, {}};
@@ -342,33 +350,37 @@ private:
         // auto index = get_index
         // return {0, {}};
     }
-    std::vector<rid_t> filt(const std::vector<rid_t>& rids, const ast::single_where& where) const override {
-        if (where.is_null_check()) {    // is [not] null 直接暴力，反正对半
-            auto &null = where.null_check();
+    std::vector<rid_t> filt(const std::vector<rid_t>& rids,
+                            const ast::single_where& where) const override {
+        if (where.is_null_check()) {  // is [not] null 直接暴力，反正对半
+            auto& null = where.null_check();
             return col_data[get_col_id(null.col.col_name)]->filt_null(rids, null.is_not_null);
         } else {
-            auto &where_op = where.op();
-            auto &expr = where_op.expression;
-            auto &op = where_op.operator_;
+            auto& where_op = where.op();
+            auto& expr = where_op.expression;
+            auto& op = where_op.operator_;
             if (expr.is_value()) {
-                auto &value = expr.value();
-                if (value.is_null()) return {}; // null 直接返回空咯
+                auto& value = expr.value();
+                if (value.is_null()) return {};  // null 直接返回空咯
                 // 尝试用单列索引
                 auto [ok, ret] = filt_index(rids, op, value);
                 if (ok) return ret;
                 return col_data[get_col_id(where_op.col.col_name)]->filt_value(rids, op, value);
             } else if (expr.is_column()) {
-                auto &col = where_op.expression.col();
+                auto& col = where_op.expression.col();
                 if (col.table_name.has_value()) {
-                    auto &table_name = col.table_name.get();
-                    orange_check(table_name == name, "unknown table name in selector: `" + table_name);
+                    auto& table_name = col.table_name.get();
+                    orange_check(table_name == name,
+                                 "unknown table name in selector: `" + table_name);
                 }
                 auto &col1 = get_col(where_op.col.col_name), &col2 = get_col(col.col_name);
                 auto kind1 = col1.get_datatype_kind(), kind2 = col2.get_datatype_kind();
-                auto data1 = col_data[get_col_id(col1.get_name())], data2 = col_data[get_col_id(col2.get_name())];
+                auto data1 = col_data[get_col_id(col1.get_name())],
+                     data2 = col_data[get_col_id(col2.get_name())];
                 std::vector<rid_t> ret;
-                for (auto rid: rids) {
-                    if (Orange::cmp(data1->get_val(rid), kind1, where_op.operator_, data2->get_val(rid), kind2)) {
+                for (auto rid : rids) {
+                    if (Orange::cmp(data1->get_val(rid), kind1, where_op.operator_,
+                                    data2->get_val(rid), kind2)) {
                         ret.push_back(rid);
                     }
                 }
@@ -380,25 +392,27 @@ private:
     }
 
     // 尝试使用直接使用索引求解 where
-    std::pair<bool, std::vector<rid_t>> where_index(const ast::where_clause &where, rid_t lim = MAX_RID) const {
+    std::pair<bool, std::vector<rid_t>> where_index(const ast::where_clause& where,
+                                                    rid_t lim = MAX_RID) const {
         if (where.empty()) return {1, all()};
         std::vector<int> col_ids;
         std::vector<String> col_names;
         std::vector<std::pair<String, Orange::pred_t>> all_preds;
-        for (auto &single_where: where) {
+        for (auto& single_where : where) {
             // 使用索引时查询中不允许包含 null
             if (single_where.is_null_check()) return {0, {}};
-            auto &op = single_where.op();
-            auto &expr = op.expression;
+            auto& op = single_where.op();
+            auto& expr = op.expression;
             // Neq 也不做了，太烦了
             if (expr.is_column() || op.operator_ == ast::op::Neq) return {0, {}};
-            auto &value = expr.value();
+            auto& value = expr.value();
             if (value.is_null()) return {1, {}};
             int col_id = get_col_id(op.col.col_name);
             col_ids.push_back(col_id);
             col_names.push_back(op.col.col_name);
             // all_preds.push_back({op.operator_, value});
-            all_preds.push_back(std::make_pair(op.col.col_name, Orange::pred_t{op.operator_, value}));
+            all_preds.push_back(
+                std::make_pair(op.col.col_name, Orange::pred_t{op.operator_, value}));
         }
         std::sort(col_names.begin(), col_names.end());
         col_names.resize(std::unique(col_names.begin(), col_names.end()) - col_names.begin());
@@ -406,7 +420,7 @@ private:
         if (!index) return {0, {}};
         std::vector<Orange::preds_t> preds_list;
         preds_list.resize(index->get_cols().size());
-        for (auto &[col_name, pred]: all_preds) {
+        for (auto& [col_name, pred] : all_preds) {
             preds_list[index->get_col_rank(col_name)].push_back(pred);
         }
 #ifdef DEBUG
@@ -417,32 +431,37 @@ private:
 
     // 单个表的 where
     // 重写的函数不允许有默认参数
-    std::vector<rid_t> where(const ast::where_clause &where, rid_t lim = MAX_RID) const override {
+    std::vector<rid_t> where(const ast::where_clause& where, rid_t lim = MAX_RID) const override {
         if (check_op_null(where)) return {};
         auto [ok, ret] = where_index(where, lim);
         return ok ? ret : Table::where(where, lim);
     }
 
-    byte_arr_t get_field(int col_id, rid_t rid) const override { return col_data[col_id]->get_val(rid); }
+    byte_arr_t get_field(int col_id, rid_t rid) const override {
+        return col_data[col_id]->get_val(rid);
+    }
 
     void check_insert(const ast::data_values& values) const {
-        orange_check(cols.size() == values.size(), "expected " + std::to_string(cols.size()) + " values, while " + std::to_string(values.size()) + " given");
+        orange_check(cols.size() == values.size(), "expected " + std::to_string(cols.size()) +
+                                                       " values, while " +
+                                                       std::to_string(values.size()) + " given");
         // 列完整性约束
         for (unsigned i = 0; i < cols.size(); i++) {
-            const auto &[ok, msg] = cols[i].check(values[i]);
+            const auto& [ok, msg] = cols[i].check(values[i]);
             orange_check(ok, msg);
         }
         // 检查 unique 约束和外键约束
-        for (auto &[name, index]: indexes) {
+        for (auto& [name, index] : indexes) {
             bool has_null = 0, all_null = 1;
             std::vector<byte_arr_t> vals;
-            for (auto &col: index->get_cols()) {
+            for (auto& col : index->get_cols()) {
                 if (values[get_col_id(col.get_name())].is_null()) {
                     has_null = 1;
                 } else {
                     all_null = false;
                 }
-                vals.push_back(Orange::value_to_bytes(values[get_col_id(col.get_name())], col.get_datatype()));
+                vals.push_back(
+                    Orange::value_to_bytes(values[get_col_id(col.get_name())], col.get_datatype()));
             }
             if (index->is_unique()) {
                 // unique 无法约束 null
@@ -450,9 +469,10 @@ private:
             }
             // 检查外键约束
             if (f_key_defs.count(name)) {
-                auto &f_key_def = f_key_defs.at(name);
+                auto& f_key_def = f_key_defs.at(name);
                 if (has_null) {
-                    orange_check(all_null, "foreign key columns must either be null or non-null together");
+                    orange_check(all_null,
+                                 "foreign key columns must either be null or non-null together");
                 } else {
                     auto pk = SavedTable::get(f_key_def.ref_tbl)->get_p_key();
                     orange_check(pk->constains(vals), "foreign key map missed");
@@ -461,21 +481,22 @@ private:
         }
     }
     // void check_delete(rid_t) const {
-        // always deletable
-        // auto p_key = get_p_key();
-        // if (p_key) {
-        //     auto vals = get_fields(p_key->get_cols(), rid);
-        //     for (auto &[name, src_f_key]: f_key_rev) {
-        //         auto &[src, f_key_def] = src_f_key;
-        //         // 默认是 set null，如果有行映射过来，需要检查对应列是不是 not null
-        //         auto f_key = SavedTable::get(src)->get_f_key(f_key_def.name);
-        //         if (f_key->constains(vals)) {
-        //             for (auto &col: f_key->get_cols()) {
-        //                 orange_check(col.is_nullable(), "delete record that some non-null columns reference to it");
-        //             }
-        //         }
-        //     }
-        // }
+    // always deletable
+    // auto p_key = get_p_key();
+    // if (p_key) {
+    //     auto vals = get_fields(p_key->get_cols(), rid);
+    //     for (auto &[name, src_f_key]: f_key_rev) {
+    //         auto &[src, f_key_def] = src_f_key;
+    //         // 默认是 set null，如果有行映射过来，需要检查对应列是不是 not null
+    //         auto f_key = SavedTable::get(src)->get_f_key(f_key_def.name);
+    //         if (f_key->constains(vals)) {
+    //             for (auto &col: f_key->get_cols()) {
+    //                 orange_check(col.is_nullable(), "delete record that some non-null columns
+    //                 reference to it");
+    //             }
+    //         }
+    //     }
+    // }
     // }
     rid_t delete_record(rid_t rid) {
         if (rid_pool.contains(rid)) return 0;
@@ -488,7 +509,7 @@ private:
             raws = get_raws(p_key->get_cols(), rid);
             vals = get_fields(p_key->get_cols(), rid);
         }
-        for (auto &[idx_name, index]: indexes) {
+        for (auto& [idx_name, index] : indexes) {
             index->remove(get_raws(index->get_cols(), rid), rid);
         }
         for (unsigned i = 0; i < cols.size(); i++) {
@@ -499,11 +520,11 @@ private:
         auto ret = 1;
         if (p_key && !p_key->constains(vals)) {
             // 级联删除
-            for (auto &[idx_name, src_f_key]: f_key_rev) {
-                auto &[src_name, f_key_def] = src_f_key;
+            for (auto& [idx_name, src_f_key] : f_key_rev) {
+                auto& [src_name, f_key_def] = src_f_key;
                 auto src = SavedTable::get(src_name);
                 auto f_key = src->get_f_key(f_key_def.name);
-                for (auto ref_id: f_key->get_on_key(raws.data())) {
+                for (auto ref_id : f_key->get_on_key(raws.data())) {
                     ret += src->delete_record(ref_id);
                 }
             }
@@ -514,7 +535,7 @@ private:
     // 获取一列所有默认值
     auto get_dft_vals() const {
         ast::data_values ret;
-        for (auto &col: cols) {
+        for (auto& col : cols) {
             ret.push_back(col.get_dft());
         }
         return ret;
@@ -522,7 +543,7 @@ private:
 
     byte_arr_t get_raws(const std::vector<Column>& cols, rid_t rid) const {
         byte_arr_t ret;
-        for (auto &col: cols) {
+        for (auto& col : cols) {
             auto tmp = col_data[get_col_id(col.get_name())]->get_raw(rid);
             ret.insert(ret.end(), tmp.begin(), tmp.end());
         }
@@ -530,13 +551,13 @@ private:
     }
 
     Index* get_p_key() {
-        for (auto &[name, index]: indexes) {
+        for (auto& [name, index] : indexes) {
             if (index->is_primary()) return index;
         }
         return nullptr;
     }
     const Index* get_p_key() const {
-        for (auto &[name, index]: indexes) {
+        for (auto& [name, index] : indexes) {
             if (index->is_primary()) return index;
         }
         return nullptr;
@@ -560,7 +581,7 @@ private:
     // 获取所有外键索引
     auto get_f_keys() {
         std::vector<Index*> ret;
-        for (auto [_, f_key]: f_key_defs) {
+        for (auto [_, f_key] : f_key_defs) {
             ret.push_back(indexes.at(f_key.name));
         }
         return ret;
@@ -582,7 +603,7 @@ private:
     }
     // 找有没有列完全一致的索引
     Index* get_index(const std::vector<String>& col_names) {
-        for (auto &[idx_name, index]: indexes) {
+        for (auto& [idx_name, index] : indexes) {
             // 暴力判相等关系
             bool test = 1;
             for (unsigned i = 0; i < col_names.size(); i++) {
@@ -596,7 +617,7 @@ private:
         return nullptr;
     }
     const Index* get_index(const std::vector<String>& col_names) const {
-        for (auto &[idx_name, index]: indexes) {
+        for (auto& [idx_name, index] : indexes) {
             // 暴力判相等关系
             bool test = 1;
             for (unsigned i = 0; i < col_names.size(); i++) {
@@ -613,16 +634,17 @@ private:
     // 检查各列是不是不同
     void check_unique() const {
         std::unordered_set<String> set;
-        for (auto &col: cols) {
+        for (auto& col : cols) {
             orange_check(!set.count(col.get_name()), "duplicate column name is not allowed");
             set.insert(col.get_name());
         }
     }
+
 public:
     [[nodiscard]] String get_name() const override { return this->name; }
 
-    static bool create(const String& name, const std::vector<Column>& cols, const std::vector<String>& p_key,
-                       const std::vector<f_key_t>& f_key_defs) {
+    static bool create(const String& name, const std::vector<Column>& cols,
+                       const std::vector<String>& p_key, const std::vector<f_key_t>& f_key_defs) {
         check_db();
         orange_check(!fs::exists(get_root(name)), "table `" + name + "` exists");
         std::error_code e;
@@ -630,7 +652,8 @@ public:
         auto table = new_table(name);
         try {
             table->on_create(cols, p_key, f_key_defs);
-        } catch (OrangeException& e) {
+        }
+        catch (OrangeException& e) {
             drop(name);
             throw e;
         }
@@ -682,7 +705,7 @@ public:
 
     // 一般是换数据库的时候调用这个
     static void close_all() {
-        for (auto &table : tables) {
+        for (auto& table : tables) {
             if (table) {
                 orange_assert(table->close(), "close table failed");
                 table = nullptr;
@@ -694,29 +717,31 @@ public:
 
     // 返回插入成功条数
     rid_t insert(const std::vector<String>& col_names, ast::data_values_list values_list) {
-        for (auto &values: values_list) {
-            orange_check(col_names.size() == values.size(), "expected " + std::to_string(col_names.size()) + " values, while " + std::to_string(values.size()) + " given");
+        for (auto& values : values_list) {
+            orange_check(col_names.size() == values.size(),
+                         "expected " + std::to_string(col_names.size()) + " values, while " +
+                             std::to_string(values.size()) + " given");
         }
         std::vector<int> col_ids;
         for (const auto& col_name : col_names) col_ids.push_back(get_col_id(col_name));
         auto insert_vals = get_dft_vals();
-        for (auto &values: values_list) {
+        for (auto& values : values_list) {
             for (unsigned i = 0; i < col_ids.size(); i++) {
                 auto col_id = col_ids[i];
-                insert_vals[col_id] = values[i];    // 如果有重复列，后面的会覆盖前面的
+                insert_vals[col_id] = values[i];  // 如果有重复列，后面的会覆盖前面的
             }
             values = insert_vals;
         }
         return insert(values_list);
     }
     rid_t insert(const ast::data_values_list& values_list) {
-        for (auto &values: values_list) {
+        for (auto& values : values_list) {
             check_insert(values);
         }
 
         std::vector<rid_t> new_ids;
         // 接下来已经可以确保可以插入
-        for (auto &values: values_list) {
+        for (auto& values : values_list) {
             auto new_id = rid_pool.new_id();
             new_ids.push_back(new_id);
             for (unsigned i = 0; i < cols.size(); i++) {
@@ -724,8 +749,8 @@ public:
             }
         }
 
-        for (auto &[name, index]: indexes) {
-            for (auto rid: new_ids) {
+        for (auto& [name, index] : indexes) {
+            for (auto rid : new_ids) {
                 index->insert(get_raws(index->get_cols(), rid), rid);
             }
         }
@@ -738,16 +763,17 @@ public:
         // orange db 的删除不会有约束问题
         // for (auto rid: rids) check_delete(rid);
         rid_t ret = 0;
-        for (auto rid: rids) ret += delete_record(rid);
+        for (auto rid : rids) ret += delete_record(rid);
         return ret;
     }
 
-    TmpTable select(const std::vector<String>& col_names, const ast::where_clause& where) const override {
+    TmpTable select(const std::vector<String>& col_names,
+                    const ast::where_clause& where) const override {
         TmpTable ret;
         std::vector<int> col_ids = get_col_ids(col_names);
         auto rids = this->where(where);
         ret.recs.resize(rids.size());
-        for (auto col_id: col_ids) {
+        for (auto col_id : col_ids) {
             ret.cols.push_back(cols[col_id]);
             // auto vals = indices[col_id].get_vals(rids);
             auto vals = col_data[col_id]->get_vals(rids);
@@ -761,17 +787,19 @@ public:
     void set_null(rid_t rid, const std::vector<String>& col_names) {
         auto cols = get_cols(col_names);
         std::set<String> name_set;
-        for (auto name: col_names) name_set.insert(name);
-        auto has_update = [&] (const std::vector<Column>& cols) {
-            for (auto col: cols) if (name_set.count(col.get_name())) return 1;
+        for (auto name : col_names) name_set.insert(name);
+        auto has_update = [&](const std::vector<Column>& cols) {
+            for (auto col : cols)
+                if (name_set.count(col.get_name())) return 1;
             return 0;
         };
         // 因为是 setnull，相关引用中直接删除
-        for (auto [_, index]: indexes) if (has_update(index->get_cols())) {
-            index->remove(get_raws(cols, rid), rid);
-        }
+        for (auto [_, index] : indexes)
+            if (has_update(index->get_cols())) {
+                index->remove(get_raws(cols, rid), rid);
+            }
         // 更新数据
-        for (auto col_name: col_names) {
+        for (auto col_name : col_names) {
             col_data[get_col_id(col_name)]->insert(rid, ast::data_value::null_value());
         }
     }
@@ -779,25 +807,26 @@ public:
     void update_where(const ast::set_clause& set, const ast::where_clause& where) {
         auto rids = this->where(where);
         std::map<String, ast::data_value> new_vals;
-        for (auto &single_set: set) {
+        for (auto& single_set : set) {
             new_vals[single_set.col_name] = single_set.val;
         }
-        auto has_update = [&] (const std::vector<Column>& cols) {
-            for (auto col: cols) if (new_vals.count(col.get_name())) return 1;
+        auto has_update = [&](const std::vector<Column>& cols) {
+            for (auto col : cols)
+                if (new_vals.count(col.get_name())) return 1;
             return 0;
         };
 
         // 先检查是否可以 set null，即如果修改了主键，需要查看对应外键是否可以是 null
         auto pk = get_p_key();
         if (has_update(pk->get_cols())) {
-            for (auto rid: rids) {
+            for (auto rid : rids) {
                 auto raws = get_raws(pk->get_cols(), rid);
                 auto vals = get_fields(pk->get_cols(), rid);
                 if (!pk->constains(vals)) {
-                    for (auto &[name, src_fk]: f_key_rev) {
-                        auto &[src_name, fk_def] = src_fk;
+                    for (auto& [name, src_fk] : f_key_rev) {
+                        auto& [src_name, fk_def] = src_fk;
                         auto src = SavedTable::get(src_name);
-                        for (auto col: src->get_cols(fk_def.list)) {
+                        for (auto col : src->get_cols(fk_def.list)) {
                             orange_check(col.is_nullable(), "cannot set null");
                         }
                     }
@@ -807,14 +836,15 @@ public:
         }
 
         // 检查更新后的值是否满足外键约束
-        for (auto [fk_name, fk_def]: f_key_defs) {
+        for (auto [fk_name, fk_def] : f_key_defs) {
             if (has_update(get_cols(fk_def.list))) {
                 auto ref_pk = SavedTable::get(fk_def.ref_tbl)->get_p_key();
-                for (auto rid: rids) {
+                for (auto rid : rids) {
                     std::vector<byte_arr_t> vals;
-                    for (auto col_name: fk_def.list) {
+                    for (auto col_name : fk_def.list) {
                         if (new_vals.count(col_name)) {
-                            vals.push_back(Orange::value_to_bytes(new_vals[col_name], get_col(col_name).get_datatype()));
+                            vals.push_back(Orange::value_to_bytes(
+                                new_vals[col_name], get_col(col_name).get_datatype()));
                         } else {
                             vals.push_back(col_data[get_col_id(col_name)]->get_val(rid));
                         }
@@ -822,40 +852,41 @@ public:
                     orange_check(ref_pk->constains(vals), "fails foreign key constraint");
                 }
             }
-            // auto fk = get_f_key(fk_name);
         }
 
         // 先更新索引
-        for (auto [idx_name, index]: indexes) if (has_update(index->get_cols())) {
-            std::vector<int> col_ids;
-            for (auto col: index->get_cols()) col_ids.push_back(get_col_id(col.get_name()));
-            for (auto rid: rids) {
-                byte_arr_t new_raw;
-                for (auto col: index->get_cols()) {
-                    byte_arr_t tmp;
-                    if (new_vals.count(col.get_name())) {
-                        tmp = Orange::value_to_bytes(new_vals[col.get_name()], col.get_datatype());
-                    } else {
-                        tmp = col_data[get_col_id(col)]->get_raw(rid);
+        for (auto [idx_name, index] : indexes)
+            if (has_update(index->get_cols())) {
+                std::vector<int> col_ids;
+                for (auto col : index->get_cols()) col_ids.push_back(get_col_id(col.get_name()));
+                for (auto rid : rids) {
+                    byte_arr_t new_raw;
+                    for (auto col : index->get_cols()) {
+                        byte_arr_t tmp;
+                        if (new_vals.count(col.get_name())) {
+                            tmp = Orange::value_to_bytes(new_vals[col.get_name()],
+                                                         col.get_datatype());
+                        } else {
+                            tmp = col_data[get_col_id(col)]->get_raw(rid);
+                        }
+                        new_raw.insert(new_raw.end(), tmp.begin(), tmp.end());
                     }
-                    new_raw.insert(new_raw.end(), tmp.begin(), tmp.end());
+                    // auto old_raws = get_raws(index->get_cols(), rid);
+                    index->update(get_raws(index->get_cols(), rid), new_raw, rid);
                 }
-                // auto old_raws = get_raws(index->get_cols(), rid);
-                index->update(get_raws(index->get_cols(), rid), new_raw, rid);
             }
-        }
 
         // 更新了主键，如果对应值不存在了，需要在外键源表上 set null
         if (has_update(pk->get_cols())) {
-            for (auto rid: rids) {
+            for (auto rid : rids) {
                 auto raws = get_raws(pk->get_cols(), rid);
                 auto vals = get_fields(pk->get_cols(), rid);
                 if (!pk->constains(vals)) {
-                    for (auto &[name, src_fk]: f_key_rev) {
-                        auto &[src_name, fk_def] = src_fk;
+                    for (auto& [name, src_fk] : f_key_rev) {
+                        auto& [src_name, fk_def] = src_fk;
                         auto src = SavedTable::get(src_name);
-                        auto fk = src->get_f_key(fk_def.name); 
-                        for (auto other: fk->get_on_key(raws.data())) {
+                        auto fk = src->get_f_key(fk_def.name);
+                        for (auto other : fk->get_on_key(raws.data())) {
                             src->set_null(other, fk_def.list);
                         }
                     }
@@ -864,16 +895,18 @@ public:
         }
 
         // 更新数据
-        for (auto &[col_name, val]: new_vals) {
+        for (auto& [col_name, val] : new_vals) {
             int col_id = get_col_id(col_name);
-            for (auto rid: rids) {
+            for (auto rid : rids) {
                 col_data[col_id]->insert(rid, val);
             }
         }
     }
 
-    void create_index(const String& idx_name, const std::vector<String>& col_names, bool primary, bool unique) {
-        if (!primary && idx_name == PRIMARY_KEY_NAME) throw OrangeException("this name is reserved for primary key");
+    void create_index(const String& idx_name, const std::vector<String>& col_names, bool primary,
+                      bool unique) {
+        if (!primary && idx_name == PRIMARY_KEY_NAME)
+            throw OrangeException("this name is reserved for primary key");
         orange_assert(!idx_name.empty(), "index name cannot be empty");
         if (primary) orange_assert(unique, "primary key must be unique");
         orange_check(!has_index(idx_name), Exception::index_exists(idx_name, this->name));
@@ -890,15 +923,17 @@ public:
 
     void add_p_key(String p_key_name, const std::vector<String>& col_names) {
         orange_check(get_p_key() == nullptr, "already has primary key");
-        for (auto col_name: col_names) {
-            orange_check(!get_col(col_name).is_nullable(), "cannot add primary key on nullable column");
+        for (auto col_name : col_names) {
+            orange_check(!get_col(col_name).is_nullable(),
+                         "cannot add primary key on nullable column");
         }
         if (p_key_name.empty()) p_key_name = PRIMARY_KEY_NAME;
         create_index(p_key_name, col_names, true, true);
     }
     void drop_p_key(const String& p_key_name) {
         auto p_key = get_p_key();
-        orange_check(p_key && p_key->get_name() == p_key_name, "primary key named `" + p_key_name + "` does not exist");
+        orange_check(p_key && p_key->get_name() == p_key_name,
+                     "primary key named `" + p_key_name + "` does not exist");
         orange_check(f_key_rev.empty(), Exception::drop_pk_fk_ref(name));
         indexes.erase(p_key->get_name());
         Index::drop(p_key);
@@ -910,45 +945,49 @@ public:
         //     orange_check(get_col(col_name).is_nullable(), "foreign key column must be nullable");
         // }
         // 考虑到 setnull 的存在，一列只能存在于一个外键中，不然太麻烦了
-        for (auto [_, other_fk_def]: f_key_defs) {
-            for (auto col_name: f_key_def.list) {
-                for (auto other_col_name: other_fk_def.list) {
-                    orange_check(col_name != other_col_name, "one column can only be in one foreign key");
+        for (auto [_, other_fk_def] : f_key_defs) {
+            for (auto col_name : f_key_def.list) {
+                for (auto other_col_name : other_fk_def.list) {
+                    orange_check(col_name != other_col_name,
+                                 "one column can only be in one foreign key");
                 }
             }
         }
         auto ref_tbl = SavedTable::get(f_key_def.ref_tbl);
         auto ref_p_key = ref_tbl->get_p_key();
         // 没有映射到那张表的主键
-        orange_check([&] {
-            if (!ref_p_key || ref_p_key->get_cols().size() != f_key_def.ref_list.size()) 
-                return 0;
-            for (unsigned i = 0; i < f_key_def.ref_list.size(); i++) {
-                if (ref_p_key->get_cols()[i].get_name() != f_key_def.ref_list[i]) 
+        orange_check(
+            [&] {
+                if (!ref_p_key || ref_p_key->get_cols().size() != f_key_def.ref_list.size())
                     return 0;
-            }
-            return 1;
-        }(), "should map to the primary key of table `" + f_key_def.ref_tbl + "`");
+                for (unsigned i = 0; i < f_key_def.ref_list.size(); i++) {
+                    if (ref_p_key->get_cols()[i].get_name() != f_key_def.ref_list[i]) return 0;
+                }
+                return 1;
+            }(),
+            "should map to the primary key of table `" + f_key_def.ref_tbl + "`");
         auto fk_cols = get_cols(f_key_def.list);
         // 检查外键列是否有对应的主键值，或者是否全 null
-        for (auto rid: all()) {
+        for (auto rid : all()) {
             // auto raws = get_raws(fk_cols, rid);
             auto vals = get_fields(fk_cols, rid);
-            auto all_null = [&] (const std::vector<byte_arr_t>& vals) {
-                for (auto val: vals) {
+            auto all_null = [&](const std::vector<byte_arr_t>& vals) {
+                for (auto val : vals) {
                     if (val.front() != DATA_NULL) return 0;
                 }
                 return 1;
             };
             if (all_null(vals)) continue;
-            for (auto val: vals) {
-                orange_check(val.front() != DATA_NULL, "foreign key columns must be all null or all non-null");
+            for (auto val : vals) {
+                orange_check(val.front() != DATA_NULL,
+                             "foreign key columns must be all null or all non-null");
             }
             orange_check(ref_p_key->constains(vals), "foreign key reference failed");
         }
         create_index(f_key_def.name, f_key_def.list, false, false);
         f_key_defs[f_key_def.name] = f_key_def;
-        SavedTable::get(f_key_def.ref_tbl)->f_key_rev[f_key_def.name] = std::make_pair(this->name, f_key_def);
+        SavedTable::get(f_key_def.ref_tbl)->f_key_rev[f_key_def.name] =
+            std::make_pair(this->name, f_key_def);
     }
     void drop_f_key(const String& f_key_name) {
         auto f_key = get_f_key(f_key_name);
@@ -962,23 +1001,24 @@ public:
 
     void add_col(const Column& new_col) {
         auto col_name = new_col.get_name();
-        for (auto &col: cols) {
+        for (auto& col : cols) {
             orange_check(col_name != col.get_name(), Exception::col_exists(col_name, this->name));
         }
         cols.push_back(new_col);
-        auto data = new ColumnDataHelper(File::create_open(data_name(col_name)), new_col, data_root(), name);
+        auto data = new ColumnDataHelper(File::create_open(data_name(col_name)), new_col,
+                                         data_root(), name);
         col_data.push_back(data);
         // 新增一列时设置默认值，注意检查
         auto dft = new_col.get_dft();
-        const auto &[ok, msg] = new_col.check(dft);
+        const auto& [ok, msg] = new_col.check(dft);
         orange_check(ok, msg);
-        for (auto rid: all()) data->insert(rid, dft);
+        for (auto rid : all()) data->insert(rid, dft);
     }
 
     void drop_col(const String& col_name) {
         auto drop_col = get_col(col_name);
         // 如果有索引使用当前列，不允许删除
-        for (auto &[idx_name, index]: indexes) {
+        for (auto& [idx_name, index] : indexes) {
             for (const auto& col : index->get_cols()) {
                 orange_check(col.get_name() != drop_col.get_name(),
                              Exception::drop_index_col(col_name, idx_name, this->name));
@@ -989,7 +1029,8 @@ public:
         // 暴力左移就可以了
         for (unsigned i = drop_id; i + 1 < col_data.size(); i++) {
             col_data[i] = col_data[i + 1];
-            cols[i] = Column(cols[i + 1].get_name(), cols[i + 1].get_datatype(), cols[i + 1].is_nullable(), cols[i + 1].get_dft());
+            cols[i] = Column(cols[i + 1].get_name(), cols[i + 1].get_datatype(),
+                             cols[i + 1].is_nullable(), cols[i + 1].get_dft());
         }
         col_data.resize(col_data.size() - 1);
         cols.resize(cols.size() - 1);
@@ -999,9 +1040,10 @@ public:
         auto old_col = get_col(col_name);
         auto col_id = get_col_id(old_col.get_name());
         // 有索引使用的列不允许 change
-        for (auto [idx_name, index]: indexes) {
+        for (auto [idx_name, index] : indexes) {
             for (const auto& col : index->get_cols()) {
-                orange_check(col.get_name() != col_name, Exception::change_index_col(col_name, idx_name, name));
+                orange_check(col.get_name() != col_name,
+                             Exception::change_index_col(col_name, idx_name, name));
             }
         }
         // 目前只允许在 char 和 varchar 之间转换，以及改变长度限制
@@ -1010,130 +1052,286 @@ public:
 
     static void rename(const String& old_name, const String& new_name) {
         check_db();
-        SavedTable::get(old_name)->close(); // 防止文件系统出 bug，先关掉表再重命名
+        SavedTable::get(old_name)->close();  // 防止文件系统出 bug，先关掉表再重命名
         fs::rename(old_name, new_name);
         auto table = SavedTable::get(new_name);
-        for (auto &[_, src_fk_def]: table->f_key_rev) {
-            auto &[src, fk_def] = src_fk_def;
+        for (auto& [_, src_fk_def] : table->f_key_rev) {
+            auto& [src, fk_def] = src_fk_def;
             fk_def.ref_tbl = new_name;
             SavedTable::get(src)->f_key_defs[fk_def.name].ref_tbl = new_name;
         }
     }
 
-    static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2, ast::select_tb_stmt select) {
-        // 补充 select *
-        if (select.select.empty()) {
-            for (auto col: table1->cols) select.select.push_back(ast::column{table1->name, col.get_name()});
-            for (auto col: table2->cols) select.select.push_back(ast::column{table2->name, col.get_name()});
-        }
-        TmpTable ret;
-        // select something
-        std::vector<String> names1, names2;
-        for (const auto& tb_col : select.select) {
-            const auto& col_sel = boost::get<ast::column>(tb_col);
-            if (!col_sel.table_name.has_value()) {
-                return {{"You need to add table name before column."}};
-            }
-            if (col_sel.table_name == table1->get_name()) {
-                names1.push_back(col_sel.col_name);
-            } else if (col_sel.table_name == table2->get_name()) {
-                names2.push_back(col_sel.col_name);
+    // static Orange::result_t select_join(const SavedTable* table1, const SavedTable* table2,
+    // ast::select_tb_stmt select) {
+    //     // 补充 select *
+    //     if (select.select.empty()) {
+    //         for (auto col: table1->cols) select.select.push_back(ast::column{table1->name,
+    //         col.get_name()}); for (auto col: table2->cols)
+    //         select.select.push_back(ast::column{table2->name, col.get_name()});
+    //     }
+    //     TmpTable ret;
+    //     // select something
+    //     std::vector<String> names1, names2;
+    //     for (const auto& tb_col : select.select) {
+    //         if (!tb_col.table_name.has_value()) {
+    //             return {{"You need to add table name before column."}};
+    //         }
+    //         if (tb_col.table_name == table1->get_name()) {
+    //             names1.push_back(tb_col.col_name);
+    //         } else if (tb_col.table_name == table2->get_name()) {
+    //             names2.push_back(tb_col.col_name);
+    //         } else {
+    //             return {{"Table not found"}};
+    //         }
+    //         auto col = SavedTable::get(tb_col.table_name.get())->get_col(tb_col.col_name);
+    //         ret.cols.push_back(Column(tb_col.table_name.get() + "." + tb_col.col_name,
+    //         col.get_datatype(), col.is_nullable(), col.get_dft()));
+    //     }
+    //     auto where = select.where.get_value_or({});
+    //     ast::where_clause table1_where, table2_where, between_where;
+    //     // 把where条件分开到上面三个
+    //     for (auto& cond : where) {
+    //         if (cond.is_op()) {
+    //             auto& col = cond.op().col;
+    //             if (!col.table_name.has_value()) {
+    //                 return {{"You need to add table name."}};
+    //             }
+    //             if (col.table_name != table1->get_name() &&
+    //                 col.table_name != table2->get_name()) {
+    //                 return {{"table not found"}};
+    //             }
+    //             auto& expr = cond.op().expression;
+    //             if (expr.is_column()) {
+    //                 auto& expr_col = expr.col();
+    //                 if (!expr_col.table_name.has_value()) {
+    //                     return {{"You need to add table name."}};
+    //                 }
+    //                 if (expr_col.table_name == table1->get_name() ||
+    //                     expr_col.table_name == table2->get_name()) {
+    //                     between_where.push_back(cond);
+    //                 } else {
+    //                     return {{"table not found."}};
+    //                 }
+    //             } else {
+    //                 if (col.table_name == table1->get_name()) {
+    //                     table1_where.push_back(cond);
+    //                 } else {
+    //                     table2_where.push_back(cond);
+    //                 }
+    //             }
+    //         } else {  // cond is null check
+    //             const auto& col = cond.null_check().col;
+    //             if (!col.table_name.has_value()) {
+    //                 return {{"You need to add table name."}};
+    //             }
+    //             if (col.table_name == table1->get_name()) {
+    //                 table1_where.push_back(cond);
+    //             } else if (col.table_name == table2->get_name()) {
+    //                 table2_where.push_back(cond);
+    //             } else {
+    //                 return {{"Table not found."}};
+    //             }
+    //         }
+    //     }
+
+    //     TmpTable result1 = table1->select(names1, table1_where);
+    //     TmpTable result2 = table2->select(names2, table2_where);
+    //     // TODO: 做笛卡尔积，要注意 between_where
+    //     for (auto &rec1: result1.recs) {
+    //         for (auto &rec2: result2.recs) {
+    //             bool test = 1;
+    //             for (auto single_where: where) {
+    //                 auto op = single_where.op();
+    //                 auto col_expr = op.expression.col();
+    //                 auto col1_name = op.col.col_name, col2_name = col_expr.col_name;
+    //                 auto get_val_type = [&] (const ast::column& tb_col) {
+    //                     if (tb_col.table_name == table1->name) {
+    //                         Column col = table1->get_col(tb_col.col_name);
+    //                         return std::make_pair(rec1[table1->get_col_id(col)],
+    //                         col.get_datatype_kind());
+    //                     } else {
+    //                         Column col = table2->get_col(tb_col.col_name);
+    //                         return std::make_pair(rec2[table2->get_col_id(col)],
+    //                         col.get_datatype_kind());
+    //                     }
+    //                 };
+    //                 auto [v1, t1] = get_val_type(op.col);
+    //                 auto [v2, t2] = get_val_type(col_expr);
+    //                 if (!Orange::cmp(v1, t1, op.operator_, v2, t2)) {
+    //                     test = 0;
+    //                     break;
+    //                 }
+    //             }
+    //             if (test) {
+    //                 rec_t cur;
+    //                 for (unsigned i = 0; i < select.select.size(); i++) {
+    //                     auto col = select.select[i];
+    //                     if (col.table_name == table1->name) {
+    //                         cur.push_back(rec1[table1->get_col_id(col.col_name)]);
+    //                     } else {
+    //                         cur.push_back(rec2[table2->get_col_id(col.col_name)]);
+    //                     }
+    //                 }
+    //                 ret.recs.push_back(cur);
+    //             }
+    //         }
+    //     }
+    //     return {{ret}};
+    // }
+
+    static TmpTable select_join(const ast::select_tb_stmt& select) {
+        auto where_clause = select.where.get_value_or({});
+        for (auto& single_where : where_clause) {
+            if (single_where.is_null_check()) {
+                auto& null = single_where.null_check();
+                orange_check(null.col.table_name.has_value(), "must specify table name");
             } else {
-                return {{"Table not found"}};
-            }
-            auto col = SavedTable::get(col_sel.table_name.get())->get_col(col_sel.col_name);
-            ret.cols.push_back(Column(col_sel.table_name.get() + "." + col_sel.col_name, col.get_datatype(), col.is_nullable(), col.get_dft()));
-        }
-        auto where = select.where.get_value_or({});
-        ast::where_clause table1_where, table2_where, between_where;
-        // 把where条件分开到上面三个
-        for (auto& cond : where) {
-            if (cond.is_op()) {
-                auto& col = cond.op().col;
-                if (!col.table_name.has_value()) {
-                    return {{"You need to add table name."}};
-                }
-                if (col.table_name != table1->get_name() &&
-                    col.table_name != table2->get_name()) {
-                    return {{"table not found"}};
-                }
-                auto& expr = cond.op().expression;
-                if (expr.is_column()) {
-                    auto& expr_col = expr.col();
-                    if (!expr_col.table_name.has_value()) {
-                        return {{"You need to add table name."}};
-                    }
-                    if (expr_col.table_name == table1->get_name() ||
-                        expr_col.table_name == table2->get_name()) {
-                        between_where.push_back(cond);
-                    } else {
-                        return {{"table not found."}};
-                    }
-                } else {
-                    if (col.table_name == table1->get_name()) {
-                        table1_where.push_back(cond);
-                    } else {
-                        table2_where.push_back(cond);
-                    }
-                }
-            } else {  // cond is null check
-                const auto& col = cond.null_check().col;
-                if (!col.table_name.has_value()) {
-                    return {{"You need to add table name."}};
-                }
-                if (col.table_name == table1->get_name()) {
-                    table1_where.push_back(cond);
-                } else if (col.table_name == table2->get_name()) {
-                    table2_where.push_back(cond);
-                } else {
-                    return {{"Table not found."}};
+                auto& op = single_where.op();
+                orange_check(op.col.table_name.has_value(), "must specify table name");
+                if (op.expression.is_column()) {
+                    auto col_expr = op.expression.col();
+                    orange_check(col_expr.table_name.has_value(), "must specify table name");
                 }
             }
         }
 
-        TmpTable result1 = table1->select(names1, table1_where);
-        TmpTable result2 = table2->select(names2, table2_where);
-        // TODO: 做笛卡尔积，要注意 between_where
-        for (auto &rec1: result1.recs) {
-            for (auto &rec2: result2.recs) {
-                bool test = 1;
-                for (auto single_where: where) {
-                    auto op = single_where.op();
-                    auto col_expr = op.expression.col();
-                    auto col1_name = op.col.col_name, col2_name = col_expr.col_name;
-                    auto get_val_type = [&] (const ast::column& tb_col) {
-                        if (tb_col.table_name == table1->name) {
-                            Column col = table1->get_col(tb_col.col_name);
-                            return std::make_pair(rec1[table1->get_col_id(col)], col.get_datatype_kind());
-                        } else {
-                            Column col = table2->get_col(tb_col.col_name);
-                            return std::make_pair(rec2[table2->get_col_id(col)], col.get_datatype_kind());
-                        }
-                    };
-                    auto [v1, t1] = get_val_type(op.col);
-                    auto [v2, t2] = get_val_type(col_expr);
-                    if (!Orange::cmp(v1, t1, op.operator_, v2, t2)) {
-                        test = 0;
-                        break;
-                    }
-                }
-                if (test) {
-                    rec_t cur;
-                    for (unsigned i = 0; i < select.select.size(); i++) {
-                        auto col = select.select[i];
-                        const auto& col_sel = boost::get<ast::column>(col);
-                        if (col_sel.table_name == table1->name) {
-                            cur.push_back(rec1[table1->get_col_id(col_sel.col_name)]);
-                        } else {
-                            cur.push_back(rec2[table2->get_col_id(col_sel.col_name)]);
-                        }
-                    }
-                    ret.recs.push_back(cur);
+        std::vector<SavedTable*> tables;
+        for (auto tbl_name : select.tables) {
+            auto table = SavedTable::get(tbl_name);
+            tables.push_back(table);
+        }
+
+        auto selector = select.select;
+        // select *，手动填充
+        if (selector.empty()) {
+            for (auto table : tables) {
+                for (auto col : table->cols) {
+                    selector.push_back(ast::column{table->name, col.get_name()});
                 }
             }
         }
-        return {{ret}};
+        TmpTable ret;
+        for (auto& sel : selector) {
+            // col_sel
+            auto& [op_tbl_name, col_name] = boost::get<ast::column>(sel);
+            orange_check(op_tbl_name.has_value(), "must specify table name");
+            auto tbl_name = op_tbl_name.get();
+            auto col = SavedTable::get(tbl_name)->get_col(col_name);
+            ret.cols.push_back(Column(tbl_name + "." + col.get_name(), col.get_datatype(),
+                                      col.is_nullable(), col.get_dft()));
+        }
+
+        std::vector<rid_t> rids(tables.size());
+        dfs_join(0, tables, selector, where_clause, rids, ret.recs);
+        return ret;
     }
 
     friend class Index;
+
+private:
+    static void dfs_join(unsigned cur, const std::vector<SavedTable*>& tables,
+                         const ast::selector& selector, const ast::where_clause& where_clause,
+                         std::vector<rid_t>& rids, std::vector<rec_t>& recs) {
+        auto get_tbl_id = [&](const String& tbl_name) -> int {
+            for (unsigned i = 0; i < tables.size(); i++) {
+                if (tbl_name == tables[i]->name) return i;
+            }
+            ORANGE_UNREACHABLE
+            return -1;
+        };
+        if (cur == tables.size()) {
+            rec_t rec;
+            for (auto tbl_col : selector) {
+                const auto& col_sel = boost::get<ast::column>(tbl_col);
+                auto tbl_name = col_sel.table_name.get(), col_name = col_sel.col_name;
+                int tbl_id = get_tbl_id(tbl_name);
+                auto table = tables[tbl_id];
+                rec.push_back(table->get_field(table->get_col_id(col_sel.col_name), rids[tbl_id]));
+            }
+            recs.push_back(rec);
+        } else {
+            auto table = tables[cur];
+            // 找出当前会判断的 where clause 集合
+            ast::where_clause used;
+
+            // 表名在 cur 及之前是否已经出现过了
+            auto occur = [&](const String& tbl_name) {
+                for (unsigned i = 0; i <= cur; i++) {
+                    if (tables[i]->name == tbl_name) {
+                        return 1;
+                    }
+                }
+                return 0;
+            };
+            for (auto& single_where : where_clause) {
+                if (single_where.is_null_check()) {
+                    auto& null = single_where.null_check();
+                    if (null.col.table_name == table->name) used.push_back(single_where);
+                } else {
+                    if (single_where.is_null_check()) {
+                        auto& null = single_where.null_check();
+                        if (occur(null.col.table_name.get())) used.push_back(single_where);
+                    } else {
+                        auto& op = single_where.op();
+                        if (occur(op.col.table_name.get())) {
+                            if (op.expression.is_value()) {
+                                used.push_back(single_where);
+                            } else {
+                                auto col_expr = op.expression.col();
+                                if (occur(col_expr.table_name.get())) {
+                                    used.push_back(single_where);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            auto check_single_where = [&](rid_t rid, const ast::single_where& single_where) {
+                if (single_where.is_null_check()) {
+                    auto& null = single_where.null_check();
+                    auto ret =
+                        table->get_field(table->get_col_id(null.col.col_name), rid).front() ==
+                        DATA_NULL;
+                    if (null.is_not_null) ret = !ret;
+                    return ret;
+                } else {
+                    auto& op = single_where.op();
+                    if (op.expression.is_value()) {
+                        int col_id = table->get_col_id(op.col.col_name);
+                        auto col = table->cols[col_id];
+                        auto value = op.expression.value();
+                        return Orange::cmp(table->get_field(col_id, rid), col.get_datatype_kind(),
+                                           op.operator_, value);
+                    } else {
+                        auto col_expr = op.expression.col();
+                        int tbl1_id = get_tbl_id(op.col.table_name.get()),
+                            tbl2_id = get_tbl_id(col_expr.table_name.get());
+                        auto table1 = tables[tbl1_id], table2 = tables[tbl2_id];
+                        int col1_id = table1->get_col_id(op.col.col_name),
+                            col2_id = table2->get_col_id(col_expr.col_name);
+                        auto col1 = table1->cols[col1_id], col2 = table2->cols[col2_id];
+                        rid_t rid1 = rids[tbl1_id], rid2 = rids[tbl2_id];
+                        return Orange::cmp(table1->get_field(col1_id, rid1),
+                                           col1.get_datatype_kind(), op.operator_,
+                                           table2->get_field(col2_id, rid2),
+                                           col2.get_datatype_kind());
+                    }
+                }
+            };
+            for (auto rid : table->all()) {
+                // 上面检查要用 牛皮
+                rids[cur] = rid;
+                bool check = 1;
+                for (auto& single_where : used) {
+                    if (!check_single_where(rid, single_where)) {
+                        check = 0;
+                        break;
+                    }
+                }
+                if (check) dfs_join(cur + 1, tables, selector, where_clause, rids, recs);
+            }
+        }
+    }
 };

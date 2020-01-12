@@ -259,12 +259,13 @@ namespace Orange {
             }
             case TbStmtKind::Select: {
                 auto& select = stmt.select();
-                //ss_debug << "  select from table:" << std::endl;
-                std::map<String, SavedTable*> tables;
-                //ss_debug << "    table list: ";
+                // ss_debug << "  select from table:" << std::endl;
+                std::set<String> table_set;
+                // ss_debug << "    table list: ";
                 for (auto& table : select.tables) {
-                    //ss_debug << table << ' ';
-                    tables[table] = SavedTable::get(table);
+                    // ss_debug << table << ' ';
+                    orange_check(!table_set.count(table), "table name occurs multiple times in table join is not allowed");
+                    table_set.insert(table);
                 }
                 //ss_debug << std::endl;
                 //ss_debug << "    selected cols: ";
@@ -275,7 +276,7 @@ namespace Orange {
                         const auto& col_sel = boost::get<ast::column>(col);
                         if (col_sel.table_name.has_value()) {
                             auto name = col_sel.table_name.get();
-                            orange_check(tables.count(name), "unknown table name: `" + name + "`");
+                            orange_check(table_set.count(name), "unknown table name: `" + name + "`");
                             //ss_debug << name << ".";
                         }
                         //ss_debug << col.col_name << " ";
@@ -297,12 +298,12 @@ namespace Orange {
                         //ss_debug << std::endl;
                     }
                 }
-                if (tables.size() == 1) {  // 单表格
+                if (table_set.size() == 1) {  // 单表格
                     if (select.select.empty()) {
-                        const auto& table = tables.begin()->second;
+                        const auto& table = SavedTable::get(select.tables.front());
                         return {table->select_star(select.where.get_value_or({}))};
                     } else {
-                        auto table = tables.begin()->second;
+                        auto table = SavedTable::get(select.tables.front());
                         std::vector<String> names;
                         for (const auto& col : select.select) {
                             const auto& col_sel = boost::get<ast::column>(col);
@@ -310,12 +311,8 @@ namespace Orange {
                         }
                         return {table->select(names, select.where.get_value_or({}))};
                     }
-                } else if (tables.size() == 2) {  // 两个表格
-                    const auto &table1 = tables.begin()->second,
-                               &table2 = std::next(tables.begin(), 1)->second;
-                    return SavedTable::select_join(table1, table2, select);
-                } else {  // tables.size() >= 3
-                    return {{"Too many tables!"}};
+                } else {
+                    return { SavedTable::select_join(select) };
                 }
             } break;
             default: unexpected();
