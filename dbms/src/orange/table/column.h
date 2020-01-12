@@ -23,7 +23,8 @@ public:
     // 适合打印名称的那种
     explicit Column(String name) :
         name(std::move(name)), type{orange_t::Varchar, MAX_VARCHAR_LEN} {}
-    Column(String name, const ast::data_type& type, bool nullable, ast::data_value dft) : // int id
+    Column(String name, const ast::data_type& type, bool nullable, ast::data_value dft) :
+        // int id
         name(std::move(name)), type(type), nullable(nullable), dft(std::move(dft)) {
         switch (type.kind) {
             case orange_t::Int:
@@ -90,7 +91,16 @@ public:
                                        String("limit exceeded"));
                         return std::make_pair(1, "");
                     }
-                    case orange_t::Date: break;
+                    case orange_t::Date: {
+                        std::tm t = {};
+                        std::istringstream ss(value.to_string());
+                        ss >> std::get_time(&t, "%Y-%m-%d");
+                        std::tm check = t;
+                        bool cond1 = !ss.fail();
+                        bool cond2 = std::mktime(&check) > 0;
+                        bool cond3 = t.tm_year == check.tm_year && t.tm_mon == check.tm_mon && t.tm_mday == check.tm_mday;
+                        return {cond1 && cond2 && cond3, "invalid date"};
+                    }
                     default:
                         return std::make_pair(0, "column constraint failed: incompatible type");
                 }

@@ -611,8 +611,7 @@ namespace Orange {
                         std::istringstream ss(value.to_string());
                         ss >> std::get_time(&t, "%Y-%m-%d");
                         std::tm check = t;
-                        orange_check(!ss.fail() && std::mktime(&check) > 0, "invalid date");
-                        orange_check(memcmp(&t, &check, sizeof(std::tm)) == 0, "invalid date");
+                        orange_assert(!ss.fail() && std::mktime(&check) > 0, "invalid date");
                         byte_arr_t bytes(1 + sizeof(std::tm));
                         bytes[0] = DATA_NORMAL;
                         memcpy(1 + bytes.data(), &t, sizeof(std::tm));
