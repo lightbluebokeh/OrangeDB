@@ -312,7 +312,7 @@ namespace Orange::parser {
             tables %= identifier % ',';
 
             // <selector> := '*' | (col | <aggr_func>) (',' <col>)*
-            selectors %= '*' | ((col | aggr_func) % ',');
+            selectors %= '*' | ((aggr_func | col) % ',');
             // <aggr_func> := [FUNC_NAME] '(' <col> ')'
             aggr_func = (kw(+"Avg")[at_c<0>(qi::_val) = aggregate_func::Avg] > '(' >
                          col[at_c<1>(qi::_val) = qi::_1] > ')') |
