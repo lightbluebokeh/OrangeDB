@@ -175,7 +175,6 @@ public:
         return ret;
     }
 
-
     friend class Table;
     friend class SavedTable;
     friend std::ostream& operator << (std::ostream& os, const TmpTable& table);

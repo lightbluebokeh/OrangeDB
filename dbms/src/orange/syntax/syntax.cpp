@@ -273,10 +273,11 @@ namespace Orange {
                     //ss_debug << "*" << std::endl;
                 } else {
                     for (auto& col : select.select) {
-                        if (col.table_name.has_value()) {
-                            auto name = col.table_name.get();
+                        const auto& col_sel = boost::get<ast::column>(col);
+                        if (col_sel.table_name.has_value()) {
+                            auto name = col_sel.table_name.get();
                             orange_check(table_set.count(name), "unknown table name: `" + name + "`");
-                            // ss_debug << name << ".";
+                            //ss_debug << name << ".";
                         }
                         //ss_debug << col.col_name << " ";
                     }
@@ -305,7 +306,8 @@ namespace Orange {
                         auto table = SavedTable::get(select.tables.front());
                         std::vector<String> names;
                         for (const auto& col : select.select) {
-                            names.push_back(col.col_name);
+                            const auto& col_sel = boost::get<ast::column>(col);
+                            names.push_back(col_sel.col_name);
                         }
                         return {table->select(names, select.where.get_value_or({}))};
                     }
