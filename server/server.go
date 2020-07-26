@@ -1,6 +1,5 @@
 package main
 
-import "C"
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -41,6 +40,8 @@ func main() {
 	router.NoRoute(func(c *gin.Context) {
 		c.File(dist + "/index.html")
 	})
+
+	Setup()
 
 	router.Run()
 }
