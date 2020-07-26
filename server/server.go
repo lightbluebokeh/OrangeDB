@@ -14,10 +14,7 @@ func main() {
 
 	// api
 	apiRouter := router.Group("/api")
-	//lib := LoadLib() // 加载动态链接库
-	//defer lib.Release()
 
-	//exec := lib.MustFindProc("exec")
 	apiRouter.POST("/exec", func(c *gin.Context) {
 		type ExecForm struct {
 			SQL string `json:"sql" binding:"required"`
@@ -25,13 +22,10 @@ func main() {
 		var form ExecForm
 		c.BindJSON(&form)
 		result := Exec(form.SQL)
-		//result := Exec(exec, form.SQL)
 		c.JSON(http.StatusOK, result)
 	})
 
-	//info := lib.MustFindProc("info")
 	apiRouter.POST("/info", func(c *gin.Context) {
-		//result := Info(info)
 		result := Info()
 		c.JSON(http.StatusOK, result)
 	})
