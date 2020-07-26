@@ -13,5 +13,5 @@ go build
 ## 运行
 
 ```bash
-./server
+LD_LIBRARY_PATH=../dbms/lib ./server
 ```
