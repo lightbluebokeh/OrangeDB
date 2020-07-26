@@ -4,18 +4,20 @@
 
 #include <unordered_set>
 
+// database names cache
 static std::unordered_set<String> names;
+// current using database name, empty if not using any
 static String cur;
+const fs::path DB_ROOT;
+
 
 namespace Orange {
     bool exists(const String& name) { return names.count(name); }
 
     bool create(const String& name) {
-        if (using_db()) fs::current_path("..");
         orange_check(!exists(name), Exception::database_exists(name));
         names.insert(name);
-        auto ret = fs::create_directory(name);
-        if (using_db()) fs::current_path(cur);
+        auto ret = fs::create_directory(DB_ROOT / fs::path(name));
         return ret;
     }
 
@@ -24,30 +26,24 @@ namespace Orange {
         names.erase(name);
         if (name == cur) {
             unuse();
-            return fs::remove_all(name);
-        } else if (using_db()) {
-            return fs::remove_all("../" + name);
-        } else {
-            return fs::remove_all(name);
         }
+        return fs::remove_all(DB_ROOT / fs::path(name));
     }
 
     bool use(const String& name) {
-        if (name == cur) return 1;
+        if (name == cur) return true;
         unuse();
         orange_check(exists(name), Exception::database_not_exist(name));
-        fs::current_path(name);
         cur = name;
-        return 1;
+        return true;
     }
 
     bool unuse() {
         if (using_db()) {
             SavedTable::close_all();
             cur = "";
-            fs::current_path("..");
         }
-        return 1;
+        return true;
     }
 
     bool using_db() { return !cur.empty(); }
@@ -57,18 +53,22 @@ namespace Orange {
     std::vector<String> all_tables() {
         orange_check(using_db(), Exception::no_database_used());
         std::vector<String> data;
-        for (auto it : fs::directory_iterator(".")) {
+        for (const auto& it : fs::directory_iterator(DB_ROOT / fs::path(cur))) {
             if (it.is_directory()) data.push_back(it.path().filename().string());
         }
         return data;
     }
 
-    String get_cur() { return cur; }
+    fs::path cur_db_path() {
+        orange_assert(using_db(), "not using any database but require a current database path");
+        return DB_ROOT / fs::path(cur);
+    }
 
+    // must call once at first (in both CLI and server backend)
     void setup() {
-        if (!fs::exists("db")) fs::create_directory("db");
-        fs::current_path("db");
-        for (const auto& entry : fs::directory_iterator(".")) {
+        if (!fs::exists("orange-db")) fs::create_directory("orange-db");
+        const_cast<fs::path&>(DB_ROOT) = fs::current_path() / fs::path("orange-db");
+        for (const auto& entry : fs::directory_iterator(DB_ROOT)) {
             if (entry.is_directory()) {
                 names.insert(entry.path().filename().string());
             }
@@ -77,9 +77,8 @@ namespace Orange {
 
     void paolu() {
         unuse();
-        fs::current_path("..");
         auto tmp = names;
         for (const auto& db_name : tmp) drop(db_name);
-        fs::remove_all("db");
+        fs::remove_all(DB_ROOT);
     }
 }  // namespace Orange

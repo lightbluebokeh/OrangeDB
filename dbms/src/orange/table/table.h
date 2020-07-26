@@ -30,14 +30,15 @@ private:
         int size;  // 每个值的大小
         ast::data_type type;
         FileAllocator* alloc;
-        String root, name;
+        fs::path root;
+        String name;
 
         // root 为数据文件夹目录
-        ColumnDataHelper(File* f_data, const Column& col, const String& root, const String& name) :
+        ColumnDataHelper(File* f_data, const Column& col, const fs::path& root, const String& name) :
             f_data(f_data), size(col.get_key_size()), type(col.get_datatype()), root(root),
             name(name) {
             if (type.kind == orange_t::Varchar) {
-                alloc = new FileAllocator(root + col.get_name() + ".v");
+                alloc = new FileAllocator(root / (col.get_name() + ".v"));
             } else {
                 alloc = nullptr;
             }
@@ -60,9 +61,9 @@ private:
         void change(const ast::field_def& def, const std::vector<rid_t>& all) {
             if (def.col_name != name) {
                 f_data->close();
-                fs::rename(root + name, root + def.col_name);
+                fs::rename(root / name, root / def.col_name);
                 name = def.col_name;
-                f_data = File::open(root + name);
+                f_data = File::open(root / name);
             }
             auto new_type = def.type;
             orange_check(type.is_string() && new_type.is_string(), Exception::change_nonstring());
@@ -81,7 +82,7 @@ private:
                         f_data->write_bytes(rid * size, val.data(), size);
                     }
                 } else {
-                    alloc = new FileAllocator(root + def.col_name + ".v");
+                    alloc = new FileAllocator(root / (def.col_name + ".v"));
                     for (unsigned i = 0; i < all.size(); i++) {
                         auto rid = all[i];
                         auto val = vals[i];
@@ -216,13 +217,13 @@ private:
     // map index by their name
     std::unordered_map<String, Index*> indexes;
 
-    String root() { return get_root(name); }
-    String info_name() { return root() + "info"; }
-    String pool_name() { return root() + "rid"; }
-    String data_root() { return root() + "data/"; }
-    String col_prefix(const String& col_name) { return data_root() + col_name; }
+    fs::path root() { return root_path(name); }
+    String info_name() { return root() / "info"; }
+    String pool_name() { return root() / "rid"; }
+    fs::path data_root() { return root() / "data"; }
+    String col_prefix(const String& col_name) { return data_root() / col_name; }
     String data_name(const String& col_name) { return col_prefix(col_name); };
-    String index_root() { return root() + "index/"; }
+    fs::path index_root() { return root() / "index"; }
 
 
     // static constexpr char index_prefix[] = "index-";
@@ -292,7 +293,7 @@ private:
         delete table;
     }
     static void check_exists(const String& tbl_name) {
-        orange_check(fs::exists(get_root(tbl_name)), "table `" + tbl_name + "` does not exists");
+        orange_check(fs::exists(root_path(tbl_name)), "table `" + tbl_name + "` does not exists");
     }
 
     static void check_db() { orange_check(Orange::using_db(), Exception::no_database_used()); }
@@ -321,8 +322,8 @@ private:
         for (auto& f_key_def : f_key_defs) add_f_key(f_key_def);
     }
 
-    // 表的文件夹名
-    static String get_root(const String& name) { return name + "/"; }
+    // 表所在的文件夹名（绝对路径）
+    static fs::path root_path(const String& name) { return Orange::cur_db_path() / name; }
 
     // 在打开的表里面找，找不到返回 null
     static SavedTable* get_opened(const String& name) {
@@ -646,9 +647,9 @@ public:
     static bool create(const String& name, const std::vector<Column>& cols,
                        const std::vector<String>& p_key, const std::vector<f_key_t>& f_key_defs) {
         check_db();
-        orange_check(!fs::exists(get_root(name)), "table `" + name + "` exists");
+        orange_check(!fs::exists(root_path(name)), "table `" + name + "` exists");
         std::error_code e;
-        if (!fs::create_directory(get_root(name), e)) throw e.message();
+        if (!fs::create_directory(root_path(name), e)) throw e.message();
         auto table = new_table(name);
         try {
             table->on_create(cols, p_key, f_key_defs);

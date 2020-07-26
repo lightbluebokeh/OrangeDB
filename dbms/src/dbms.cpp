@@ -4,6 +4,7 @@
 #define API extern "C"
 #endif
 
+#include "orange/orange.h"
 #include <orange/syntax/syntax.h>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -130,4 +131,8 @@ API const char* exec(const char* sql) {
 
 API const char* info() {
     return "";
+}
+
+API void setup() {
+    Orange::setup();
 }

@@ -1,8 +1,8 @@
 #include "orange/table/table.h"
 #include "orange/index/b_tree.h"
 
-String Index::get_path() const {
-    return table.index_root() + name + "/";
+fs::path Index::get_path() const {
+    return table.index_root() / name;
 }
 
 Index* Index::create(SavedTable& table, const String& name, const std::vector<Column>& cols, bool primary, bool unique) {

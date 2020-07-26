@@ -27,8 +27,8 @@ private:
     byte_arr_t restore(const_bytes_t k_raw, int i) const;
     // 获取全部字段
     std::vector<byte_arr_t> restore(const_bytes_t k_raw) const;
-    String get_path() const;
-    String info_name() const { return get_path() + "info"; }
+    fs::path get_path() const;
+    String info_name() const { return get_path() / "info"; }
     
     void write_info() {
         std::ofstream ofs(info_name());
